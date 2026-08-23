@@ -89,6 +89,8 @@ func New(db *gorm.DB, cfg *config.Config, authSvc *auth.Service, registry *provi
 		authorized.POST("/kernels/olcrtc/build", s.buildOlcrtc)
 		authorized.GET("/kernels/xray/releases", s.listXrayReleases)
 		authorized.POST("/kernels/xray/install", s.installXray)
+		authorized.GET("/kernels/webdav/releases", s.listWebDAVReleases)
+		authorized.POST("/kernels/webdav/install", s.installWebDAV)
 		// job status is keyed by kernel name (not a job id) so the frontend
 		// can ask "what's happening with turnable/freeturn/xray/olcrtc" after
 		// a reload without having remembered anything — see getKernelJob.

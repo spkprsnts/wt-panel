@@ -413,6 +413,14 @@ export const api = {
       body: JSON.stringify({ version: version ?? "" }),
     }),
 
+  listWebdavReleases: (refresh?: boolean) =>
+    request<Release[]>(`/api/kernels/webdav/releases${refresh ? "?refresh=1" : ""}`),
+  installWebdav: (version?: string) =>
+    request<BuildJob>("/api/kernels/webdav/install", {
+      method: "POST",
+      body: JSON.stringify({ version: version ?? "" }),
+    }),
+
   listOlcrtcCommits: (refresh?: boolean) =>
     request<Commit[]>(`/api/kernels/olcrtc/commits${refresh ? "?refresh=1" : ""}`),
   buildOlcrtc: (ref: string) =>

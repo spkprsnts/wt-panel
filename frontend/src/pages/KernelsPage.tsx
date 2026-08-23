@@ -395,6 +395,15 @@ export function KernelsPage() {
           install={api.installXray}
           onInstalled={load}
         />
+        <ReleaseKernelCard
+          title="WebDAV-tunnel"
+          description="SOCKS5-туннель через WebDAV. Релизы GitHub — архив .tar.gz, распаковываем только бинарник."
+          status={byType.get("webdav")}
+          kernelName="webdav"
+          listReleases={api.listWebdavReleases}
+          install={api.installWebdav}
+          onInstalled={load}
+        />
         <div className="md:col-span-2">
           <OlcrtcKernelCard status={byType.get("olcrtc")} onInstalled={load} />
         </div>

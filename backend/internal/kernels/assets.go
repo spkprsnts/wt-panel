@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strings"
 )
 
 // assetName builds the release asset filename this host needs for one of
@@ -71,6 +72,34 @@ func XrayZipEntryName() string {
 	return "xray"
 }
 
+// WebDAVAssetSuffix returns e.g. "-linux-amd64.tar.gz" for this host.
+// webdav-tunnel's goreleaser config bakes the version into the asset
+// filename itself (webdav-tunnel-X.Y.Z-linux-amd64.tar.gz), unlike
+// Turnable/FreeTurn/Xray's version-independent names — there's no fixed
+// exact name to look for ahead of resolving which release is being
+// installed, so this only returns the platform-specific tail and callers
+// match it with FindAssetBySuffix instead of FindAssetBySuffix's exact-name
+// counterpart, FindAsset. Linux only, matching XrayAssetName's own
+// restriction (see its doc comment) — an unsupported architecture returns
+// "" rather than guessing.
+func WebDAVAssetSuffix() string {
+	if runtime.GOOS != "linux" {
+		return ""
+	}
+	switch runtime.GOARCH {
+	case "amd64", "arm64":
+		return fmt.Sprintf("-linux-%s.tar.gz", runtime.GOARCH)
+	default:
+		return ""
+	}
+}
+
+// WebDAVTarEntryName is the binary's name inside a WebDAVAssetSuffix()
+// archive — sits at the archive root alongside LICENSE/README/docs/.
+func WebDAVTarEntryName() string {
+	return "webdav-tunnel"
+}
+
 // FindAsset returns the asset in a release matching exactly this name, or
 // an error listing what a release for this platform is missing.
 func FindAsset(release Release, name string) (Asset, error) {
@@ -81,6 +110,19 @@ func FindAsset(release Release, name string) (Asset, error) {
 	}
 	return Asset{}, fmt.Errorf("release %s has no asset %q for this platform (%s/%s)",
 		release.TagName, name, runtime.GOOS, runtime.GOARCH)
+}
+
+// FindAssetBySuffix is FindAsset's counterpart for releases (webdav-tunnel)
+// that bake their version into the asset filename itself, so an exact name
+// can't be known ahead of resolving which release this is.
+func FindAssetBySuffix(release Release, suffix string) (Asset, error) {
+	for _, a := range release.Assets {
+		if strings.HasSuffix(a.Name, suffix) {
+			return a, nil
+		}
+	}
+	return Asset{}, fmt.Errorf("release %s has no asset ending in %q for this platform (%s/%s)",
+		release.TagName, suffix, runtime.GOOS, runtime.GOARCH)
 }
 
 // DownloadBinary fetches url and writes it to destPath as an executable

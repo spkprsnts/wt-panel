@@ -21,15 +21,15 @@ type kernelStatus struct {
 	BinPath     string          `json:"binPath"`
 }
 
-// listKernels reports what's currently installed for each of the three
-// kernels this panel can manage installs for (WebDAV isn't part of this
-// yet, same as it's excluded from profile creation — see README).
+// listKernels reports what's currently installed for each of the five
+// kernels this panel can manage installs for.
 func (s *Server) listKernels(c *gin.Context) {
 	paths := map[models.CoreType]string{
 		models.CoreTurnable: s.cfg.TurnableBinPath,
 		models.CoreFreeTurn: s.cfg.FreeTurnBinPath,
 		models.CoreOlcRTC:   s.cfg.OlcRTCBinPath,
 		models.CoreXray:     s.cfg.XrayBinPath,
+		models.CoreWebDAV:   s.cfg.WebDAVBinPath,
 	}
 
 	var installs []models.KernelInstall
@@ -87,6 +87,15 @@ func (s *Server) listXrayReleases(c *gin.Context) {
 	c.JSON(http.StatusOK, releases)
 }
 
+func (s *Server) listWebDAVReleases(c *gin.Context) {
+	releases, err := kernels.ListReleases("spkprsnts", "webdav-tunnel", 20, wantsRefresh(c))
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, releases)
+}
+
 func (s *Server) listOlcrtcCommits(c *gin.Context) {
 	commits, err := kernels.ListCommits("openlibrecommunity", "olcrtc", 30, wantsRefresh(c))
 	if err != nil {
@@ -118,6 +127,7 @@ func (s *Server) installTurnable(c *gin.Context) {
 			kernels.TurnableAssetName(), s.cfg.TurnableBinPath)
 	}, func(version string) {
 		s.recordKernelInstall(models.CoreTurnable, version, "release", "")
+		s.restartProfilesOfType(models.CoreTurnable)
 	})
 	c.JSON(http.StatusAccepted, job)
 }
@@ -131,6 +141,7 @@ func (s *Server) installFreeTurn(c *gin.Context) {
 			kernels.FreeTurnAssetName(), s.cfg.FreeTurnBinPath)
 	}, func(version string) {
 		s.recordKernelInstall(models.CoreFreeTurn, version, "release", "")
+		s.restartProfilesOfType(models.CoreFreeTurn)
 	})
 	c.JSON(http.StatusAccepted, job)
 }
@@ -162,6 +173,31 @@ func (s *Server) installXray(c *gin.Context) {
 	c.JSON(http.StatusAccepted, job)
 }
 
+// installWebDAV downloads webdav-tunnel's tar.gz release asset for this
+// platform and extracts just the binary — its goreleaser output bakes the
+// version into the asset filename itself, unlike Turnable/FreeTurn/Xray's
+// version-independent names, so it's matched by a platform-specific suffix
+// (WebDAVAssetSuffix/FindAssetBySuffix) instead of an exact name.
+func (s *Server) installWebDAV(c *gin.Context) {
+	var req installReleaseRequest
+	_ = c.ShouldBindJSON(&req)
+
+	assetSuffix := kernels.WebDAVAssetSuffix()
+	if assetSuffix == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported platform for webdav-tunnel auto-install"})
+		return
+	}
+
+	job := s.jobs.StartInstall("webdav", req.Version, func() (string, error) {
+		return kernels.InstallReleaseTarGzEntry("spkprsnts", "webdav-tunnel", req.Version,
+			assetSuffix, kernels.WebDAVTarEntryName(), s.cfg.WebDAVBinPath)
+	}, func(version string) {
+		s.recordKernelInstall(models.CoreWebDAV, version, "release", "")
+		s.restartProfilesOfType(models.CoreWebDAV)
+	})
+	c.JSON(http.StatusAccepted, job)
+}
+
 type buildOlcrtcRequest struct {
 	Ref string `json:"ref" binding:"required"` // commit SHA or branch name
 }
@@ -179,6 +215,7 @@ func (s *Server) buildOlcrtc(c *gin.Context) {
 	// JobManager.StartOlcRTCBuild's doc comment.
 	job := s.jobs.StartOlcRTCBuild(req.Ref, s.cfg.OlcRTCBinPath, func(version, log string) {
 		s.recordKernelInstall(models.CoreOlcRTC, version, "build", log)
+		s.restartProfilesOfType(models.CoreOlcRTC)
 	})
 	c.JSON(http.StatusAccepted, job)
 }
@@ -195,6 +232,29 @@ func (s *Server) getKernelJob(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, job)
+}
+
+// restartProfilesOfType restarts every currently-running profile of one
+// core type — called after installing/rebuilding that kernel's binary,
+// since replacing the file on disk doesn't affect a process already
+// running from it: the OS keeps the old file's data available via the
+// still-open inode until something actually re-execs the path (see
+// kernels.DownloadBinary's doc comment) — without this, an upgrade would
+// silently do nothing for every profile that was already up. Xray-core
+// doesn't need this: it's one shared process reloaded directly in
+// installXray, not a supervisor per profile. Fully best-effort and silent —
+// a profile that isn't currently running fails registry.Restart with an
+// expected, not worth logging, "no tracked process" error; a genuine
+// failure here shouldn't block the install from being reported as
+// successful either, since the new binary is on disk regardless.
+func (s *Server) restartProfilesOfType(coreType models.CoreType) {
+	var profiles []models.Profile
+	if err := s.db.Where("core_type = ?", coreType).Find(&profiles).Error; err != nil {
+		return
+	}
+	for i := range profiles {
+		_ = s.registry.Restart(&profiles[i])
+	}
 }
 
 // recordKernelInstall upserts the single KernelInstall row for coreType.
