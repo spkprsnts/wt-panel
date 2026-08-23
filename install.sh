@@ -33,10 +33,12 @@
 #       itself uses), a domain, a manual IP, or skip. Piped/non-interactive
 #       runs (no tty) skip the prompt and just auto-detect the IP.
 #       --ssl=DOMAIN-OR-IP names a specific target non-interactively instead
-#       (a domain goes through Let's Encrypt, an IP through ZeroSSL);
+#       (a domain gets a normal ~90-day Let's Encrypt cert, an IP a
+#       short-lived 6-day one via Let's Encrypt's "shortlived" profile —
+#       same fix 3x-ui's own IP-cert flow uses, see setup_ssl for why);
 #       --no-ssl skips SSL setup entirely. Either way it's acme.sh under the
-#       hood — same dependency 3x-ui's own SSL menu uses — wired into the panel's own
-#       HTTPS listener via its settings API. A failure here (port 80 busy,
+#       hood, wired into the panel's own HTTPS listener via its settings
+#       API. A failure here (port 80 busy,
 #       no public IP reachable, DNS not pointed yet) is never fatal to the
 #       rest of the install — it just leaves the panel on plain HTTP with a
 #       message explaining what to do manually. Fresh-install only, same as
@@ -65,17 +67,6 @@ DB_PATH="${DATA_DIR}/wtpanel.db"
 BIN_PATH="${INSTALL_DIR}/wt-panel"
 LISTEN_PORT="${WTP_LISTEN_PORT:-8090}"
 REPO="${WTP_REPO:-spkprsnts/wt-panel}"
-# ACME_EMAIL identifies the anonymous ZeroSSL/acme.sh account used for IP
-# certificates (see register_zerossl_account/setup_ssl) — never actually
-# delivered to, so a hostname-derived address isn't useful, and is actively
-# harmful here: `hostname -f` on a fresh VPS very often returns just a bare
-# short hostname with no domain part at all (no dot), which ZeroSSL's EAB
-# endpoint then rejects as not a validly-formed email — this is what caused
-# "Cannot resolve _eab_kid" on a real VPS regardless of --accountemail or
-# explicit --register-account. RFC 2606's .invalid TLD is the correct,
-# environment-independent choice for "syntactically valid, deliberately
-# undeliverable".
-ACME_EMAIL="admin@wt-panel.invalid"
 
 # BASH_SOURCE[0] is unset when this script runs via `bash -c "$(curl ...)"`
 # (the documented one-line install/uninstall/ssl form) rather than as a real
@@ -419,50 +410,37 @@ detect_public_ip() {
 
 # ensure_acme_sh installs acme.sh (root's own copy, ~/.acme.sh) — the same
 # ACME client 3x-ui's own SSL menu is built on. Idempotent: a re-run just
-# finds it already there.
+# finds it already there. No account email needed at install time: every
+# issuance path below (domain or IP) goes through Let's Encrypt, which
+# doesn't require one — unlike ZeroSSL, which this used to also support for
+# IP certs via External Account Binding (EAB) before that was ripped out
+# (see setup_ssl) for being unreliable in practice.
 ensure_acme_sh() {
 	[[ -x ~/.acme.sh/acme.sh ]] && return
 	echo "acme.sh не найден — устанавливаю..."
 	ensure_apt_updated
 	apt-get install -y -qq curl socat cron
-	curl -fsSL https://get.acme.sh | sh -s email="$ACME_EMAIL" >/dev/null
+	curl -fsSL https://get.acme.sh | sh >/dev/null
 }
 
-# fetch_zerossl_eab gets EAB (External Account Binding) credentials from
-# ZeroSSL's free, no-signup "eab-credentials-email" endpoint and prints
-# "kid hmac" on success. Read straight from acme.sh's own source
-# (acmesh-official/acme.sh, _regAccount): ZeroSSL requires EAB, and
-# acme.sh's own auto-fetch-during-issue only fires when --issue's own
-# registration attempt finds no eab_kid/eab_hmac_key already given AND
-# falls back to whatever email _getAccountEmail() resolves — which, on a
-# box where acme.sh was ever installed/registered before with a bad email
-# (e.g. `hostname -f` returning a bare hostname with no dot — exactly
-# ACME_EMAIL's own fix below), keeps silently reusing that stale bad email
-# from ~/.acme.sh/account.conf and fails with "Cannot resolve _eab_kid" no
-# matter what ACME_EMAIL is set to now. Fetching kid/hmac ourselves and
-# passing them as --eab-kid/--eab-hmac-key directly on the --issue command
-# itself (see setup_ssl) sidesteps that fallback entirely — acme.sh never
-# even looks at the account email when explicit EAB values are already on
-# the command it's registering (or re-registering) with.
-fetch_zerossl_eab() {
-	ensure_jq
-	local resp kid hmac
-	resp=$(curl -fsS --data "email=${ACME_EMAIL}" https://api.zerossl.com/acme/eab-credentials-email 2>/dev/null) || return 1
-	kid=$(echo "$resp" | jq -r '.eab_kid // empty' 2>/dev/null)
-	hmac=$(echo "$resp" | jq -r '.eab_hmac_key // empty' 2>/dev/null)
-	[[ -n "$kid" && -n "$hmac" ]] || return 1
-	printf '%s\n%s\n' "$kid" "$hmac"
-}
-
-# setup_ssl TARGET issues a real TLS cert for TARGET (a domain, via Let's
-# Encrypt, or a bare IP address, via ZeroSSL — Let's Encrypt itself has no
-# IP-certificate program, ZeroSSL's ACME endpoint does, see
-# fetch_zerossl_eab above for how the EAB credentials get obtained) and
-# prints the two file paths on success. Uses acme.sh's standalone mode, so
-# port 80 must be free for the few seconds the HTTP-01 challenge takes —
-# same requirement 3x-ui's own SSL setup has. --reloadcmd restarts the panel
-# automatically on every renewal (acme.sh installs its own cron job for
-# that), not just this first issuance.
+# setup_ssl TARGET issues a real TLS cert for TARGET — a domain, a normal
+# ~90-day Let's Encrypt cert, or a bare IP address, a short-lived (6-day,
+# auto-renewing) Let's Encrypt cert via its "shortlived" certificate
+# profile. Both go through the same CA now: this used to route IP targets
+# through ZeroSSL instead (Let's Encrypt had no IP-certificate program at
+# all until this profile launched), authenticating via External Account
+# Binding (EAB) — every variation of that was tried here (--accountemail,
+# an explicit --register-account, wiping cached CA state, passing
+# --eab-kid/--eab-hmac-key straight on --issue) and every one of them still
+# hit ZeroSSL's own "Cannot resolve _eab_kid" on a real VPS. 3x-ui's own IP
+# cert flow (x-ui.sh's ssl_cert_issue_standalone_ip) already solved this by
+# just using Let's Encrypt's shortlived profile instead of ZeroSSL/EAB at
+# all — same fix here. Prints the two file paths on success. Uses acme.sh's
+# standalone mode, so port 80 must be free for the few seconds the HTTP-01
+# challenge takes. --reloadcmd restarts the panel automatically on every
+# renewal (acme.sh installs its own cron job for that; a 6-day cert simply
+# renews far more often than a normal 90-day one — --days 6 tells acme.sh
+# to do so right before each one expires), not just this first issuance.
 setup_ssl() {
 	local target="$1"
 	ensure_acme_sh
@@ -471,18 +449,10 @@ setup_ssl() {
 	local cert_file="${DATA_DIR}/ssl/${target}.crt"
 	local key_file="${DATA_DIR}/ssl/${target}.key"
 
-	local issue_args=(--issue -d "$target" --standalone --force)
+	local issue_args=(--issue -d "$target" --standalone --force --server letsencrypt)
 	if [[ "$target" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-		echo "Выпускаю TLS-сертификат для IP ${target} через ZeroSSL..."
-		local eab kid hmac
-		if eab=$(fetch_zerossl_eab); then
-			kid=$(echo "$eab" | sed -n 1p)
-			hmac=$(echo "$eab" | sed -n 2p)
-			issue_args+=(--server zerossl --eab-kid "$kid" --eab-hmac-key "$hmac")
-		else
-			red "Не удалось получить EAB-данные от ZeroSSL — пробую без них (может не сработать)."
-			issue_args+=(--server zerossl)
-		fi
+		echo "Выпускаю краткосрочный (6 дней, автопродление) TLS-сертификат для IP ${target} через Let's Encrypt..."
+		issue_args+=(--certificate-profile shortlived --days 6)
 	else
 		echo "Выпускаю TLS-сертификат для домена ${target} через Let's Encrypt..."
 	fi
@@ -612,9 +582,9 @@ EOF
 # shown to the operator.
 prompt_ssl_target() {
 	echo "Настройка SSL:" >&2
-	echo "  1) Автоопределить IP этого сервера — ZeroSSL (по умолчанию)" >&2
+	echo "  1) Автоопределить IP этого сервера — Let's Encrypt, краткосрочный (по умолчанию)" >&2
 	echo "  2) Указать домен — Let's Encrypt" >&2
-	echo "  3) Указать IP вручную — ZeroSSL" >&2
+	echo "  3) Указать IP вручную — Let's Encrypt, краткосрочный" >&2
 	echo "  4) Пропустить" >&2
 	local choice="" target=""
 	read -r -p "Выбор [1-4, Enter=1]: " choice || true
@@ -706,7 +676,7 @@ cmd_install() {
 			if [[ $ssl_explicit -eq 0 && -t 0 ]]; then
 				ssl_target=$(prompt_ssl_target)
 			elif [[ $ssl_explicit -eq 0 ]]; then
-				echo "Определяю публичный IP для SSL (по умолчанию — ZeroSSL на IP; свой домен: --ssl=DOMAIN, отключить: --no-ssl)..."
+				echo "Определяю публичный IP для SSL (по умолчанию — краткосрочный сертификат Let's Encrypt на IP; свой домен: --ssl=DOMAIN, отключить: --no-ssl)..."
 				ssl_target=$(detect_public_ip) || true
 				if [[ -z "$ssl_target" ]]; then
 					red "Не удалось определить публичный IP — пропускаю SSL. Настройте вручную: sudo ./install.sh --ssl=IP-ИЛИ-ДОМЕН, либо на странице «Настройки»."
