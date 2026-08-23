@@ -69,8 +69,7 @@ release:
     ## Установка/обновление
 
     ```sh
-    curl -fsSL https://raw.githubusercontent.com/{{ .Env.GITHUB_REPOSITORY }}/main/install.sh -o install.sh
-    sudo bash install.sh
+    sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/{{ .Env.GITHUB_REPOSITORY }}/main/install.sh)"
     ```
 
     `install.sh` сам скачивает нужный бинарник из этого релиза (linux/amd64

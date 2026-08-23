@@ -17,8 +17,7 @@ FreeTurn), навешивает xray/WireGuard-оверлей и отдаёт п
 **Установка на сервер:**
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/spkprsnts/wt-panel/main/install.sh -o install.sh
-sudo bash install.sh
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/spkprsnts/wt-panel/main/install.sh)"
 ```
 
 Логин/пароль и адрес панели печатаются один раз по завершении.
