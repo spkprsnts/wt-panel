@@ -579,8 +579,44 @@ function TlsFields({
   setF: React.Dispatch<React.SetStateAction<InboundFormState>>
   alpnDefault: string[]
 }) {
+  const [panelCertError, setPanelCertError] = React.useState<string | null>(null)
+
+  // Hysteria2 requires TLS outright (no plaintext fallback the way
+  // vless/trojan have) — reusing whatever cert the panel's own HTTPS
+  // listener already has (Settings → «Сеть панели», normally a real
+  // Let's Encrypt cert from install.sh's SSL setup) means the operator
+  // doesn't need to issue or paste in a second cert just for this inbound.
+  // Only meaningfully different from typing the paths in by hand when the
+  // panel actually has TLS configured — surfaced as an error rather than
+  // silently doing nothing if it doesn't.
+  async function handleUsePanelCert() {
+    setPanelCertError(null)
+    try {
+      const ps = await api.getPanelSettings()
+      if (!ps.TLSCertFile || !ps.TLSKeyFile) {
+        setPanelCertError("У панели ещё не настроен SSL — настройте его на странице «Настройки»")
+        return
+      }
+      setF({
+        ...f,
+        tlsCertMode: "file",
+        tlsCertFile: ps.TLSCertFile,
+        tlsKeyFile: ps.TLSKeyFile,
+        tlsServerName: ps.ListenDomain || f.tlsServerName,
+      })
+    } catch (err) {
+      setPanelCertError(err instanceof Error ? err.message : "Не удалось получить настройки панели")
+    }
+  }
+
   return (
     <AdvancedSection title="Настройки TLS">
+      <div className="flex flex-col gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={handleUsePanelCert}>
+          Использовать сертификат панели
+        </Button>
+        {panelCertError && <p className="text-xs text-destructive">{panelCertError}</p>}
+      </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="tls-sni">Server name (SNI)</Label>
         <Input id="tls-sni" value={f.tlsServerName} onChange={(e) => setF({ ...f, tlsServerName: e.target.value })} />
