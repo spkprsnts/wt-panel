@@ -17,12 +17,11 @@ import { DialogFooter } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 
-// WebDAV is deliberately not offered here yet — its provisioner exists but
-// this form doesn't cover it, see README "Статус реализации".
-const CORE_LABELS: Record<"turnable" | "olcrtc" | "freeturn", string> = {
+const CORE_LABELS: Record<CoreType, string> = {
   turnable: "Turnable (TURN/SFU)",
   olcrtc: "olcRTC (видеоконференции)",
   freeturn: "FreeTurn (WebRTC/UDP)",
+  webdav: "WebDAV-tunnel (SOCKS5 через WebDAV)",
 }
 
 // useCallRooms feeds the "Комнаты звонков" journal into whichever combobox
@@ -208,6 +207,80 @@ const initialFreeturn: FreeturnState = {
   obfTiming: "",
 }
 
+// Login/Password are infra (auto-generated server-side on first save if
+// left blank, same as Turnable's pub_key/priv_key) — editable here in case
+// the operator wants specific credentials instead. TLSCertFile/TLSKeyFile
+// point webdav-tunnel's own built-in TLS straight at cert/key files already
+// on the server — no reverse proxy involved.
+interface WebdavBackend {
+  url: string
+  login: string
+  password: string
+}
+
+// connMode "selfhosted" runs webdav-tunnel's own embedded WebDAV (Login/
+// Password/TLS* below apply); "server" instead relays through one or more
+// already-existing external WebDAV endpoints (Backends) — see
+// docs/config.md upstream. The two are mutually exclusive per profile.
+// Tuning fields (docs/tuning.md upstream) — empty string / "0" means "let
+// webdav-tunnel apply its own default for this mode" rather than a real
+// value: selfhosted auto-applies a faster preset for poll-min/poll-max/
+// coalesce, server mode always uses the plain generic defaults unless told
+// otherwise. The two quick-fill preset buttons in the UI just populate
+// these same fields — there's no separate stored "preset" concept, so
+// hand-editing after picking one works exactly like typing values in from
+// scratch.
+interface WebdavTuning {
+  pollMin: string
+  pollMax: string
+  coalesce: string
+  chunkSize: string
+  puts: string
+  readMin: string
+  readMax: string
+}
+
+const emptyWebdavTuning: WebdavTuning = {
+  pollMin: "",
+  pollMax: "",
+  coalesce: "",
+  chunkSize: "",
+  puts: "",
+  readMin: "",
+  readMax: "",
+}
+
+const WEBDAV_TUNING_PRESETS: Record<"selfhosted" | "server", WebdavTuning> = {
+  selfhosted: { pollMin: "50ms", pollMax: "200ms", coalesce: "5ms", chunkSize: "131071", puts: "8", readMin: "3", readMax: "8" },
+  server: { pollMin: "200ms", pollMax: "500ms", coalesce: "10ms", chunkSize: "131071", puts: "8", readMin: "3", readMax: "8" },
+}
+
+interface WebdavState {
+  connMode: "selfhosted" | "server"
+  login: string
+  password: string
+  proxyUpstream: string
+  enc: boolean
+  tlsCertFile: string
+  tlsKeyFile: string
+  dns: string
+  backends: WebdavBackend[]
+  tuning: WebdavTuning
+}
+
+const initialWebdav: WebdavState = {
+  connMode: "selfhosted",
+  login: "",
+  password: "",
+  proxyUpstream: "",
+  enc: false,
+  tlsCertFile: "",
+  tlsKeyFile: "",
+  dns: "",
+  backends: [{ url: "", login: "", password: "" }],
+  tuning: emptyWebdavTuning,
+}
+
 // parseCoreConfig reverses buildCoreConfig — used to pre-fill the form when
 // editing an already-provisioned profile. Reads defensively (every field
 // optional-chained with a fallback to the matching initial* default) since
@@ -216,7 +289,7 @@ const initialFreeturn: FreeturnState = {
 function parseCoreConfig(
   coreType: CoreType,
   raw: string
-): { tn: TurnableState; oc: OlcrtcState; ft: FreeturnState } {
+): { tn: TurnableState; oc: OlcrtcState; ft: FreeturnState; wd: WebdavState } {
   let cfg: Record<string, unknown> = {}
   try {
     cfg = raw ? JSON.parse(raw) : {}
@@ -245,6 +318,7 @@ function parseCoreConfig(
       },
       oc: initialOlcrtc,
       ft: initialFreeturn,
+      wd: initialWebdav,
     }
   }
   if (coreType === "olcrtc") {
@@ -275,6 +349,42 @@ function parseCoreConfig(
         videoTileRs: num(video.tile_rs, initialOlcrtc.videoTileRs),
       },
       ft: initialFreeturn,
+      wd: initialWebdav,
+    }
+  }
+  if (coreType === "webdav") {
+    const rawBackends = Array.isArray(cfg.backends) ? cfg.backends : []
+    const backends = rawBackends
+      .filter((b): b is Record<string, unknown> => typeof b === "object" && b !== null)
+      .map((b) => ({
+        url: str(b.url, ""),
+        login: str(b.login, ""),
+        password: str(b.password, ""),
+      }))
+    return {
+      tn: initialTurnable,
+      oc: initialOlcrtc,
+      ft: initialFreeturn,
+      wd: {
+        connMode: (str(cfg.conn_mode, initialWebdav.connMode) as WebdavState["connMode"]),
+        login: str(cfg.login, initialWebdav.login),
+        password: str(cfg.password, initialWebdav.password),
+        proxyUpstream: str(cfg.proxy_upstream, initialWebdav.proxyUpstream),
+        enc: typeof cfg.enc === "boolean" ? cfg.enc : initialWebdav.enc,
+        tlsCertFile: str(cfg.tls_cert_file, initialWebdav.tlsCertFile),
+        tlsKeyFile: str(cfg.tls_key_file, initialWebdav.tlsKeyFile),
+        dns: str(cfg.dns, initialWebdav.dns),
+        backends: backends.length > 0 ? backends : initialWebdav.backends,
+        tuning: {
+          pollMin: str(cfg.poll_min, emptyWebdavTuning.pollMin),
+          pollMax: str(cfg.poll_max, emptyWebdavTuning.pollMax),
+          coalesce: str(cfg.coalesce, emptyWebdavTuning.coalesce),
+          chunkSize: num(cfg.chunk_size, emptyWebdavTuning.chunkSize),
+          puts: num(cfg.puts, emptyWebdavTuning.puts),
+          readMin: num(cfg.read_min, emptyWebdavTuning.readMin),
+          readMax: num(cfg.read_max, emptyWebdavTuning.readMax),
+        },
+      },
     }
   }
   // freeturn
@@ -291,6 +401,7 @@ function parseCoreConfig(
       obfKey: str(cfg.obf_key, initialFreeturn.obfKey),
       obfTiming: str(cfg.obf_timing, initialFreeturn.obfTiming),
     },
+    wd: initialWebdav,
   }
 }
 
@@ -298,7 +409,8 @@ function buildCoreConfig(
   coreType: CoreType,
   tn: TurnableState,
   oc: OlcrtcState,
-  ft: FreeturnState
+  ft: FreeturnState,
+  wd: WebdavState
 ): unknown {
   if (coreType === "turnable") {
     return {
@@ -348,6 +460,41 @@ function buildCoreConfig(
           }),
         },
       }),
+    }
+  }
+  if (coreType === "webdav") {
+    const t = wd.tuning
+    const tuningFields = {
+      ...(t.pollMin && { poll_min: t.pollMin }),
+      ...(t.pollMax && { poll_max: t.pollMax }),
+      ...(t.coalesce && { coalesce: t.coalesce }),
+      ...(Number(t.chunkSize) > 0 && { chunk_size: Number(t.chunkSize) }),
+      ...(Number(t.puts) > 0 && { puts: Number(t.puts) }),
+      ...(Number(t.readMin) > 0 && { read_min: Number(t.readMin) }),
+      ...(Number(t.readMax) > 0 && { read_max: Number(t.readMax) }),
+    }
+    if (wd.connMode === "server") {
+      return {
+        conn_mode: "server",
+        enc: wd.enc,
+        ...(wd.dns && { dns: wd.dns }),
+        ...(wd.proxyUpstream && { proxy_upstream: wd.proxyUpstream }),
+        backends: wd.backends
+          .filter((b) => b.url && b.login && b.password)
+          .map((b) => ({ url: b.url, login: b.login, password: b.password })),
+        ...tuningFields,
+      }
+    }
+    return {
+      conn_mode: "selfhosted",
+      login: wd.login,
+      password: wd.password,
+      ...(wd.proxyUpstream && { proxy_upstream: wd.proxyUpstream }),
+      enc: wd.enc,
+      ...(wd.tlsCertFile && { tls_cert_file: wd.tlsCertFile }),
+      ...(wd.tlsKeyFile && { tls_key_file: wd.tlsKeyFile }),
+      ...(wd.dns && { dns: wd.dns }),
+      ...tuningFields,
     }
   }
   // freeturn
@@ -454,6 +601,7 @@ export function ProfileForm({
   const [tn, setTn] = React.useState<TurnableState>(parsed.tn)
   const [oc, setOc] = React.useState<OlcrtcState>(parsed.oc)
   const [ft, setFt] = React.useState<FreeturnState>(parsed.ft)
+  const [wd, setWd] = React.useState<WebdavState>(parsed.wd)
 
   const [xrayEnabled, setXrayEnabled] = React.useState(initialValues.xrayEnabled)
   const [inbounds, setInbounds] = React.useState<XrayInbound[]>([])
@@ -522,12 +670,13 @@ export function ProfileForm({
   // FreeTurn only ever forwards over UDP (its own -connect target has to be
   // a UDP listener) — vless/trojan inbounds are typically TCP-based, so
   // only hysteria2/wireguard ones are real forwarding targets here. olcRTC
-  // is the opposite restriction: it has no WireGuard-compatible transport
-  // of its own, so a wireguard inbound is never a valid pick for it.
+  // and WebDAV are the opposite restriction: both are SOCKS5-native kernels
+  // with no WireGuard-compatible transport of their own, so a wireguard
+  // inbound is never a valid pick for either.
   const visibleInbounds =
     coreType === "freeturn"
       ? inbounds.filter((ib) => ib.Protocol === "hysteria2" || ib.Protocol === "wireguard")
-      : coreType === "olcrtc"
+      : coreType === "olcrtc" || coreType === "webdav"
         ? inbounds.filter((ib) => ib.Protocol !== "wireguard")
         : inbounds
 
@@ -555,7 +704,7 @@ export function ProfileForm({
       await onSubmit({
         name,
         coreType,
-        coreConfig: buildCoreConfig(coreType, tn, oc, ft),
+        coreConfig: buildCoreConfig(coreType, tn, oc, ft, wd),
         xrayEnabled,
         xrayInboundId: xrayEnabled && xrayInboundId ? Number(xrayInboundId) : null,
         xrayManualUri: manualUri,
@@ -1201,7 +1350,306 @@ export function ProfileForm({
         </>
       )}
 
-      {coreType === "olcrtc" && xrayBlock}
+      {coreType === "webdav" && (
+        <>
+          <div className="flex flex-col gap-2">
+            <Label>Режим подключения</Label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={wd.connMode === "selfhosted" ? "default" : "outline"}
+                onClick={() => setWd({ ...wd, connMode: "selfhosted" })}
+              >
+                Self-hosted
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={wd.connMode === "server" ? "default" : "outline"}
+                onClick={() => setWd({ ...wd, connMode: "server" })}
+              >
+                Server (внешний WebDAV)
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {wd.connMode === "selfhosted"
+                ? "Панель поднимает собственный встроенный WebDAV — ничего дополнительно настраивать не нужно."
+                : "Ядро подключается к уже существующему WebDAV (Nextcloud, Яндекс.Диск и т.п.) — свой WebDAV не поднимается."}
+            </p>
+          </div>
+
+          {wd.connMode === "selfhosted" && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="webdav-login">Логин</Label>
+                <Input
+                  id="webdav-login"
+                  value={wd.login}
+                  onChange={(e) => setWd({ ...wd, login: e.target.value })}
+                  placeholder="оставьте пустым — сгенерируется автоматически"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="webdav-password">Пароль</Label>
+                <Input
+                  id="webdav-password"
+                  value={wd.password}
+                  onChange={(e) => setWd({ ...wd, password: e.target.value })}
+                  placeholder="оставьте пустым — сгенерируется автоматически"
+                  className="font-mono text-xs"
+                />
+              </div>
+            </div>
+          )}
+
+          {wd.connMode === "server" && (
+            <div className="rounded-md border p-3">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-sm font-medium">Внешние WebDAV-бэкенды</p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setWd({ ...wd, backends: [...wd.backends, { url: "", login: "", password: "" }] })
+                  }
+                >
+                  + Бэкенд
+                </Button>
+              </div>
+              <div className="flex flex-col gap-3">
+                {wd.backends.map((b, i) => (
+                  <div key={i} className="flex flex-col gap-2 rounded-md border p-2">
+                    <div className="flex items-center justify-between">
+                      <Label>
+                        Бэкенд {i + 1}
+                        {i === 0 && " (основной)"}
+                      </Label>
+                      {wd.backends.length > 1 && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setWd({ ...wd, backends: wd.backends.filter((_, j) => j !== i) })}
+                        >
+                          Удалить
+                        </Button>
+                      )}
+                    </div>
+                    <Input
+                      value={b.url}
+                      onChange={(e) =>
+                        setWd({
+                          ...wd,
+                          backends: wd.backends.map((x, j) => (j === i ? { ...x, url: e.target.value } : x)),
+                        })
+                      }
+                      placeholder="https://dav.example.com"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        value={b.login}
+                        onChange={(e) =>
+                          setWd({
+                            ...wd,
+                            backends: wd.backends.map((x, j) => (j === i ? { ...x, login: e.target.value } : x)),
+                          })
+                        }
+                        placeholder="логин"
+                      />
+                      <Input
+                        value={b.password}
+                        onChange={(e) =>
+                          setWd({
+                            ...wd,
+                            backends: wd.backends.map((x, j) => (j === i ? { ...x, password: e.target.value } : x)),
+                          })
+                        }
+                        placeholder="пароль"
+                        className="font-mono text-xs"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Один бэкенд — обычное подключение к внешнему WebDAV. Несколько —
+                ротация: новые сессии распределяются по бэкендам по кругу, временно
+                недоступный пропускается.
+              </p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="webdav-proxy">Исходящий SOCKS5-прокси (-proxy)</Label>
+              <Input
+                id="webdav-proxy"
+                value={wd.proxyUpstream}
+                onChange={(e) => setWd({ ...wd, proxyUpstream: e.target.value })}
+                placeholder="socks5://[user:pass@]host:port — необязательно"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="webdav-dns">DNS для WebDAV-бэкенда (-dns)</Label>
+              <Input
+                id="webdav-dns"
+                value={wd.dns}
+                onChange={(e) => setWd({ ...wd, dns: e.target.value })}
+                placeholder="1.1.1.1:53 — необязательно"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between rounded-md border p-3">
+            <Label htmlFor="webdav-enc">Шифрование чанков (AES-256-GCM, -enc)</Label>
+            <Switch
+              id="webdav-enc"
+              checked={wd.enc}
+              onCheckedChange={(v) => setWd({ ...wd, enc: v })}
+            />
+          </div>
+
+          {wd.connMode === "selfhosted" && (
+            <div className="rounded-md border p-3">
+              <p className="mb-3 text-sm font-medium">TLS (встроенный, без реверс-прокси)</p>
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="webdav-tls-cert">Файл сертификата (-webdav-tls-cert)</Label>
+                  <Input
+                    id="webdav-tls-cert"
+                    value={wd.tlsCertFile}
+                    onChange={(e) => setWd({ ...wd, tlsCertFile: e.target.value })}
+                    placeholder="/etc/ssl/cert.pem — необязательно"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="webdav-tls-key">Файл ключа (-webdav-tls-key)</Label>
+                  <Input
+                    id="webdav-tls-key"
+                    value={wd.tlsKeyFile}
+                    onChange={(e) => setWd({ ...wd, tlsKeyFile: e.target.value })}
+                    placeholder="/etc/ssl/key.pem — необязательно"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Пути на этом сервере (там же, где запущена панель) — webdav-tunnel
+                  сам их читает, никакой nginx перед ним не нужен. Оба поля пустые
+                  → обычный webdav://; оба заполнены → webdavs://.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <AdvancedFields>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setWd({ ...wd, tuning: WEBDAV_TUNING_PRESETS.selfhosted })}
+              >
+                Пресет: свой WebDAV (быстрый)
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setWd({ ...wd, tuning: WEBDAV_TUNING_PRESETS.server })}
+              >
+                Пресет: внешний бэкенд (стандартный)
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setWd({ ...wd, tuning: emptyWebdavTuning })}
+              >
+                Сбросить (авто)
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="webdav-poll-min">poll-min</Label>
+                <Input
+                  id="webdav-poll-min"
+                  value={wd.tuning.pollMin}
+                  onChange={(e) => setWd({ ...wd, tuning: { ...wd.tuning, pollMin: e.target.value } })}
+                  placeholder="авто"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="webdav-poll-max">poll-max</Label>
+                <Input
+                  id="webdav-poll-max"
+                  value={wd.tuning.pollMax}
+                  onChange={(e) => setWd({ ...wd, tuning: { ...wd.tuning, pollMax: e.target.value } })}
+                  placeholder="авто"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="webdav-coalesce">coalesce</Label>
+                <Input
+                  id="webdav-coalesce"
+                  value={wd.tuning.coalesce}
+                  onChange={(e) => setWd({ ...wd, tuning: { ...wd.tuning, coalesce: e.target.value } })}
+                  placeholder="авто"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="webdav-chunk-size">chunk-size</Label>
+                <Input
+                  id="webdav-chunk-size"
+                  type="number"
+                  value={wd.tuning.chunkSize}
+                  onChange={(e) => setWd({ ...wd, tuning: { ...wd.tuning, chunkSize: e.target.value } })}
+                  placeholder="131071"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="webdav-puts">puts</Label>
+                <Input
+                  id="webdav-puts"
+                  type="number"
+                  value={wd.tuning.puts}
+                  onChange={(e) => setWd({ ...wd, tuning: { ...wd.tuning, puts: e.target.value } })}
+                  placeholder="8"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="webdav-read-min">read-min</Label>
+                  <Input
+                    id="webdav-read-min"
+                    type="number"
+                    value={wd.tuning.readMin}
+                    onChange={(e) => setWd({ ...wd, tuning: { ...wd.tuning, readMin: e.target.value } })}
+                    placeholder="3"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="webdav-read-max">read-max</Label>
+                  <Input
+                    id="webdav-read-max"
+                    type="number"
+                    value={wd.tuning.readMax}
+                    onChange={(e) => setWd({ ...wd, tuning: { ...wd.tuning, readMax: e.target.value } })}
+                    placeholder="8"
+                  />
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Пустое поле — автоматический дефолт (у своего WebDAV быстрее, у
+              внешнего бэкенда стандартный). Кнопки выше просто подставляют
+              значения в поля — дальше их можно поправить вручную.
+            </p>
+          </AdvancedFields>
+        </>
+      )}
+
+      {(coreType === "olcrtc" || coreType === "webdav") && xrayBlock}
 
       {error && <p className="text-sm text-destructive">{error}</p>}
       <DialogFooter>
