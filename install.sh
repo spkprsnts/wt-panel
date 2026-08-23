@@ -476,24 +476,33 @@ setup_ssl() {
 	local cert_file="${DATA_DIR}/ssl/${target}.crt"
 	local key_file="${DATA_DIR}/ssl/${target}.key"
 
+	# Every caller invokes this as `ssl_files=$(setup_ssl "$target")`,
+	# meaning its stdout IS its return value — the final printf below, and
+	# nothing else. Every status/error message here, and the acme.sh
+	# commands' own (quite verbose) stdout, must go to stderr instead, or
+	# they'd get captured as part of that return value: seen for real on a
+	# VPS, where the "Выпускаю..." line below ended up saved into the
+	# panel's own tlsCertFile setting, which then couldn't be opened as a
+	# file at all ("no such file or directory") and crash-looped the
+	# service on every restart.
 	local issue_args=(--issue -d "$target" --standalone --force --server letsencrypt)
 	if [[ "$target" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-		echo "Выпускаю краткосрочный (6 дней, автопродление) TLS-сертификат для IP ${target} через Let's Encrypt..."
+		echo "Выпускаю краткосрочный (6 дней, автопродление) TLS-сертификат для IP ${target} через Let's Encrypt..." >&2
 		issue_args+=(--certificate-profile shortlived --days 6)
 	else
-		echo "Выпускаю TLS-сертификат для домена ${target} через Let's Encrypt..."
+		echo "Выпускаю TLS-сертификат для домена ${target} через Let's Encrypt..." >&2
 	fi
 
-	if ! ~/.acme.sh/acme.sh "${issue_args[@]}"; then
-		red "Не удалось выпустить сертификат для ${target} — убедитесь, что порт 80 свободен и ${target} действительно указывает на этот сервер. Настройте SSL вручную позже на странице «Настройки»."
+	if ! ~/.acme.sh/acme.sh "${issue_args[@]}" >&2; then
+		red "Не удалось выпустить сертификат для ${target} — убедитесь, что порт 80 свободен и ${target} действительно указывает на этот сервер. Настройте SSL вручную позже на странице «Настройки»." >&2
 		return 1
 	fi
 
 	if ! ~/.acme.sh/acme.sh --install-cert -d "$target" \
 		--key-file "$key_file" \
 		--fullchain-file "$cert_file" \
-		--reloadcmd "systemctl restart ${SERVICE_NAME} 2>/dev/null || true"; then
-		red "Сертификат для ${target} выпущен, но не удалось установить его в ${DATA_DIR}/ssl — настройте SSL вручную на странице «Настройки»."
+		--reloadcmd "systemctl restart ${SERVICE_NAME} 2>/dev/null || true" >&2; then
+		red "Сертификат для ${target} выпущен, но не удалось установить его в ${DATA_DIR}/ssl — настройте SSL вручную на странице «Настройки»." >&2
 		return 1
 	fi
 
