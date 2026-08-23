@@ -754,9 +754,12 @@ prompt_ssl_target() {
 WTP_COMMAND_PATH="/usr/local/bin/wtp"
 
 # install_wtp_command copies this script to WTP_COMMAND_PATH so `sudo wtp`
-# works from anywhere after install/update — the same script, just under a
-# permanent, memorable name (mirrors 3x-ui's own `x-ui` command; see
-# cmd_menu). Prefers a real local copy (SCRIPT_DIR genuinely is a
+# works from anywhere — the same script, just under a permanent, memorable
+# name (mirrors 3x-ui's own `x-ui` command; see cmd_menu). Called
+# unconditionally near the bottom of this file (not just from cmd_install)
+# so wtp stays in sync with whatever's actually running on EVERY
+# invocation, menu included — see that call site's own comment for why
+# that matters. Prefers a real local copy (SCRIPT_DIR genuinely is a
 # checked-out repo — --from-source testing) over re-downloading, so a
 # locally-modified install.sh doesn't get silently clobbered by the
 # published one — but "genuinely" has to be checked for real
@@ -766,10 +769,8 @@ WTP_COMMAND_PATH="/usr/local/bin/wtp"
 # so an unrelated leftover install.sh sitting in whatever directory the
 # operator happened to be in — e.g. from testing the old two-command
 # curl -o install.sh / bash install.sh form before it became this
-# one-liner — would otherwise get silently copied over wtp forever after,
-# never picking up a real update again even though the panel binary itself
-# updates fine (confirmed on a real VPS: wt-panel itself reached v0.6.0
-# while wtp stayed on an old build with no menu at all).
+# one-liner — would otherwise get silently copied over wtp instead of a
+# fresh download.
 install_wtp_command() {
 	if [[ -f "$SCRIPT_DIR/install.sh" && -f "$SCRIPT_DIR/backend/go.mod" ]]; then
 		cp "$SCRIPT_DIR/install.sh" "$WTP_COMMAND_PATH"
@@ -811,7 +812,6 @@ cmd_install() {
 	systemctl stop "$SERVICE_NAME" 2>/dev/null || true
 	mv "${BIN_PATH}.new" "$BIN_PATH"
 	chmod +x "$BIN_PATH"
-	install_wtp_command
 
 	local admin_password="" base_path=""
 	if [[ $fresh -eq 1 ]]; then
@@ -1067,6 +1067,21 @@ default_cmd="install"
 if [[ $# -eq 0 && -x "$BIN_PATH" && -t 0 ]]; then
 	default_cmd="menu"
 fi
+
+# Every real (root) invocation of this script keeps /usr/local/bin/wtp in
+# sync with whatever's actually running right now — not just cmd_install's
+# own call to it. Without this, a bare `wtp`/one-liner run that resolves
+# straight to the menu above never touches install_wtp_command at all
+# (cmd_menu doesn't call cmd_install unless the operator explicitly picks
+# "Обновить панель"), so wtp can go stale forever while the panel binary
+# itself keeps updating fine via GitHub Releases — confirmed on a real VPS:
+# wt-panel reached v0.6.1 while wtp stayed on a pre-menu build the whole
+# time, because every run had been landing in the menu, never in
+# cmd_install. Silently skipped when not root, matching every cmd_*
+# below (each calls require_root as its own first action anyway) rather
+# than erroring here before one of them gets a chance to print a clearer
+# message.
+[[ $EUID -eq 0 ]] && install_wtp_command
 
 case "${1:-$default_cmd}" in
 install)
