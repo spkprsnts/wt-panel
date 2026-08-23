@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/card"
 
 const SETTINGS_LABELS: Record<string, string> = {
-  version: "Версия",
   listenAddr: "Адрес панели",
   publicOrigin: "Публичный origin (для ссылок подписки)",
   publicIP: "Публичный IP/хост VPS",
@@ -267,6 +266,104 @@ function PanelNetworkCard() {
   )
 }
 
+function PanelUpdateCard() {
+  const [version, setVersion] = React.useState<string | null>(null)
+  const [checking, setChecking] = React.useState(false)
+  const [updating, setUpdating] = React.useState(false)
+  const [latestVersion, setLatestVersion] = React.useState<string | null>(null)
+  const [updateAvailable, setUpdateAvailable] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    api
+      .getSettings()
+      .then((s) => setVersion(s.version))
+      .catch(() => {})
+  }, [])
+
+  async function handleCheck() {
+    setError(null)
+    setChecking(true)
+    setLatestVersion(null)
+    try {
+      const res = await api.checkPanelUpdate()
+      setLatestVersion(res.latestVersion)
+      setUpdateAvailable(res.updateAvailable)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось проверить обновления")
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  async function handleUpdate() {
+    if (
+      !confirm(
+        "Обновить панель? Все процессы ядер (Turnable/olcRTC/FreeTurn/WebDAV) будут остановлены и подняты заново — активные звонки на пару секунд прервутся."
+      )
+    ) {
+      return
+    }
+    setError(null)
+    try {
+      await api.updatePanel()
+      setUpdating(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось запустить обновление")
+    }
+  }
+
+  const isDev = version === "dev"
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Обновление панели</CardTitle>
+        <CardDescription>Проверка и установка новой версии wt-panel с GitHub Releases</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {updating ? (
+          <p className="text-sm text-muted-foreground">
+            Панель обновляется и перезапускается — обновите страницу через несколько секунд.
+          </p>
+        ) : isDev ? (
+          <p className="text-sm text-muted-foreground">
+            Недоступно — эта сборка запущена из исходников (dev), а не из релиза.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-muted-foreground">
+              Текущая версия: <span className="font-mono">{version ?? "..."}</span>
+            </p>
+            {latestVersion !== null && (
+              <p className="text-sm">
+                {updateAvailable ? (
+                  <>
+                    Доступна версия <span className="font-mono">v{latestVersion}</span>
+                  </>
+                ) : (
+                  "Установлена последняя версия"
+                )}
+              </p>
+            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={handleCheck} disabled={checking}>
+                {checking ? "Проверяем..." : "Проверить обновления"}
+              </Button>
+              {updateAvailable && (
+                <Button type="button" onClick={handleUpdate}>
+                  Обновить
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 function ConfigCard() {
   const [settings, setSettings] = React.useState<Record<string, string> | null>(null)
 
@@ -288,12 +385,14 @@ function ConfigCard() {
           <p className="text-sm text-muted-foreground">Загрузка...</p>
         ) : (
           <div className="flex flex-col gap-2 text-sm">
-            {Object.entries(settings).map(([key, value]) => (
-              <div key={key} className="flex items-center justify-between gap-4 border-b py-1.5 last:border-0">
-                <span className="text-muted-foreground">{SETTINGS_LABELS[key] ?? key}</span>
-                <span className="truncate font-mono text-xs">{value || "—"}</span>
-              </div>
-            ))}
+            {Object.entries(settings)
+              .filter(([key]) => key !== "version")
+              .map(([key, value]) => (
+                <div key={key} className="flex items-center justify-between gap-4 border-b py-1.5 last:border-0">
+                  <span className="text-muted-foreground">{SETTINGS_LABELS[key] ?? key}</span>
+                  <span className="truncate font-mono text-xs">{value || "—"}</span>
+                </div>
+              ))}
           </div>
         )}
       </CardContent>
@@ -308,6 +407,7 @@ export function SettingsPage() {
       <div className="flex flex-col gap-6">
         <AccountCard />
         <PanelNetworkCard />
+        <PanelUpdateCard />
         <ConfigCard />
       </div>
     </div>

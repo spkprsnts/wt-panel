@@ -12,7 +12,7 @@ import {
   PanelLeftOpen,
 } from "lucide-react"
 
-import { clearToken } from "@/lib/api"
+import { api, clearToken } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -37,6 +37,14 @@ export function AppSidebar() {
       return false
     }
   })
+  const [version, setVersion] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    api
+      .getSettings()
+      .then((s) => setVersion(s.version))
+      .catch(() => {})
+  }, [])
 
   function toggleCollapsed() {
     setCollapsed((c) => {
@@ -109,6 +117,11 @@ export function AppSidebar() {
           <LogOut className="size-4 shrink-0" />
           {!collapsed && "Выйти"}
         </Button>
+        {version && !collapsed && (
+          <div className="truncate px-2.5 pt-1 text-xs text-sidebar-foreground/50" title={`Версия ${version}`}>
+            v{version}
+          </div>
+        )}
       </div>
     </aside>
   )

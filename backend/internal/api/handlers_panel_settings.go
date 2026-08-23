@@ -1,12 +1,16 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
+	"os"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
+	"wtpanel/internal/kernels"
 	"wtpanel/internal/models"
 )
 
@@ -81,6 +85,87 @@ func (s *Server) updatePanelSettings(c *gin.Context) {
 // dying mid-request.
 func (s *Server) restartPanel(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"restarting": true})
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		select {
+		case s.restartCh <- struct{}{}:
+		default:
+		}
+	}()
+}
+
+// checkPanelUpdate looks up the newest wt-panel GitHub Release (force=true:
+// this is an explicit, infrequent operator action, not a page-load path, so
+// it should always hit GitHub fresh rather than serve ListReleases' own
+// 10-minute cache) and compares its tag against s.version. Release tags are
+// created as "vX.Y.Z" (release.yml's `git tag -a v$VERSION`), while
+// s.version itself is baked in without the "v" (.goreleaser.yaml's ldflags
+// use goreleaser's {{.Version}}, which is the tag with "v" already
+// stripped) — TrimPrefix here just undoes that same convention so the two
+// strings are comparable. updateAvailable is always false for a "dev"
+// build (a plain `go build`/`go run`, not a real release binary — nothing
+// on GitHub to meaningfully compare it against, let alone overwrite it
+// with).
+func (s *Server) checkPanelUpdate(c *gin.Context) {
+	releases, err := kernels.ListReleases("spkprsnts", "wt-panel", 1, true)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+	if len(releases) == 0 {
+		c.JSON(http.StatusOK, gin.H{"currentVersion": s.version, "latestVersion": "", "updateAvailable": false})
+		return
+	}
+
+	latest := strings.TrimPrefix(releases[0].TagName, "v")
+	updateAvailable := s.version != "dev" && latest != "" && latest != s.version
+	c.JSON(http.StatusOK, gin.H{
+		"currentVersion":  s.version,
+		"latestVersion":   latest,
+		"updateAvailable": updateAvailable,
+	})
+}
+
+// updatePanel downloads the newest wt-panel release and swaps it in for the
+// currently-running binary, then triggers the same self-restart mechanism
+// restartPanel does. Safe to overwrite the running executable's path
+// directly: DownloadBinary/os.Rename here target a ".new" file first and
+// only rename it over the real path once the download fully succeeds, and
+// even the rename itself doesn't disturb this already-running process —
+// Linux keeps a running executable's old inode open until it exits, so the
+// swap only affects the NEXT process started from that path, which is
+// exactly the relaunchSelf that follows.
+func (s *Server) updatePanel(c *gin.Context) {
+	if s.version == "dev" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "обновление недоступно для сборки из исходников (dev)"})
+		return
+	}
+
+	exe, err := os.Executable()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	newExe := exe + ".new"
+	assetSuffix := fmt.Sprintf("-linux-%s.tar.gz", runtime.GOARCH)
+	installedVersion, err := kernels.InstallReleaseTarGzEntry("spkprsnts", "wt-panel", "", assetSuffix, "wt-panel", newExe)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+	if err := os.Chmod(newExe, 0o755); err != nil {
+		os.Remove(newExe)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if err := os.Rename(newExe, exe); err != nil {
+		os.Remove(newExe)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"updating": true, "version": strings.TrimPrefix(installedVersion, "v")})
 	go func() {
 		time.Sleep(300 * time.Millisecond)
 		select {

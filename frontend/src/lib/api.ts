@@ -510,6 +510,12 @@ export const api = {
       body: JSON.stringify(input),
     }),
   restartPanel: () => request<{ restarting: boolean }>("/api/settings/panel/restart", { method: "POST" }),
+  checkPanelUpdate: () =>
+    request<{ currentVersion: string; latestVersion: string; updateAvailable: boolean }>(
+      "/api/settings/panel/update-check"
+    ),
+  updatePanel: () =>
+    request<{ updating: boolean; version: string }>("/api/settings/panel/update", { method: "POST" }),
 
   getAccount: () => request<{ username: string }>("/api/account"),
   changePassword: (currentPassword: string, newPassword: string) =>
