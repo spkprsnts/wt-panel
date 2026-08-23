@@ -65,21 +65,34 @@ DB_PATH="${DATA_DIR}/wtpanel.db"
 BIN_PATH="${INSTALL_DIR}/wt-panel"
 LISTEN_PORT="${WTP_LISTEN_PORT:-8090}"
 REPO="${WTP_REPO:-spkprsnts/wt-panel}"
-# ACME_EMAIL is used both to install acme.sh (its default account email) and
-# to register/issue against ZeroSSL specifically (see setup_ssl) — ZeroSSL's
-# ACME endpoint requires an EAB-bound account and only auto-resolves the EAB
-# kid/hmac when an --accountemail is actually presented on the request; a
-# bare `--issue --server zerossl` with no email registered for that CA fails
-# with "Cannot resolve _eab_kid" (hit on a real fresh VPS).
-ACME_EMAIL="admin@$(hostname -f 2>/dev/null || echo localhost)"
+# ACME_EMAIL identifies the anonymous ZeroSSL/acme.sh account used for IP
+# certificates (see register_zerossl_account/setup_ssl) — never actually
+# delivered to, so a hostname-derived address isn't useful, and is actively
+# harmful here: `hostname -f` on a fresh VPS very often returns just a bare
+# short hostname with no domain part at all (no dot), which ZeroSSL's EAB
+# endpoint then rejects as not a validly-formed email — this is what caused
+# "Cannot resolve _eab_kid" on a real VPS regardless of --accountemail or
+# explicit --register-account. RFC 2606's .invalid TLD is the correct,
+# environment-independent choice for "syntactically valid, deliberately
+# undeliverable".
+ACME_EMAIL="admin@wt-panel.invalid"
 
 # BASH_SOURCE[0] is unset when this script runs via `bash -c "$(curl ...)"`
-# (the documented one-line install/uninstall) rather than as a real file on
-# disk — ${BASH_SOURCE[0]:-$0} falls back to $0 so `set -u` doesn't abort
-# before anything else has a chance to run. The fallback value itself is
-# only ever consulted by build_from_source's "is this a checked-out repo"
-# check below, which is meant to fail in exactly this piped-execution case.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# (the documented one-line install/uninstall/ssl form) rather than as a real
+# file on disk. Falling back to $0 doesn't work either in that case: the
+# one-liner passes subcommand args as `bash -c "$script" -- ssl`, which
+# makes $0 literally "--" — and `dirname --` parses that as its own
+# end-of-options marker with no operand left, erroring "missing operand"
+# instead of returning a path. So this only ever calls dirname when
+# BASH_SOURCE[0] is genuinely set (a real, on-disk invocation); otherwise it
+# falls back to $PWD, which is all build_from_source's "is this a
+# checked-out repo" check (the only consumer of SCRIPT_DIR) needs to
+# correctly fail in exactly this piped-execution case.
+if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
+	SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+else
+	SCRIPT_DIR="$PWD"
+fi
 
 red() { echo -e "\033[0;31m$1\033[0m"; }
 green() { echo -e "\033[0;32m$1\033[0m"; }
