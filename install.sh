@@ -24,13 +24,16 @@
 #       the "Ядра" page. --no-kernels skips all of that; --skip-kernel=NAME
 #       (repeatable, NAME one of turnable/freeturn/xray/webdav/olcrtc) skips
 #       just that one.
-#       SSL is on by default: with no --ssl flag at all, the script detects
-#       this host's own public IP (detect_public_ip — same three endpoints
-#       the panel itself uses) and issues it a ZeroSSL cert (Let's Encrypt
-#       doesn't issue for bare IPs). --ssl=DOMAIN-OR-IP names a specific
-#       target instead (a domain goes through Let's Encrypt); --no-ssl skips
-#       SSL setup entirely. Either way it's acme.sh under the hood — same
-#       dependency 3x-ui's own SSL menu uses — wired into the panel's own
+#       SSL is on by default. With no --ssl/--no-ssl flag at all and a real
+#       terminal attached (true for the one-line curl install too — see
+#       prompt_ssl_target), it asks interactively: auto-detect this host's
+#       own public IP (detect_public_ip — same three endpoints the panel
+#       itself uses), a domain, a manual IP, or skip. Piped/non-interactive
+#       runs (no tty) skip the prompt and just auto-detect the IP.
+#       --ssl=DOMAIN-OR-IP names a specific target non-interactively instead
+#       (a domain goes through Let's Encrypt, an IP through ZeroSSL);
+#       --no-ssl skips SSL setup entirely. Either way it's acme.sh under the
+#       hood — same dependency 3x-ui's own SSL menu uses — wired into the panel's own
 #       HTTPS listener via its settings API. A failure here (port 80 busy,
 #       no public IP reachable, DNS not pointed yet) is never fatal to the
 #       rest of the install — it just leaves the panel on plain HTTP with a
@@ -51,8 +54,21 @@ DB_PATH="${DATA_DIR}/wtpanel.db"
 BIN_PATH="${INSTALL_DIR}/wt-panel"
 LISTEN_PORT="${WTP_LISTEN_PORT:-8090}"
 REPO="${WTP_REPO:-spkprsnts/wt-panel}"
+# ACME_EMAIL is used both to install acme.sh (its default account email) and
+# to register/issue against ZeroSSL specifically (see setup_ssl) — ZeroSSL's
+# ACME endpoint requires an EAB-bound account and only auto-resolves the EAB
+# kid/hmac when an --accountemail is actually presented on the request; a
+# bare `--issue --server zerossl` with no email registered for that CA fails
+# with "Cannot resolve _eab_kid" (hit on a real fresh VPS).
+ACME_EMAIL="admin@$(hostname -f 2>/dev/null || echo localhost)"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# BASH_SOURCE[0] is unset when this script runs via `bash -c "$(curl ...)"`
+# (the documented one-line install/uninstall) rather than as a real file on
+# disk — ${BASH_SOURCE[0]:-$0} falls back to $0 so `set -u` doesn't abort
+# before anything else has a chance to run. The fallback value itself is
+# only ever consulted by build_from_source's "is this a checked-out repo"
+# check below, which is meant to fail in exactly this piped-execution case.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
 red() { echo -e "\033[0;31m$1\033[0m"; }
 green() { echo -e "\033[0;32m$1\033[0m"; }
@@ -385,13 +401,15 @@ ensure_acme_sh() {
 	echo "acme.sh не найден — устанавливаю..."
 	ensure_apt_updated
 	apt-get install -y -qq curl socat cron
-	curl -fsSL https://get.acme.sh | sh -s email="admin@$(hostname -f 2>/dev/null || echo localhost)" >/dev/null
+	curl -fsSL https://get.acme.sh | sh -s email="$ACME_EMAIL" >/dev/null
 }
 
 # setup_ssl TARGET issues a real TLS cert for TARGET (a domain, via Let's
 # Encrypt, or a bare IP address, via ZeroSSL — Let's Encrypt itself has no
-# IP-certificate program, ZeroSSL's ACME endpoint does and acme.sh registers
-# an anonymous account with it automatically) and prints the two file paths
+# IP-certificate program, ZeroSSL's ACME endpoint does, gated behind External
+# Account Binding: --accountemail is what lets acme.sh auto-resolve the EAB
+# kid/hmac for ACME_EMAIL and register that account on the fly, instead of
+# failing with "Cannot resolve _eab_kid") and prints the two file paths
 # on success. Uses acme.sh's standalone mode, so port 80 must be free for
 # the few seconds the HTTP-01 challenge takes — same requirement 3x-ui's own
 # SSL setup has. --reloadcmd restarts the panel automatically on every
@@ -408,7 +426,7 @@ setup_ssl() {
 	local issue_args=(--issue -d "$target" --standalone --force)
 	if [[ "$target" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 		echo "Выпускаю TLS-сертификат для IP ${target} через ZeroSSL..."
-		issue_args+=(--server zerossl)
+		issue_args+=(--server zerossl --accountemail "$ACME_EMAIL")
 	else
 		echo "Выпускаю TLS-сертификат для домена ${target} через Let's Encrypt..."
 	fi
@@ -501,6 +519,45 @@ EOF
 	systemctl daemon-reload
 }
 
+# prompt_ssl_target only runs when neither --ssl= nor --no-ssl was passed AND
+# stdin is a real terminal (cmd_install's `-t 0` check) — piped/automated
+# installs (CI, `</dev/null`) never see this and keep the old silent
+# auto-detect-IP default. Safe to prompt even under the one-line
+# `sudo bash -c "$(curl ...)"` install: unlike `curl | bash`, that form never
+# feeds the script itself through stdin, so stdin is still the operator's
+# terminal here. Prints the chosen target on stdout (empty = skip) via
+# command substitution, so every other message in here must go to stderr —
+# otherwise it would end up captured as part of the "target" instead of
+# shown to the operator.
+prompt_ssl_target() {
+	echo "Настройка SSL:" >&2
+	echo "  1) Автоопределить IP этого сервера — ZeroSSL (по умолчанию)" >&2
+	echo "  2) Указать домен — Let's Encrypt" >&2
+	echo "  3) Указать IP вручную — ZeroSSL" >&2
+	echo "  4) Пропустить" >&2
+	local choice="" target=""
+	read -r -p "Выбор [1-4, Enter=1]: " choice || true
+	case "$choice" in
+	2)
+		read -r -p "Домен: " target || true
+		;;
+	3)
+		read -r -p "IP: " target || true
+		;;
+	4)
+		target=""
+		;;
+	*)
+		echo "Определяю публичный IP..." >&2
+		target=$(detect_public_ip) || true
+		if [[ -z "$target" ]]; then
+			red "Не удалось определить публичный IP — SSL будет пропущен. Настройте вручную: sudo ./install.sh --ssl=IP-ИЛИ-ДОМЕН, либо на странице «Настройки»." >&2
+		fi
+		;;
+	esac
+	echo "$target"
+}
+
 cmd_install() {
 	require_root
 
@@ -565,7 +622,9 @@ cmd_install() {
 		if [[ $no_ssl -eq 1 ]]; then
 			echo "SSL пропущен (--no-ssl)."
 		else
-			if [[ $ssl_explicit -eq 0 ]]; then
+			if [[ $ssl_explicit -eq 0 && -t 0 ]]; then
+				ssl_target=$(prompt_ssl_target)
+			elif [[ $ssl_explicit -eq 0 ]]; then
 				echo "Определяю публичный IP для SSL (по умолчанию — ZeroSSL на IP; свой домен: --ssl=DOMAIN, отключить: --no-ssl)..."
 				ssl_target=$(detect_public_ip) || true
 				if [[ -z "$ssl_target" ]]; then
