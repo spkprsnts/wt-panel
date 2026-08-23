@@ -416,11 +416,32 @@ detect_public_ip() {
 # IP certs via External Account Binding (EAB) before that was ripped out
 # (see setup_ssl) for being unreliable in practice.
 ensure_acme_sh() {
-	[[ -x ~/.acme.sh/acme.sh ]] && return
-	echo "acme.sh не найден — устанавливаю..."
-	ensure_apt_updated
-	apt-get install -y -qq curl socat cron
-	curl -fsSL https://get.acme.sh | sh >/dev/null
+	if [[ ! -x ~/.acme.sh/acme.sh ]]; then
+		echo "acme.sh не найден — устанавливаю..."
+		ensure_apt_updated
+		apt-get install -y -qq curl socat cron
+		curl -fsSL https://get.acme.sh | sh >/dev/null
+	fi
+	_scrub_bad_acme_account_email
+}
+
+# _scrub_bad_acme_account_email drops any ACCOUNT_EMAIL saved in
+# ~/.acme.sh/account.conf by a version of this script from before this
+# fix — back when ensure_acme_sh installed acme.sh with
+# email="admin@$(hostname -f)", which on a VPS with no configured FQDN just
+# resolves to a bare hostname with no dot (e.g. "admin@myvps"). Let's
+# Encrypt's account registration validates the contact email's domain has a
+# dot and rejects the ENTIRE registration outright if it doesn't
+# ("contact email has invalid domain: Domain name needs at least one
+# dot") — seen on a real VPS, and it blocks every certificate issuance on
+# that box from then on, not just the run that first set it, since acme.sh
+# keeps reusing the same account.conf regardless of what this script does
+# or doesn't pass on later runs. Neither Let's Encrypt nor this script's
+# own flow needs a contact email at all (see setup_ssl), so unconditionally
+# dropping the line — not replacing it with a better one — is the fix.
+_scrub_bad_acme_account_email() {
+	local conf=~/.acme.sh/account.conf
+	[[ -f "$conf" ]] && sed -i '/^ACCOUNT_EMAIL=/d' "$conf"
 }
 
 # setup_ssl TARGET issues a real TLS cert for TARGET — a domain, a normal
