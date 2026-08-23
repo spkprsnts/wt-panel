@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { api, type CallRoom, type RoomProvider } from "@/lib/api"
+import { useDialogPrompt } from "@/components/dialog-prompt"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -143,6 +144,7 @@ function RoomDialog({
 }
 
 export function CallRoomsPage() {
+  const { confirm } = useDialogPrompt()
   const [rooms, setRooms] = React.useState<CallRoom[]>([])
   const [error, setError] = React.useState<string | null>(null)
 
@@ -158,7 +160,7 @@ export function CallRoomsPage() {
   }, [load])
 
   async function handleDelete(id: number) {
-    if (!confirm("Удалить комнату из журнала?")) return
+    if (!(await confirm("Удалить комнату из журнала?", { destructive: true, confirmLabel: "Удалить" }))) return
     await api.deleteCallRoom(id)
     load()
   }

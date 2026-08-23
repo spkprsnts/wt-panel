@@ -2,6 +2,7 @@ import * as React from "react"
 import { Loader2 } from "lucide-react"
 
 import { api } from "@/lib/api"
+import { useDialogPrompt } from "@/components/dialog-prompt"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -118,6 +119,7 @@ function AccountCard() {
 }
 
 function PanelNetworkCard() {
+  const { confirm } = useDialogPrompt()
   const [listenIp, setListenIp] = React.useState("")
   const [listenDomain, setListenDomain] = React.useState("")
   const [listenPort, setListenPort] = React.useState("")
@@ -172,9 +174,10 @@ function PanelNetworkCard() {
 
   async function handleRestart() {
     if (
-      !confirm(
-        "Перезапустить панель? Все процессы ядер (Turnable/olcRTC/FreeTurn/WebDAV) будут остановлены и подняты заново — активные звонки на пару секунд прервутся."
-      )
+      !(await confirm(
+        "Перезапустить панель? Все процессы ядер (Turnable/olcRTC/FreeTurn/WebDAV) будут остановлены и подняты заново — активные звонки на пару секунд прервутся.",
+        { destructive: true, confirmLabel: "Перезапустить" }
+      ))
     ) {
       return
     }
@@ -372,6 +375,7 @@ function PanelRestartDialog({
 }
 
 function PanelUpdateCard() {
+  const { confirm } = useDialogPrompt()
   const [version, setVersion] = React.useState<string | null>(null)
   const [checking, setChecking] = React.useState(false)
   const [updating, setUpdating] = React.useState(false)
@@ -404,9 +408,10 @@ function PanelUpdateCard() {
 
   async function handleUpdate() {
     if (
-      !confirm(
-        "Обновить панель? Все процессы ядер (Turnable/olcRTC/FreeTurn/WebDAV) будут остановлены и подняты заново — активные звонки на пару секунд прервутся."
-      )
+      !(await confirm(
+        "Обновить панель? Все процессы ядер (Turnable/olcRTC/FreeTurn/WebDAV) будут остановлены и подняты заново — активные звонки на пару секунд прервутся.",
+        { destructive: true, confirmLabel: "Обновить" }
+      ))
     ) {
       return
     }

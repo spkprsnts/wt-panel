@@ -2,6 +2,7 @@ import * as React from "react"
 import { Link } from "react-router-dom"
 
 import { api, type Client, type KernelStatus, type XrayClient, type XrayInbound, type XrayProtocol } from "@/lib/api"
+import { useDialogPrompt } from "@/components/dialog-prompt"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -1515,6 +1516,7 @@ function XrayStatusBadge() {
 }
 
 export function XrayPage() {
+  const { confirm } = useDialogPrompt()
   const [inbounds, setInbounds] = React.useState<XrayInbound[]>([])
   const [clients, setClients] = React.useState<Client[]>([])
   const [error, setError] = React.useState<string | null>(null)
@@ -1532,7 +1534,13 @@ export function XrayPage() {
   }, [load])
 
   async function handleDelete(id: number) {
-    if (!confirm("Удалить инбаунд вместе со всеми привязанными клиентами?")) return
+    if (
+      !(await confirm("Удалить инбаунд вместе со всеми привязанными клиентами?", {
+        destructive: true,
+        confirmLabel: "Удалить",
+      }))
+    )
+      return
     await api.deleteXrayInbound(id)
     load()
   }

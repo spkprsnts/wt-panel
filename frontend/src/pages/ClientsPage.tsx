@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { api, type Client } from "@/lib/api"
+import { useDialogPrompt } from "@/components/dialog-prompt"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -32,6 +33,7 @@ function formatBytes(n: number): string {
 }
 
 export function ClientsPage() {
+  const { confirm, alert } = useDialogPrompt()
   const [clients, setClients] = React.useState<Client[]>([])
   const [expanded, setExpanded] = React.useState<number | null>(null)
   const [error, setError] = React.useState<string | null>(null)
@@ -54,13 +56,14 @@ export function ClientsPage() {
   }, [load])
 
   async function handleDeleteClient(id: number) {
-    if (!confirm("Удалить клиента и все его профили?")) return
+    if (!(await confirm("Удалить клиента и все его профили?", { destructive: true, confirmLabel: "Удалить" })))
+      return
     await api.deleteClient(id)
     load()
   }
 
   async function handleDeleteProfile(id: number) {
-    if (!confirm("Удалить профиль?")) return
+    if (!(await confirm("Удалить профиль?", { destructive: true, confirmLabel: "Удалить" }))) return
     await api.deleteProfile(id)
     load()
   }
@@ -71,7 +74,7 @@ export function ClientsPage() {
       await api.restartProfile(id)
       load()
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Не удалось перезапустить профиль")
+      await alert(err instanceof Error ? err.message : "Не удалось перезапустить профиль", { title: "Ошибка" })
     } finally {
       setRestartingId(null)
     }
