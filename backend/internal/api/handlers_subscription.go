@@ -3,6 +3,8 @@ package api
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,6 +15,50 @@ import (
 	"wtpanel/internal/models"
 	"wtpanel/internal/xray"
 )
+
+// subscriptionOrigins resolves the "scheme://host:port" to embed in
+// subscription links, for both the VPS's public IP and (if configured) its
+// domain — mirrors 3x-ui's own IP-vs-domain choice for subscription links,
+// instead of the old flat s.cfg.PublicOrigin (WTP_PUBLIC_ORIGIN), which
+// nothing ever actually sets — a real client-facing bug: the QR dialog was
+// handing out "http://localhost:8090/sub/..." links no client device could
+// ever reach. scheme reflects whatever the panel is actually serving
+// (TLS cert+key both configured → https, else http), so the link a client
+// gets always matches reality. domain is "" whenever PanelSettings.
+// ListenDomain isn't set — callers (subscriptionLinks, the QR dialog) show
+// only the ip variant in that case.
+func (s *Server) subscriptionOrigins() (ip, domain string) {
+	var ps models.PanelSettings
+	if err := s.db.First(&ps, 1).Error; err != nil {
+		return s.cfg.PublicOrigin, ""
+	}
+
+	scheme := "http"
+	if ps.TLSCertFile != "" && ps.TLSKeyFile != "" {
+		scheme = "https"
+	}
+
+	port := ps.ListenPort
+	if port == 0 {
+		if _, portStr, err := net.SplitHostPort(s.cfg.ListenAddr); err == nil {
+			port, _ = strconv.Atoi(portStr)
+		}
+	}
+	portSuffix := ""
+	if port != 0 {
+		portSuffix = fmt.Sprintf(":%d", port)
+	}
+
+	if ps.PublicIP != "" {
+		ip = fmt.Sprintf("%s://%s%s", scheme, ps.PublicIP, portSuffix)
+	} else {
+		ip = s.cfg.PublicOrigin
+	}
+	if ps.ListenDomain != "" {
+		domain = fmt.Sprintf("%s://%s%s", scheme, ps.ListenDomain, portSuffix)
+	}
+	return ip, domain
+}
 
 // getOrCreateSubscriptionToken reuses a client's existing token if it has
 // one — repeated calls (e.g. every time the admin re-opens the QR dialog)
@@ -49,9 +95,14 @@ func (s *Server) createSubscriptionToken(c *gin.Context) {
 		return
 	}
 
+	ipOrigin, domainOrigin := s.subscriptionOrigins()
+	origin := ipOrigin
+	if domainOrigin != "" {
+		origin = domainOrigin
+	}
 	c.JSON(http.StatusCreated, gin.H{
 		"token": token.Token,
-		"url":   s.cfg.PublicOrigin + "/sub/" + token.Token,
+		"url":   origin + "/sub/" + token.Token,
 	})
 }
 
@@ -68,11 +119,18 @@ func (s *Server) subscriptionLinks(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	url := s.cfg.PublicOrigin + "/sub/" + token.Token
-	c.JSON(http.StatusOK, gin.H{
+	ipOrigin, domainOrigin := s.subscriptionOrigins()
+	url := ipOrigin + "/sub/" + token.Token
+	resp := gin.H{
 		"url":          url,
 		"wireturnLink": buildSubscriptionWireturnLink(url),
-	})
+	}
+	if domainOrigin != "" {
+		domainURL := domainOrigin + "/sub/" + token.Token
+		resp["domainUrl"] = domainURL
+		resp["domainWireturnLink"] = buildSubscriptionWireturnLink(domainURL)
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 // exportClientProfiles is the admin panel's "скачать wt-*.json" action for
@@ -159,7 +217,12 @@ func (s *Server) handleSubscription(c *gin.Context) {
 
 	switch format {
 	case "html":
-		subURL := s.cfg.PublicOrigin + "/sub/" + token.Token
+		ipOrigin, domainOrigin := s.subscriptionOrigins()
+		origin := ipOrigin
+		if domainOrigin != "" {
+			origin = domainOrigin
+		}
+		subURL := origin + "/sub/" + token.Token
 		s.renderSubscriptionHTML(c, client, bundle, subURL, expired)
 	case "text":
 		c.String(http.StatusOK, s.buildTextSubscription(client, client.TrafficUsedByte, client.TrafficLimitByte))

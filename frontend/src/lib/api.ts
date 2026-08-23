@@ -371,7 +371,12 @@ export const api = {
     ),
 
   getSubscriptionLinks: (clientId: number) =>
-    request<{ url: string; wireturnLink: string }>(`/api/clients/${clientId}/subscription-links`),
+    request<{
+      url: string
+      wireturnLink: string
+      domainUrl?: string
+      domainWireturnLink?: string
+    }>(`/api/clients/${clientId}/subscription-links`),
   downloadClientExport: (clientId: number) => downloadFile(`/api/clients/${clientId}/export`),
 
   getProfileLinks: (profileId: number) =>
