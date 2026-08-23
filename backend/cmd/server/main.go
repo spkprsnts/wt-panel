@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"os/signal"
 	"strconv"
 	"strings"
@@ -194,11 +193,24 @@ func main() {
 }
 
 // relaunchSelf re-execs the running binary with the same args and
-// environment, detached so it outlives this process once it exits. This is
-// what makes the Settings page's restart button an actual restart instead
-// of just a "changes need a restart" note: main() re-reads PanelSettings
-// (and everything else config.Load() reads from the environment) from
-// scratch in the new process.
+// environment, in place — same PID, not a spawned child — so main() gets to
+// re-read PanelSettings (and everything else config.Load() reads from the
+// environment) from scratch, which is what makes the Settings page's
+// restart button an actual restart instead of just a "changes need a
+// restart" note.
+//
+// This used to spawn a detached child via exec.Command(...).Start() and let
+// this process return/exit(0) afterward — which looked fine standalone, but
+// under systemd (Type=simple, Restart=on-failure, no User=) it broke the
+// service outright: systemd tracks the ORIGINAL pid from ExecStart, and a
+// clean exit(0) is not a "failure", so Restart=on-failure never fires —
+// systemd just marks the unit "inactive (dead)" while the new child runs
+// completely unsupervised outside it, unable to be tracked, restarted, or
+// stopped normally again. Confirmed on a real VPS: every click of
+// "Перезапустить панель" left the unit dead. syscall.Exec instead replaces
+// this process's own image without changing its pid at all, so systemd
+// never sees anything happen — from its point of view the exact same
+// process just keeps running, now executing the fresh binary.
 //
 // Caveat: under `go run`, os.Executable() resolves to the transient binary
 // the go tool builds into a temp dir for that invocation — relaunching it
@@ -210,15 +222,7 @@ func relaunchSelf() error {
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(exe, os.Args[1:]...)
-	cmd.Env = os.Environ()
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-	if wd, err := os.Getwd(); err == nil {
-		cmd.Dir = wd
-	}
-	return cmd.Start()
+	return syscall.Exec(exe, append([]string{exe}, os.Args[1:]...), os.Environ())
 }
 
 // applyPanelSettings folds the PanelSettings singleton (edited via the

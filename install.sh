@@ -286,14 +286,49 @@ json_field() {
 	echo "$json" | sed -n "s/.*\"${field}\"[[:space:]]*:[[:space:]]*\"\{0,1\}\([^\",}]*\)\"\{0,1\}.*/\1/p" | head -1
 }
 
+# detect_panel_scheme figures out (once per run, cached in PANEL_SCHEME)
+# whether the panel is currently answering its listen port as plain HTTP or
+# HTTPS. Every internal call this script makes to 127.0.0.1 needs this: it
+# used to hardcode http://, which works fine right after a fresh install
+# but breaks the moment ANY earlier SSL setup (this run's own, or an
+# already-configured one — e.g. switching from an IP cert to a domain one)
+# makes the panel require TLS there — Go's net/http replies to a plain
+# request hitting a TLS listener with a flat 400 "client sent an HTTP
+# request to an HTTPS server", which is exactly what broke login on a real
+# VPS mid-switch. Only caches a result once a real HTTP response actually
+# comes back on one of the two schemes — a "000" (no response at all) from
+# both just means the panel isn't listening yet, not "it's HTTP", so this
+# is safe to call from wait_for_panel's retry loop before the panel is up.
+# -k is always safe to add to these probes: 127.0.0.1 never matches the
+# cert's own name/IP even when the cert itself is perfectly valid, and -k
+# is simply ignored on a plain http:// URL.
+PANEL_SCHEME=""
+detect_panel_scheme() {
+	[[ -n "$PANEL_SCHEME" ]] && return 0
+	local code
+	code=$(curl -k -s -o /dev/null -w '%{http_code}' --max-time 2 "https://127.0.0.1:${LISTEN_PORT}/" 2>/dev/null || true)
+	if [[ -n "$code" && "$code" != "000" ]]; then
+		PANEL_SCHEME="https"
+		return 0
+	fi
+	code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "http://127.0.0.1:${LISTEN_PORT}/" 2>/dev/null || true)
+	if [[ -n "$code" && "$code" != "000" ]]; then
+		PANEL_SCHEME="http"
+		return 0
+	fi
+	return 1
+}
+
 # wait_for_panel polls the just-started panel until it answers HTTP requests
 # at all (any status code counts — /api/login on GET is expected to 404/405,
 # this is purely "is something listening yet", not an auth check).
 wait_for_panel() {
 	local base="$1" i=0 code
 	while [[ $i -lt 30 ]]; do
-		code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "http://127.0.0.1:${LISTEN_PORT}${base}api/login" 2>/dev/null || true)
-		[[ -n "$code" && "$code" != "000" ]] && return 0
+		if detect_panel_scheme; then
+			code=$(curl -k -s -o /dev/null -w '%{http_code}' --max-time 2 "${PANEL_SCHEME}://127.0.0.1:${LISTEN_PORT}${base}api/login" 2>/dev/null || true)
+			[[ -n "$code" && "$code" != "000" ]] && return 0
+		fi
 		sleep 1
 		i=$((i + 1))
 	done
@@ -530,7 +565,7 @@ apply_ssl_settings() {
 	wait_for_panel "$base" || true
 
 	local login_resp token
-	login_resp=$(curl -fsS --max-time 10 -X POST "http://127.0.0.1:${LISTEN_PORT}${base}api/login" \
+	login_resp=$(curl -k -fsS --max-time 10 -X POST "${PANEL_SCHEME:-http}://127.0.0.1:${LISTEN_PORT}${base}api/login" \
 		-H 'Content-Type: application/json' \
 		-d "{\"username\":\"admin\",\"password\":\"${admin_password}\"}") || {
 		red "Не удалось войти в панель, чтобы применить SSL-настройки. Сертификат уже выпущен — задайте пути вручную на странице «Настройки»: TLS-сертификат: ${cert_file}, TLS-ключ: ${key_file}"
@@ -543,8 +578,8 @@ apply_ssl_settings() {
 	fi
 
 	local current
-	current=$(curl -fsS --max-time 10 -H "Authorization: Bearer ${token}" \
-		"http://127.0.0.1:${LISTEN_PORT}${base}api/settings/panel") || {
+	current=$(curl -k -fsS --max-time 10 -H "Authorization: Bearer ${token}" \
+		"${PANEL_SCHEME:-http}://127.0.0.1:${LISTEN_PORT}${base}api/settings/panel") || {
 		red "Не удалось прочитать текущие настройки панели — не удалось применить SSL-настройки. Сертификат уже выпущен — задайте пути вручную на странице «Настройки»: TLS-сертификат: ${cert_file}, TLS-ключ: ${key_file}"
 		return
 	}
@@ -557,7 +592,7 @@ apply_ssl_settings() {
 	local listen_domain=""
 	[[ ! "$target" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && listen_domain="$target"
 
-	curl -fsS --max-time 10 -X PUT "http://127.0.0.1:${LISTEN_PORT}${base}api/settings/panel" \
+	curl -k -fsS --max-time 10 -X PUT "${PANEL_SCHEME:-http}://127.0.0.1:${LISTEN_PORT}${base}api/settings/panel" \
 		-H "Authorization: Bearer ${token}" -H 'Content-Type: application/json' \
 		-d "{\"listenIp\":\"${listen_ip}\",\"listenDomain\":\"${listen_domain}\",\"listenPort\":${listen_port},\"basePath\":\"${base_path}\",\"tlsCertFile\":\"${cert_file}\",\"tlsKeyFile\":\"${key_file}\",\"publicIp\":\"${public_ip}\"}" \
 		>/dev/null || {
@@ -628,8 +663,9 @@ current_admin_password_hint() {
 # apply_ssl_settings does its own login with whatever was finally used).
 probe_panel_login() {
 	local base="$1" password="$2"
+	detect_panel_scheme || return 1
 	local resp token
-	resp=$(curl -fsS --max-time 10 -X POST "http://127.0.0.1:${LISTEN_PORT}${base}api/login" \
+	resp=$(curl -k -fsS --max-time 10 -X POST "${PANEL_SCHEME}://127.0.0.1:${LISTEN_PORT}${base}api/login" \
 		-H 'Content-Type: application/json' \
 		-d "{\"username\":\"admin\",\"password\":\"${password}\"}" 2>/dev/null) || return 1
 	token=$(json_field "$resp" token)
