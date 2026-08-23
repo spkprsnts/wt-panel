@@ -130,6 +130,7 @@ function PanelNetworkCard() {
   const [error, setError] = React.useState<string | null>(null)
   const [saved, setSaved] = React.useState(false)
   const [restarting, setRestarting] = React.useState(false)
+  const [beforeBootId, setBeforeBootId] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     api
@@ -179,7 +180,9 @@ function PanelNetworkCard() {
     }
     setError(null)
     try {
+      const before = await api.getSettings()
       await api.restartPanel()
+      setBeforeBootId(before.bootId)
       setRestarting(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось запустить перезапуск")
@@ -196,13 +199,14 @@ function PanelNetworkCard() {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        <PanelRestartDialog
+          open={restarting}
+          beforeBootId={beforeBootId}
+          title="Перезапуск панели"
+          message="Панель перезапускается — эта страница обновится сама. Если менялись IP/домен/порт/URI-путь, откройте её по новому адресу вручную, когда она снова будет доступна."
+        />
         {!loaded ? (
           <p className="text-sm text-muted-foreground">Загрузка...</p>
-        ) : restarting ? (
-          <p className="text-sm text-muted-foreground">
-            Панель перезапускается — если менялись IP/домен/порт/URI-путь, откройте её по новому
-            адресу через несколько секунд.
-          </p>
         ) : (
           <form onSubmit={handleSubmit} className="flex max-w-sm flex-col gap-4">
             <div className="flex flex-col gap-2">
@@ -268,24 +272,36 @@ function PanelNetworkCard() {
   )
 }
 
-// updatePollIntervalMs/updatePollMaxAttempts govern how UpdatingDialog waits
-// for the panel to come back after a self-update. This compares the
-// version /api/settings reports against beforeVersion (captured right
-// before the update was triggered) rather than just waiting for a request
+// restartPollIntervalMs/restartPollMaxAttempts govern how PanelRestartDialog
+// waits for the panel to come back after triggering a restart — a plain
+// "Перезапустить панель" or a self-update, both of which end the same way
+// (see restartPanel/updatePanel + relaunchSelf's syscall.Exec). This
+// compares /api/settings' bootId against beforeBootId (captured right
+// before the action was triggered) rather than just waiting for a request
 // to fail once — a "the panel went briefly unreachable, then answered
 // again" check sounds right but isn't reliable in practice: the backend's
-// own down-window (300ms delay, then a graceful shutdown/re-exec — see
-// updatePanel/relaunchSelf) can easily finish faster than this poll's own
-// interval, so a real update can complete without a single poll ever
-// landing during the gap — confirmed for real: the "wait for one failure"
-// version of this never reloaded at all. Comparing the reported version
-// has no such timing window: the OLD process keeps answering with
-// beforeVersion for as long as it's up, and the moment ANY response comes
-// back with a different version, the new process is unambiguously live.
-const updatePollIntervalMs = 2000
-const updatePollMaxAttempts = 60 // ~2 minutes
+// own down-window (a short delay, then a graceful shutdown/re-exec) can
+// finish faster than this poll's own interval, so a real restart can
+// complete without a single poll ever landing during the gap — confirmed
+// for real: the "wait for one failure" version of this never reloaded at
+// all. version can't fill this role either — it doesn't change across a
+// plain restart, only across an update — which is exactly why bootId
+// exists: a fresh random value generated once per process (see
+// Server.bootID), so any actual process restart changes it, update or not.
+const restartPollIntervalMs = 2000
+const restartPollMaxAttempts = 60 // ~2 minutes
 
-function UpdatingDialog({ open, beforeVersion }: { open: boolean; beforeVersion: string | null }) {
+function PanelRestartDialog({
+  open,
+  beforeBootId,
+  title,
+  message,
+}: {
+  open: boolean
+  beforeBootId: string | null
+  title: string
+  message: string
+}) {
   const [timedOut, setTimedOut] = React.useState(false)
 
   React.useEffect(() => {
@@ -300,7 +316,7 @@ function UpdatingDialog({ open, beforeVersion }: { open: boolean; beforeVersion:
         .getSettings()
         .then((s) => {
           if (cancelled) return
-          if (beforeVersion !== null && s.version !== beforeVersion) {
+          if (beforeBootId !== null && s.bootId !== beforeBootId) {
             window.location.reload()
             return
           }
@@ -313,11 +329,11 @@ function UpdatingDialog({ open, beforeVersion }: { open: boolean; beforeVersion:
     }
     const scheduleNext = () => {
       attempts += 1
-      if (attempts >= updatePollMaxAttempts) {
+      if (attempts >= restartPollMaxAttempts) {
         setTimedOut(true)
         return
       }
-      timer = window.setTimeout(poll, updatePollIntervalMs)
+      timer = window.setTimeout(poll, restartPollIntervalMs)
     }
     poll()
 
@@ -325,7 +341,7 @@ function UpdatingDialog({ open, beforeVersion }: { open: boolean; beforeVersion:
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [open, beforeVersion])
+  }, [open, beforeBootId])
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
@@ -336,21 +352,18 @@ function UpdatingDialog({ open, beforeVersion }: { open: boolean; beforeVersion:
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>Обновление панели</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         {timedOut ? (
           <p className="text-sm text-destructive">
-            Версия панели дольше обычного не меняется — либо она не отвечает, либо обновление не
-            применилось. Проверьте на сервере: journalctl -u wt-panel — и обновите эту страницу
-            вручную, когда панель снова будет доступна.
+            Панель дольше обычного не перезапускается — либо она не отвечает, либо изменения не
+            применились (например, сменился IP/домен/порт панели — тогда откройте её по новому
+            адресу). Проверьте на сервере: journalctl -u wt-panel.
           </p>
         ) : (
           <div className="flex flex-col items-center gap-3 py-2">
             <Loader2 className="size-8 animate-spin text-muted-foreground" />
-            <p className="text-center text-sm text-muted-foreground">
-              Скачиваем новую версию и перезапускаем панель — эта страница обновится сама, как
-              только новая версия окажется доступна.
-            </p>
+            <p className="text-center text-sm text-muted-foreground">{message}</p>
           </div>
         )}
       </DialogContent>
@@ -362,6 +375,7 @@ function PanelUpdateCard() {
   const [version, setVersion] = React.useState<string | null>(null)
   const [checking, setChecking] = React.useState(false)
   const [updating, setUpdating] = React.useState(false)
+  const [beforeBootId, setBeforeBootId] = React.useState<string | null>(null)
   const [latestVersion, setLatestVersion] = React.useState<string | null>(null)
   const [updateAvailable, setUpdateAvailable] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -398,7 +412,9 @@ function PanelUpdateCard() {
     }
     setError(null)
     try {
+      const before = await api.getSettings()
       await api.updatePanel()
+      setBeforeBootId(before.bootId)
       setUpdating(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось запустить обновление")
@@ -414,7 +430,12 @@ function PanelUpdateCard() {
         <CardDescription>Проверка и установка новой версии wt-panel с GitHub Releases</CardDescription>
       </CardHeader>
       <CardContent>
-        <UpdatingDialog open={updating} beforeVersion={version} />
+        <PanelRestartDialog
+          open={updating}
+          beforeBootId={beforeBootId}
+          title="Обновление панели"
+          message="Скачиваем новую версию и перезапускаем панель — эта страница обновится сама, как только новая версия окажется доступна."
+        />
         {isDev ? (
           <p className="text-sm text-muted-foreground">
             Недоступно — эта сборка запущена из исходников (dev), а не из релиза.
@@ -475,7 +496,7 @@ function ConfigCard() {
         ) : (
           <div className="flex flex-col gap-2 text-sm">
             {Object.entries(settings)
-              .filter(([key]) => key !== "version")
+              .filter(([key]) => key !== "version" && key !== "bootId")
               .map(([key, value]) => (
                 <div key={key} className="flex items-center justify-between gap-4 border-b py-1.5 last:border-0">
                   <span className="text-muted-foreground">{SETTINGS_LABELS[key] ?? key}</span>

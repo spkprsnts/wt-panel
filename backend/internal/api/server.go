@@ -2,6 +2,8 @@ package api
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"io/fs"
 	"log"
 	"net/http"
@@ -39,10 +41,32 @@ type Server struct {
 	// ldflags ("dev" for a plain `go build`/`go run`) — surfaced read-only
 	// via getSettings, same as every other build-time value there.
 	version string
+	// bootID is a fresh random string generated once per process, exposed
+	// via getSettings alongside version — the Settings page's restart/update
+	// dialogs poll it to tell "the old process is still up" from "a new
+	// process is now serving requests" with no timing window to miss: a
+	// plain reachability check (wait for a request to fail, then succeed)
+	// looked right but wasn't reliable, since the down-window between the
+	// old process exiting and the new one binding the port can finish
+	// faster than the poll interval — confirmed for real, an update never
+	// reloaded because of it. version alone can't fill this role either:
+	// it doesn't change across a plain restart (only across an update), but
+	// both need the same "is this actually a new process" signal.
+	bootID string
+}
+
+// generateBootID returns a fresh random hex string identifying this one
+// process instance — see Server.bootID's own doc comment for why.
+func generateBootID() string {
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		return "unknown"
+	}
+	return hex.EncodeToString(b)
 }
 
 func New(db *gorm.DB, cfg *config.Config, authSvc *auth.Service, registry *provisioner.Registry, restartCh chan<- struct{}, basePath string, xrayMgr *xray.Manager, version string) *gin.Engine {
-	s := &Server{db: db, cfg: cfg, authSvc: authSvc, registry: registry, jobs: kernels.NewJobManager(), restartCh: restartCh, xrayMgr: xrayMgr, version: version}
+	s := &Server{db: db, cfg: cfg, authSvc: authSvc, registry: registry, jobs: kernels.NewJobManager(), restartCh: restartCh, xrayMgr: xrayMgr, version: version, bootID: generateBootID()}
 
 	r := gin.Default()
 

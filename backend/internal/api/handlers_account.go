@@ -63,6 +63,7 @@ func (s *Server) changePassword(c *gin.Context) {
 func (s *Server) getSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"version":      s.version,
+		"bootId":       s.bootID,
 		"listenAddr":   s.cfg.ListenAddr,
 		"publicOrigin": s.cfg.PublicOrigin,
 		"publicIP":     s.cfg.PublicIP,
