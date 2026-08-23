@@ -35,10 +35,14 @@ type Server struct {
 	// (best-effort — see reloadXray) so the running process always matches
 	// the DB, without the operator needing a separate "apply" step.
 	xrayMgr *xray.Manager
+	// version is main.version, baked in at build time by .goreleaser.yaml's
+	// ldflags ("dev" for a plain `go build`/`go run`) — surfaced read-only
+	// via getSettings, same as every other build-time value there.
+	version string
 }
 
-func New(db *gorm.DB, cfg *config.Config, authSvc *auth.Service, registry *provisioner.Registry, restartCh chan<- struct{}, basePath string, xrayMgr *xray.Manager) *gin.Engine {
-	s := &Server{db: db, cfg: cfg, authSvc: authSvc, registry: registry, jobs: kernels.NewJobManager(), restartCh: restartCh, xrayMgr: xrayMgr}
+func New(db *gorm.DB, cfg *config.Config, authSvc *auth.Service, registry *provisioner.Registry, restartCh chan<- struct{}, basePath string, xrayMgr *xray.Manager, version string) *gin.Engine {
+	s := &Server{db: db, cfg: cfg, authSvc: authSvc, registry: registry, jobs: kernels.NewJobManager(), restartCh: restartCh, xrayMgr: xrayMgr, version: version}
 
 	r := gin.Default()
 

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card"
 
 const SETTINGS_LABELS: Record<string, string> = {
+  version: "Версия",
   listenAddr: "Адрес панели",
   publicOrigin: "Публичный origin (для ссылок подписки)",
   publicIP: "Публичный IP/хост VPS",

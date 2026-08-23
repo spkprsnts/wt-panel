@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -28,7 +30,19 @@ import (
 	"wtpanel/internal/xray"
 )
 
+// version is set at build time via -ldflags "-X main.version=vX.Y.Z" (see
+// .goreleaser.yaml) — "dev" for a plain `go build`/`go run`, same convention
+// webdav-tunnel's own main.version uses.
+var version = "dev"
+
 func main() {
+	showVersion := flag.Bool("version", false, "print version and exit")
+	flag.Parse()
+	if *showVersion {
+		fmt.Println(version)
+		return
+	}
+
 	cfg := config.Load()
 
 	database, err := db.Open(cfg.DBPath)
@@ -85,7 +99,7 @@ func main() {
 	// passed in so the served index.html can tell the SPA what prefix it's
 	// actually running under — see server.serveWebUI's doc comment.
 	restartCh := make(chan struct{}, 1)
-	router := api.New(database, cfg, authSvc, registry, restartCh, panelSettings.BasePath, xrayMgr)
+	router := api.New(database, cfg, authSvc, registry, restartCh, panelSettings.BasePath, xrayMgr, version)
 
 	addr, handler := applyPanelSettings(cfg.ListenAddr, &panelSettings, router)
 	httpServer := &http.Server{Addr: addr, Handler: handler}
@@ -105,10 +119,10 @@ func main() {
 	go func() {
 		var err error
 		if panelSettings.TLSCertFile != "" && panelSettings.TLSKeyFile != "" {
-			log.Printf("wt-panel listening on %s (TLS)", addr)
+			log.Printf("wt-panel %s listening on %s (TLS)", version, addr)
 			err = httpServer.ListenAndServeTLS(panelSettings.TLSCertFile, panelSettings.TLSKeyFile)
 		} else {
-			log.Printf("wt-panel listening on %s", addr)
+			log.Printf("wt-panel %s listening on %s", version, addr)
 			err = httpServer.ListenAndServe()
 		}
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {

@@ -62,6 +62,7 @@ func (s *Server) changePassword(c *gin.Context) {
 // secrets (JWT secret, kernel key material) are included here.
 func (s *Server) getSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
+		"version":      s.version,
 		"listenAddr":   s.cfg.ListenAddr,
 		"publicOrigin": s.cfg.PublicOrigin,
 		"publicIP":     s.cfg.PublicIP,
