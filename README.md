@@ -22,6 +22,12 @@ sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/spkprsnts/wt-panel/
 
 Логин/пароль и адрес панели печатаются один раз по завершении.
 
+**Настройка SSL позже** (если пропустили при установке или меняете домен/IP):
+
+```sh
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/spkprsnts/wt-panel/main/install.sh)" -- ssl
+```
+
 **Удаление** (сервис + бинарник, данные остаются):
 
 ```sh
