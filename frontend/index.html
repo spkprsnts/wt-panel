@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      This is an admin panel, never meant to show up in search results.
+      Paired with the X-Robots-Tag response header (see server.go), which
+      also covers the JSON API this tag doesn't touch. No robots.txt on
+      purpose — it only politely asks well-behaved crawlers not to fetch
+      the page, and a random/secret base path already means no legitimate
+      crawler would ever find it via a link in the first place; the real
+      scanners this matters against (Shodan/Censys-style) ignore
+      robots.txt entirely, so it wouldn't add real protection.
+    -->
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+    <title>wt-panel</title>
+    <!--
+      Applies the dark class before the app bundle even loads, let alone
+      renders — waiting for a React effect (lib/theme.ts's applyTheme) to
+      do this instead would paint the page in the wrong theme for a frame
+      first. Falls back to the OS preference only when nothing's been
+      saved yet — must stay in sync with lib/theme.ts's own fallback.
+    -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("wtpanel_theme");
+          var dark = stored ? stored === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+          if (dark) document.documentElement.classList.add("dark");
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

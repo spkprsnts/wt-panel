@@ -1,0 +1,11 @@
+backend/wtpanel.db
+backend/data/
+frontend/node_modules/
+frontend/dist/
+
+# Frontend build output copied here for go:embed (see install.sh /
+# backend/internal/webui/webui.go) — generated, not source. .placeholder
+# stays tracked so `go build` compiles even before anyone's run the
+# frontend build (go:embed errors on an empty dist).
+backend/internal/webui/dist/*
+!backend/internal/webui/dist/.placeholder

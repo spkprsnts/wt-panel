@@ -1,0 +1,299 @@
+package api
+
+import (
+	"net/http"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+
+	"wtpanel/internal/models"
+)
+
+func (s *Server) createProfile(c *gin.Context) {
+	client, err := s.loadClient(c)
+	if err != nil {
+		return
+	}
+
+	var req ProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	coreType := models.CoreType(req.CoreType)
+	prov, err := s.registry.For(coreType)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	profile := models.Profile{
+		ClientID:            client.ID,
+		ExternalID:          uuid.New().String(),
+		Name:                req.Name,
+		CoreType:            coreType,
+		CoreConfig:          string(req.CoreConfig),
+		XrayEnabled:         req.XrayEnabled,
+		XrayInboundID:       req.XrayInboundID,
+		XrayManualURI:       req.XrayManualURI,
+		XrayManualWireGuard: req.XrayManualWireGuard,
+		XrayDualRoute:       req.XrayDualRoute,
+		XrayDirectAddress:   req.XrayDirectAddress,
+		XrayHcInterval:      req.XrayHcInterval,
+		XrayMux:             req.XrayMux,
+	}
+
+	// Insert first so profile.ID is the real, permanent database id before
+	// AddProfile ever runs — every provisioner keys its process-supervisor
+	// map by profile.ID, and that map entry has to be findable by every
+	// later Status/Logs/UpdateProfile/RemoveProfile call. Provisioning
+	// against a zero ID (the zero-value before Create assigns one) would
+	// store the supervisor under a key nothing ever looks up again —
+	// RemoveProfile in particular would then silently fail to find and
+	// stop the process, orphaning it.
+	if err := s.db.Create(&profile).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if req.XrayEnabled && req.XrayInboundID != nil {
+		if err := s.attachProfileToInbound(&profile, *req.XrayInboundID, client); err != nil {
+			s.db.Delete(&profile)
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		s.reloadXray(c)
+	}
+
+	uri, err := prov.AddProfile(c.Request.Context(), &profile)
+	if err != nil {
+		s.db.Delete(&profile) // provisioning failed — don't leave an unprovisioned stub around
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "provisioning failed: " + err.Error()})
+		return
+	}
+	profile.KernelURI = uri
+
+	if err := s.db.Save(&profile).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	s.registry.FillStatus(&profile)
+	c.JSON(http.StatusCreated, profile)
+}
+
+// updateProfile applies logical changes (name, xray overlay, per-core
+// logical fields like call_id/room_id/peers/transport). Infra fields
+// (ports, generated secrets) are preserved by the provisioner itself —
+// see the "UpdateProfile" contract in provisioner/common — and because
+// every kernel here runs one process per profile, this never disturbs any
+// other profile's connection.
+func (s *Server) updateProfile(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid profile id"})
+		return
+	}
+	var profile models.Profile
+	if err := s.db.First(&profile, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "profile not found"})
+		return
+	}
+
+	var req ProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if req.CoreType != "" && models.CoreType(req.CoreType) != profile.CoreType {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot change a profile's core type — delete and recreate it instead"})
+		return
+	}
+
+	prov, err := s.registry.For(profile.CoreType)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var client models.Client
+	if err := s.db.First(&client, profile.ClientID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	profile.Name = req.Name
+	profile.XrayEnabled = req.XrayEnabled
+	profile.XrayInboundID = req.XrayInboundID
+	profile.XrayManualURI = req.XrayManualURI
+	profile.XrayManualWireGuard = req.XrayManualWireGuard
+	profile.XrayDualRoute = req.XrayDualRoute
+	profile.XrayDirectAddress = req.XrayDirectAddress
+	profile.XrayHcInterval = req.XrayHcInterval
+	profile.XrayMux = req.XrayMux
+	if req.XrayEnabled && req.XrayInboundID != nil {
+		if err := s.attachProfileToInbound(&profile, *req.XrayInboundID, &client); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		s.reloadXray(c)
+	}
+	if req.CoreConfig != nil {
+		profile.CoreConfig = string(req.CoreConfig)
+	}
+
+	uri, err := prov.UpdateProfile(c.Request.Context(), &profile)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "provisioning failed: " + err.Error()})
+		return
+	}
+	profile.KernelURI = uri
+
+	if err := s.db.Save(&profile).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	s.registry.FillStatus(&profile)
+	c.JSON(http.StatusOK, profile)
+}
+
+// getProfileLogs returns the tail of a profile's process log. Accepts an
+// optional ?tail=N query param (bytes, default 64KiB) so a very old/verbose
+// log doesn't get sent whole every time the UI opens it.
+func (s *Server) getProfileLogs(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid profile id"})
+		return
+	}
+	var profile models.Profile
+	if err := s.db.First(&profile, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "profile not found"})
+		return
+	}
+
+	maxBytes := 64 * 1024
+	if tail := c.Query("tail"); tail != "" {
+		if n, err := strconv.Atoi(tail); err == nil && n > 0 {
+			maxBytes = n
+		}
+	}
+
+	log, err := s.registry.Logs(&profile, maxBytes)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	running, pid := false, 0
+	if prov, err := s.registry.For(profile.CoreType); err == nil {
+		running, pid = prov.Status(&profile)
+	}
+	c.JSON(http.StatusOK, gin.H{"log": log, "running": running, "pid": pid})
+}
+
+// restartProfile is the manual counterpart to the automatic crash restart
+// ProcessSupervisor now does on its own — for an operator who wants to
+// kick a stuck/misbehaving process right away instead of waiting for it to
+// crash, or after fixing something out-of-band (e.g. a route the profile
+// depends on).
+func (s *Server) restartProfile(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid profile id"})
+		return
+	}
+	var profile models.Profile
+	if err := s.db.First(&profile, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "profile not found"})
+		return
+	}
+	if err := s.registry.Restart(&profile); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	s.registry.FillStatus(&profile)
+	c.JSON(http.StatusOK, profile)
+}
+
+// profileLinks is the admin panel's QR-dialog data source for a single
+// profile: the kernel's own documented URI (turnable://, freeturn://, …)
+// alongside a wireturn:// deep link wrapping just this one profile — a
+// subscription-less, self-contained import (§4).
+func (s *Server) profileLinks(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid profile id"})
+		return
+	}
+	var profile models.Profile
+	if err := s.db.First(&profile, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "profile not found"})
+		return
+	}
+	bp := s.buildBundleProfile(profile)
+	wireturnLink, err := buildProfileWireturnLink(bp)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"kernelUri":    profile.KernelURI,
+		"wireturnLink": wireturnLink,
+	})
+}
+
+// exportProfile is the admin panel's "скачать wt-*.json" action for a
+// single profile — the same Profile JSON shape as exportClientProfiles,
+// just a lone object instead of an array (both are valid per §5.4/§5.5).
+func (s *Server) exportProfile(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid profile id"})
+		return
+	}
+	var profile models.Profile
+	if err := s.db.First(&profile, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "profile not found"})
+		return
+	}
+	bp := s.buildBundleProfile(profile)
+	filename := "wt_" + slugFilename(profile.Name) + ".json"
+	c.Header("Content-Disposition", `attachment; filename="`+filename+`"`)
+	c.JSON(http.StatusOK, bp)
+}
+
+func (s *Server) deleteProfile(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid profile id"})
+		return
+	}
+	var profile models.Profile
+	if err := s.db.First(&profile, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "profile not found"})
+		return
+	}
+
+	s.teardownProfile(c, &profile)
+
+	if err := s.db.Delete(&profile).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// teardownProfile best-effort tears down server-side state; a provisioning
+// error here shouldn't block deleting the panel-side record, so it's logged
+// via gin's error collector rather than aborting the request.
+func (s *Server) teardownProfile(c *gin.Context, profile *models.Profile) {
+	prov, err := s.registry.For(profile.CoreType)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	if err := prov.RemoveProfile(c.Request.Context(), profile); err != nil {
+		c.Error(err)
+	}
+}
