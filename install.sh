@@ -446,6 +446,14 @@ register_zerossl_account() {
 	kid=$(echo "$resp" | jq -r '.eab_kid // empty' 2>/dev/null)
 	hmac=$(echo "$resp" | jq -r '.eab_hmac_key // empty' 2>/dev/null)
 	[[ -n "$kid" && -n "$hmac" ]] || return 1
+	# A ZeroSSL account cached from an earlier attempt on this box (with no
+	# EAB, or a since-invalidated one) makes acme.sh reuse that broken
+	# account instead of registering fresh, no matter what's passed here —
+	# always wiping the cached CA state first guarantees this registration
+	# actually takes effect. Cheap and safe to redo every time: it's the
+	# same free, no-signup endpoint acme.sh's own auto-EAB flow already
+	# calls on every fresh registration.
+	rm -rf ~/.acme.sh/ca/*zerossl* 2>/dev/null
 	~/.acme.sh/acme.sh --register-account --server zerossl --eab-kid "$kid" --eab-hmac-key "$hmac" >/dev/null 2>&1
 }
 
@@ -470,7 +478,14 @@ setup_ssl() {
 	if [[ "$target" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 		echo "Выпускаю TLS-сертификат для IP ${target} через ZeroSSL..."
 		register_zerossl_account || true
-		issue_args+=(--server zerossl --accountemail "$ACME_EMAIL")
+		# No --accountemail here: passing one on --issue makes acme.sh look
+		# up (or try to register) an account keyed to that specific email
+		# via its own auto-EAB flow — the exact thing that's been failing
+		# with "Cannot resolve _eab_kid" regardless of the fixes above,
+		# because it runs independently of the already-good account
+		# register_zerossl_account just set up. Bare --server zerossl
+		# reuses whatever's the default registered account for that CA.
+		issue_args+=(--server zerossl)
 	else
 		echo "Выпускаю TLS-сертификат для домена ${target} через Let's Encrypt..."
 	fi
