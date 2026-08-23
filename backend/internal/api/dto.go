@@ -5,14 +5,14 @@ import "encoding/json"
 // ProfileBundle mirrors the subscription response schema documented in
 // WireTurn's docs/subscriptions.md §5.4.
 type ProfileBundle struct {
-	Version               int              `json:"version"`
-	Name                  string           `json:"name"`
-	Description           string           `json:"description,omitempty"`
-	Profiles              []BundleProfile  `json:"profiles"`
-	RecommendedProfileID  string           `json:"recommendedProfileId,omitempty"`
-	UpdateIntervalMinutes int              `json:"updateIntervalMinutes,omitempty"`
-	BytesUsed             int64            `json:"bytesUsed,omitempty"`
-	BytesTotal            int64            `json:"bytesTotal,omitempty"`
+	Version               int             `json:"version"`
+	Name                  string          `json:"name"`
+	Description           string          `json:"description,omitempty"`
+	Profiles              []BundleProfile `json:"profiles"`
+	RecommendedProfileID  string          `json:"recommendedProfileId,omitempty"`
+	UpdateIntervalMinutes int             `json:"updateIntervalMinutes,omitempty"`
+	BytesUsed             int64           `json:"bytesUsed,omitempty"`
+	BytesTotal            int64           `json:"bytesTotal,omitempty"`
 }
 
 // BundleProfile mirrors the per-profile Profile JSON schema documented in

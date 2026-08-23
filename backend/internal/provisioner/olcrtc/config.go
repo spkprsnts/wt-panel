@@ -17,9 +17,9 @@ package olcrtc
 type profileCoreConfig struct {
 	Provider  string `json:"provider"` // "jitsi", "telemost", "wbstream"
 	RoomID    string `json:"room_id"`
-	Transport string `json:"transport"`             // "datachannel", "vp8channel", "seichannel", "videochannel"
-	CryptoKey string `json:"crypto_key,omitempty"`   // 64 hex chars
-	DNS       string `json:"dns,omitempty"`          // e.g. "1.1.1.1:53"
+	Transport string `json:"transport"`            // "datachannel", "vp8channel", "seichannel", "videochannel"
+	CryptoKey string `json:"crypto_key,omitempty"` // 64 hex chars
+	DNS       string `json:"dns,omitempty"`        // e.g. "1.1.1.1:53"
 
 	Vp8   *vp8Config   `json:"vp8,omitempty"`
 	Sei   *seiConfig   `json:"sei,omitempty"`
@@ -39,14 +39,14 @@ type seiConfig struct {
 }
 
 type videoConfig struct {
-	Codec      string `json:"codec,omitempty"`       // "qrcode" or "tile"
+	Codec      string `json:"codec,omitempty"` // "qrcode" or "tile"
 	Width      int    `json:"width,omitempty"`
 	Height     int    `json:"height,omitempty"`
 	FPS        int    `json:"fps,omitempty"`
-	QRRecovery string `json:"qr_recovery,omitempty"`  // "low", "medium", "high", "highest"
-	QRSize     int    `json:"qr_size,omitempty"`      // 0 = auto
-	TileModule int    `json:"tile_module,omitempty"`  // 1..270, "tile" codec only
-	TileRS     int    `json:"tile_rs,omitempty"`      // 0..200 (%), "tile" codec only
+	QRRecovery string `json:"qr_recovery,omitempty"` // "low", "medium", "high", "highest"
+	QRSize     int    `json:"qr_size,omitempty"`     // 0 = auto
+	TileModule int    `json:"tile_module,omitempty"` // 1..270, "tile" codec only
+	TileRS     int    `json:"tile_rs,omitempty"`     // 0..200 (%), "tile" codec only
 }
 
 // yamlConfig mirrors the olcrtc YAML schema (docs/configuration.md). Only

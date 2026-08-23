@@ -89,9 +89,9 @@ type profileCoreConfig struct {
 	Proto          string `json:"proto,omitempty"`      // "srtp" (default/recommended), "dtls", or "none" (dangerous)
 	Encryption     string `json:"encryption,omitempty"` // "handshake" (default) or "full" — see upstream REFERENCE.md "Encryption Modes"
 
-	RouteAddr   string `json:"route_addr,omitempty"`   // host only, e.g. "127.0.0.1"
-	RoutePort   int    `json:"route_port,omitempty"`   // required, no default
-	RouteSocket string `json:"route_socket,omitempty"` // "udp" or "tcp"
+	RouteAddr      string `json:"route_addr,omitempty"`      // host only, e.g. "127.0.0.1"
+	RoutePort      int    `json:"route_port,omitempty"`      // required, no default
+	RouteSocket    string `json:"route_socket,omitempty"`    // "udp" or "tcp"
 	RouteTransport string `json:"route_transport,omitempty"` // "none" or "kcp"
 
 	Port    int    `json:"port"`

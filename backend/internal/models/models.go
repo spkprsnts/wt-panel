@@ -59,9 +59,9 @@ type Client struct {
 // clients in the ProfileBundle (matched across subscription refreshes).
 type Profile struct {
 	gorm.Model
-	ClientID   uint   `gorm:"index;not null"`
-	ExternalID string `gorm:"uniqueIndex;not null"` // stable "id" field per WireTurn spec
-	Name       string `gorm:"not null"`
+	ClientID   uint     `gorm:"index;not null"`
+	ExternalID string   `gorm:"uniqueIndex;not null"` // stable "id" field per WireTurn spec
+	Name       string   `gorm:"not null"`
 	CoreType   CoreType `gorm:"not null"`
 
 	// CoreConfig holds the core-specific provisioning data as JSON,
@@ -127,7 +127,7 @@ type SubscriptionToken struct {
 type CallRoom struct {
 	gorm.Model
 	Provider      string `gorm:"not null;index"` // "vk", "wbstream", "telemost", "jitsi"
-	RoomID        string `gorm:"not null"`        // call_id (vk), room id (wbstream/telemost), or full URL (jitsi)
+	RoomID        string `gorm:"not null"`       // call_id (vk), room id (wbstream/telemost), or full URL (jitsi)
 	Label         string
 	Notes         string
 	LastCheckedAt *time.Time

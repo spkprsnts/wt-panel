@@ -36,8 +36,8 @@ type profileCoreConfig struct {
 	ConnectPort int    `json:"connect_port,omitempty"` // required, no default — depends on the local service
 
 	ObfProfile string `json:"obf_profile,omitempty"` // "rtpopus" (default/recommended), "rtpopus2", "rtpopus3", or "none"
-	ObfKey     string `json:"obf_key,omitempty"`      // 64 hex chars, required unless ObfProfile is "none"
-	ObfTiming  string `json:"obf_timing,omitempty"`   // e.g. "10ms" inter-packet delay for RTP mimicry; only with ObfProfile != "none"
+	ObfKey     string `json:"obf_key,omitempty"`     // 64 hex chars, required unless ObfProfile is "none"
+	ObfTiming  string `json:"obf_timing,omitempty"`  // e.g. "10ms" inter-packet delay for RTP mimicry; only with ObfProfile != "none"
 
 	Port int `json:"port"`
 }
@@ -47,7 +47,7 @@ type profileCoreConfig struct {
 type freeturnURI struct {
 	V         int      `json:"v"`
 	Provider  string   `json:"provider"`
-	Peer      string   `json:"peer"` // host:port of this profile's dedicated freeturn server process
+	Peer      string   `json:"peer"`  // host:port of this profile's dedicated freeturn server process
 	Links     []string `json:"links"` // bare VK Calls ids — see profileCoreConfig.Links above
 	Sub       string   `json:"sub,omitempty"`
 	Transport string   `json:"transport"`
