@@ -51,10 +51,10 @@
 #       running — for setting it up later on a box installed with --no-ssl,
 #       switching IP->domain once DNS is pointed, or retrying after a
 #       transient failure. Same interactive prompt as above when no --ssl=
-#       is given; then asks for the panel's current URI base path (hinted
-#       from the install-time value) and admin password (always asked,
-#       never assumed, since either may have changed since install) to
-#       authenticate and push the cert through. See cmd_ssl.
+#       is given. Authenticates by trying the install-time admin
+#       password/URI base path first and only prompts for them if that no
+#       longer works (changed via the panel's own Settings page since
+#       install) — see cmd_ssl.
 #   sudo ./install.sh uninstall      stop+remove the service and binary, keep data
 #   sudo ./install.sh uninstall --purge   also delete the data directory (DB, kernel binaries)
 set -euo pipefail
@@ -543,6 +543,35 @@ current_base_path_hint() {
 	echo "${hint:-/}"
 }
 
+# current_admin_password_hint reads the admin password this install was
+# seeded with (Environment=WTP_ADMIN_PASSWORD= in the unit file) — same
+# one-time-seed caveat as current_base_path_hint above: stale the moment
+# the operator changes it via the panel itself. cmd_ssl only ever uses this
+# to PROBE (see probe_panel_login) whether it still works before resorting
+# to a prompt — never assumed correct outright, since a plaintext copy of
+# the current password can't be recovered any other way (the panel only
+# stores a hash of it).
+current_admin_password_hint() {
+	sed -n 's/^Environment=WTP_ADMIN_PASSWORD=//p' "$SERVICE_FILE" 2>/dev/null
+}
+
+# probe_panel_login checks whether base+password actually authenticate,
+# printing nothing either way — cmd_ssl uses it to try the install-time
+# seed values first (see the two hints above) before bothering the operator
+# with a prompt. A failed probe is the expected, ordinary case whenever the
+# password or base path changed since install, not an error worth
+# surfacing here (a real problem still gets a clear message later, when
+# apply_ssl_settings does its own login with whatever was finally used).
+probe_panel_login() {
+	local base="$1" password="$2"
+	local resp token
+	resp=$(curl -fsS --max-time 10 -X POST "http://127.0.0.1:${LISTEN_PORT}${base}api/login" \
+		-H 'Content-Type: application/json' \
+		-d "{\"username\":\"admin\",\"password\":\"${password}\"}" 2>/dev/null) || return 1
+	token=$(json_field "$resp" token)
+	[[ -n "$token" ]]
+}
+
 install_service_unit() {
 	local admin_password="$1" base_path="$2"
 	local extra_env=""
@@ -715,10 +744,16 @@ cmd_uninstall() {
 # (see its own doc comment), so this is how to add/replace a cert later:
 # switching from IP to a domain once DNS is pointed, retrying after a
 # transient acme.sh failure, or setting SSL up for the first time on a box
-# that was installed with --no-ssl. Needs the current admin password (the
-# panel may have changed since install, so this always asks rather than
-# trusting a stale WTP_ADMIN_PASSWORD seed) and the current URI base path
-# (defaulted from the seed, same caveat — see current_base_path_hint).
+# that was installed with --no-ssl. Needs the current admin password and
+# URI base path to authenticate against the panel's own settings API (see
+# issue_and_apply_ssl/apply_ssl_settings) — there's no other way in, since
+# the panel only stores a password hash and the base path is deliberately
+# unguessable without logging in first. Tries the install-time seed values
+# (WTP_ADMIN_PASSWORD/WTP_INITIAL_BASE_PATH in the unit file) via
+# probe_panel_login first so the common case — nothing changed since
+# install — needs no prompt at all; only asks when that probe fails
+# (password or base path actually changed via the panel's own Settings
+# page since).
 cmd_ssl() {
 	require_root
 	if [[ ! -x "$BIN_PATH" ]]; then
@@ -757,12 +792,19 @@ cmd_ssl() {
 		return
 	fi
 
-	local base_path_default input_base base_path admin_password
+	local base_path_default admin_password_seed base_path="" admin_password=""
 	base_path_default=$(current_base_path_hint)
-	read -r -p "URI-путь панели [${base_path_default}]: " input_base || true
-	base_path="${input_base:-$base_path_default}"
-	read -r -s -p "Текущий пароль admin: " admin_password || true
-	echo
+	admin_password_seed=$(current_admin_password_hint)
+	if [[ -n "$admin_password_seed" ]] && probe_panel_login "$base_path_default" "$admin_password_seed"; then
+		base_path="$base_path_default"
+		admin_password="$admin_password_seed"
+	else
+		local input_base
+		read -r -p "URI-путь панели [${base_path_default}]: " input_base || true
+		base_path="${input_base:-$base_path_default}"
+		read -r -s -p "Текущий пароль admin: " admin_password || true
+		echo
+	fi
 
 	issue_and_apply_ssl "$ssl_target" "$base_path" "$admin_password"
 }
