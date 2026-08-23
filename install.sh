@@ -15,23 +15,30 @@
 # explicitly — see get_binary.
 #
 # Usage:
-#   sudo ./install.sh [install] [--no-kernels] [--skip-kernel=NAME ...] [--ssl=DOMAIN-OR-IP] [--from-source]
+#   sudo ./install.sh [install] [--no-kernels] [--skip-kernel=NAME ...] [--ssl=DOMAIN-OR-IP] [--no-ssl] [--from-source]
 #       fresh install, or update if already installed. On a fresh install
 #       (only — an update never re-triggers this) also installs/builds every
-#       kernel (Turnable/FreeTurn/Xray-core from GitHub Releases, olcRTC
-#       built from source at OLCRTC_REF, default "master"), so a brand new
-#       box is immediately usable without a separate trip to the "Ядра"
-#       page. --no-kernels skips all of that; --skip-kernel=NAME (repeatable,
-#       NAME one of turnable/freeturn/xray/olcrtc) skips just that one.
-#       --ssl=DOMAIN-OR-IP issues a real TLS cert via acme.sh (same
-#       dependency 3x-ui's own SSL menu uses) and wires it into the panel's
-#       own HTTPS listener — a domain goes through Let's Encrypt, a bare IP
-#       through ZeroSSL (Let's Encrypt doesn't issue for IPs). Fresh-install
-#       only, same as kernel auto-install — needs the panel already up to
-#       push the cert paths through its own settings API. --from-source
-#       skips the GitHub Release lookup and always builds locally (needs
-#       this script run from inside a checked-out copy of the repo) — for
-#       testing an unreleased change.
+#       kernel (Turnable/FreeTurn/Xray-core/webdav-tunnel from GitHub
+#       Releases, olcRTC built from source at OLCRTC_REF, default "master"),
+#       so a brand new box is immediately usable without a separate trip to
+#       the "Ядра" page. --no-kernels skips all of that; --skip-kernel=NAME
+#       (repeatable, NAME one of turnable/freeturn/xray/webdav/olcrtc) skips
+#       just that one.
+#       SSL is on by default: with no --ssl flag at all, the script detects
+#       this host's own public IP (detect_public_ip — same three endpoints
+#       the panel itself uses) and issues it a ZeroSSL cert (Let's Encrypt
+#       doesn't issue for bare IPs). --ssl=DOMAIN-OR-IP names a specific
+#       target instead (a domain goes through Let's Encrypt); --no-ssl skips
+#       SSL setup entirely. Either way it's acme.sh under the hood — same
+#       dependency 3x-ui's own SSL menu uses — wired into the panel's own
+#       HTTPS listener via its settings API. A failure here (port 80 busy,
+#       no public IP reachable, DNS not pointed yet) is never fatal to the
+#       rest of the install — it just leaves the panel on plain HTTP with a
+#       message explaining what to do manually. Fresh-install only, same as
+#       kernel auto-install — needs the panel already up to push the cert
+#       paths through. --from-source skips the GitHub Release lookup and
+#       always builds locally (needs this script run from inside a
+#       checked-out copy of the repo) — for testing an unreleased change.
 #   sudo ./install.sh uninstall      stop+remove the service and binary, keep data
 #   sudo ./install.sh uninstall --purge   also delete the data directory (DB, kernel binaries)
 set -euo pipefail
@@ -320,6 +327,12 @@ install_kernels() {
 			&& green "  Xray-core установлен." || red "  Не удалось установить Xray-core (см. страницу «Ядра»)."
 	fi
 
+	if ! kernel_skipped webdav; then
+		echo "Устанавливаю webdav-tunnel..."
+		auth_curl -X POST "${api}/kernels/webdav/install" -H 'Content-Type: application/json' -d '{}' >/dev/null \
+			&& green "  webdav-tunnel установлен." || red "  Не удалось установить webdav-tunnel (см. страницу «Ядра»)."
+	fi
+
 	if ! kernel_skipped olcrtc; then
 		echo "Собираю olcRTC из исходников (ref: ${OLCRTC_REF:-master})... это может занять несколько минут."
 		local build_resp job_id status i=0
@@ -344,6 +357,24 @@ install_kernels() {
 			esac
 		fi
 	fi
+}
+
+# detect_public_ip queries a couple of plain-text "what's my IP" endpoints —
+# same three, same order, as the panel's own detectPublicIP (backend/
+# internal/db/db.go), used here so a fresh install can default --ssl to this
+# host's own address without the operator having to look it up and pass it
+# in themselves. Prints nothing and returns non-zero if every endpoint
+# fails (no internet yet, all three coincidentally down, IPv6-only host).
+detect_public_ip() {
+	local ip url
+	for url in "https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com"; do
+		ip=$(curl -fsSL --max-time 5 "$url" 2>/dev/null | tr -d '[:space:]')
+		if [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+			echo "$ip"
+			return 0
+		fi
+	done
+	return 1
 }
 
 # ensure_acme_sh installs acme.sh (root's own copy, ~/.acme.sh) — the same
@@ -473,13 +504,17 @@ EOF
 cmd_install() {
 	require_root
 
-	local no_kernels=0 skip_kernels="" ssl_target="" from_source=0
+	local no_kernels=0 skip_kernels="" ssl_target="" ssl_explicit=0 no_ssl=0 from_source=0
 	local arg
 	for arg in "$@"; do
 		case "$arg" in
 		--no-kernels) no_kernels=1 ;;
 		--skip-kernel=*) skip_kernels="${skip_kernels} ${arg#--skip-kernel=}" ;;
-		--ssl=*) ssl_target="${arg#--ssl=}" ;;
+		--ssl=*)
+			ssl_target="${arg#--ssl=}"
+			ssl_explicit=1
+			;;
+		--no-ssl) no_ssl=1 ;;
 		--from-source) from_source=1 ;;
 		*)
 			red "Неизвестный флаг: $arg"
@@ -527,11 +562,22 @@ cmd_install() {
 			install_kernels "$admin_password" "$base_path"
 		fi
 
-		if [[ -n "$ssl_target" ]]; then
-			local ssl_files
-			if ssl_files=$(setup_ssl "$ssl_target"); then
-				apply_ssl_settings "$ssl_target" "$(echo "$ssl_files" | sed -n 1p)" "$(echo "$ssl_files" | sed -n 2p)" \
-					"$base_path" "$admin_password"
+		if [[ $no_ssl -eq 1 ]]; then
+			echo "SSL пропущен (--no-ssl)."
+		else
+			if [[ $ssl_explicit -eq 0 ]]; then
+				echo "Определяю публичный IP для SSL (по умолчанию — ZeroSSL на IP; свой домен: --ssl=DOMAIN, отключить: --no-ssl)..."
+				ssl_target=$(detect_public_ip) || true
+				if [[ -z "$ssl_target" ]]; then
+					red "Не удалось определить публичный IP — пропускаю SSL. Настройте вручную: sudo ./install.sh --ssl=IP-ИЛИ-ДОМЕН, либо на странице «Настройки»."
+				fi
+			fi
+			if [[ -n "$ssl_target" ]]; then
+				local ssl_files
+				if ssl_files=$(setup_ssl "$ssl_target"); then
+					apply_ssl_settings "$ssl_target" "$(echo "$ssl_files" | sed -n 1p)" "$(echo "$ssl_files" | sed -n 2p)" \
+						"$base_path" "$admin_password"
+				fi
 			fi
 		fi
 	else
@@ -567,11 +613,11 @@ uninstall)
 	shift || true
 	cmd_uninstall "${1:-}"
 	;;
---no-kernels | --skip-kernel=* | --ssl=* | --from-source)
+--no-kernels | --skip-kernel=* | --ssl=* | --no-ssl | --from-source)
 	cmd_install "$@"
 	;;
 *)
-	red "Использование: $0 [install [--no-kernels] [--skip-kernel=NAME ...] [--ssl=DOMAIN-OR-IP] [--from-source]] | uninstall [--purge]"
+	red "Использование: $0 [install [--no-kernels] [--skip-kernel=NAME ...] [--ssl=DOMAIN-OR-IP] [--no-ssl] [--from-source]] | uninstall [--purge]"
 	exit 1
 	;;
 esac
