@@ -205,13 +205,18 @@ func (p *Provisioner) applyLogicalDefaults(profile *models.Profile) (profileCore
 		cc.Peers = 10
 	}
 	if cc.PlatformID == "" {
-		cc.PlatformID = p.cfg.TurnableDefaultPlatformID
+		// Not env-configurable — profile-form.tsx's platform select only
+		// ever offers "vk.com" and always sends it explicitly, so this only
+		// matters for a profile created by calling the API directly.
+		cc.PlatformID = "vk.com"
 	}
 	if cc.RouteAddr == "" {
 		cc.RouteAddr = p.cfg.TurnableDefaultRouteHost
 	}
 	if cc.RouteSocket == "" {
-		cc.RouteSocket = p.cfg.TurnableDefaultRouteSocket
+		// Same reasoning as PlatformID above — the form's own initial state
+		// always sends "udp" explicitly.
+		cc.RouteSocket = "udp"
 	}
 	if cc.RouteTransport == "" {
 		cc.RouteTransport = transportFor(cc.RouteSocket)

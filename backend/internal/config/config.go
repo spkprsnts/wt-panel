@@ -37,29 +37,37 @@ type Config struct {
 	FreeTurnListenHost string
 	WebDAVListenHost   string
 
-	// Per-profile defaults below: used only when a profile's CoreConfig
+	// Per-profile default below: used only when a profile's CoreConfig
 	// doesn't set the field itself. Turnable's pub_key/priv_key are NOT
 	// here — they're generated fresh per profile via 'turnable config
 	// keygen' (see provisioner/turnable), since there's no reason for two
-	// independent profile processes to share key material.
-	// TurnableDefaultRouteHost is just the host part — there's no sensible
-	// default port (it depends entirely on which local service, WireGuard
-	// vs VLESS vs something else, the operator wants this profile to reach),
-	// so the route's port is always required on the profile itself.
-	TurnableDefaultPlatformID  string
-	TurnableDefaultRouteHost   string // e.g. 127.0.0.1
-	TurnableDefaultRouteSocket string // "tcp" or "udp"
+	// independent profile processes to share key material. PlatformID and
+	// RouteSocket used to be configurable the same way, but the form
+	// (profile-form.tsx) always sends an explicit value for both — a
+	// single-option "vk.com" platform select, "udp" as the route socket's
+	// own initial state — so an env-var default could only ever matter for
+	// a profile created by calling the API directly, bypassing the panel
+	// UI entirely; not a supported path, so provisioner/turnable now just
+	// hardcodes both instead. TurnableDefaultRouteHost is just the host
+	// part — there's no sensible default port (it depends entirely on
+	// which local service, WireGuard vs VLESS vs something else, the
+	// operator wants this profile to reach), so the route's port is always
+	// required on the profile itself.
+	TurnableDefaultRouteHost string // e.g. 127.0.0.1
 
 	// Same reasoning as Turnable's route: only the host has a sane default.
 	FreeTurnDefaultConnectHost string // e.g. 127.0.0.1
 
 	WebDAVDefaultProxyUpstream string // optional "-proxy socks5://..." upstream; empty = direct internet egress
 
-	// WebDAVPublicScheme/PublicHost describe the panel's own deployment
-	// topology (is there an nginx+TLS front for WebDAV profiles?), not a
-	// per-profile choice, so these stay panel-wide.
-	WebDAVPublicScheme string // "webdav" or "webdavs"
-	WebDAVPublicHost   string
+	// WebDAVPublicHost overrides the host address baked into a selfhosted
+	// WebDAV profile's client URI when it should differ from PublicIP (a
+	// custom domain, say) — see ResolvedWebDAVPublicHost. The scheme
+	// (webdav/webdavs) has no panel-wide equivalent: each profile derives
+	// it from whether it has its own TLS cert/key configured (see
+	// provisioner/webdav's buildSelfhostedURI) — there's no reverse-proxy
+	// TLS-termination deployment model here to have a global default for.
+	WebDAVPublicHost string
 }
 
 func Load() *Config {
@@ -91,21 +99,34 @@ func Load() *Config {
 		FreeTurnListenHost: getEnv("WTP_FREETURN_LISTEN_HOST", "0.0.0.0"),
 		WebDAVListenHost:   getEnv("WTP_WEBDAV_LISTEN_HOST", "0.0.0.0"),
 
-		TurnableDefaultPlatformID:  getEnv("WTP_TURNABLE_DEFAULT_PLATFORM_ID", "vk.com"),
-		TurnableDefaultRouteHost:   getEnv("WTP_TURNABLE_DEFAULT_ROUTE_HOST", "127.0.0.1"),
-		TurnableDefaultRouteSocket: getEnv("WTP_TURNABLE_DEFAULT_ROUTE_SOCKET", "udp"),
+		TurnableDefaultRouteHost: getEnv("WTP_TURNABLE_DEFAULT_ROUTE_HOST", "127.0.0.1"),
 
 		FreeTurnDefaultConnectHost: getEnv("WTP_FREETURN_DEFAULT_CONNECT_HOST", "127.0.0.1"),
 
 		WebDAVDefaultProxyUpstream: getEnv("WTP_WEBDAV_DEFAULT_PROXY_UPSTREAM", ""),
 	}
-	cfg.WebDAVPublicScheme = getEnv("WTP_WEBDAV_PUBLIC_SCHEME", "webdav")
-	cfg.WebDAVPublicHost = getEnv("WTP_WEBDAV_PUBLIC_HOST", cfg.PublicIP)
+	// Deliberately NOT falling back to cfg.PublicIP here — at this point in
+	// startup PublicIP is often still "" (main.go overrides it from
+	// PanelSettings, auto-detected or Settings-page-edited, right after
+	// Load() returns). Baking that in here would freeze WebDAVPublicHost at
+	// "" forever even once PublicIP is populated. See ResolvedWebDAVPublicHost.
+	cfg.WebDAVPublicHost = getEnv("WTP_WEBDAV_PUBLIC_HOST", "")
 	_ = os.MkdirAll(cfg.DataDir, 0o755)
 	for _, sub := range []string{"turnable", "olcrtc", "webdav", "freeturn", "xray", "bin"} {
 		_ = os.MkdirAll(filepath.Join(cfg.DataDir, sub), 0o755)
 	}
 	return cfg
+}
+
+// ResolvedWebDAVPublicHost is WebDAVPublicHost if the operator explicitly
+// set one, else PublicIP — computed live (not cached at Load() time) so it
+// always reflects PublicIP's current value, however that got set (env var,
+// auto-detection, or the Settings page).
+func (cfg *Config) ResolvedWebDAVPublicHost() string {
+	if cfg.WebDAVPublicHost != "" {
+		return cfg.WebDAVPublicHost
+	}
+	return cfg.PublicIP
 }
 
 func getEnv(key, def string) string {

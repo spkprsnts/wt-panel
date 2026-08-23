@@ -76,13 +76,10 @@ func (s *Server) getSettings(c *gin.Context) {
 		"freeturnListenHost": s.cfg.FreeTurnListenHost,
 		"webdavListenHost":   s.cfg.WebDAVListenHost,
 
-		"turnableDefaultPlatformID":  s.cfg.TurnableDefaultPlatformID,
 		"turnableDefaultRouteHost":   s.cfg.TurnableDefaultRouteHost,
-		"turnableDefaultRouteSocket": s.cfg.TurnableDefaultRouteSocket,
 		"freeturnDefaultConnectHost": s.cfg.FreeTurnDefaultConnectHost,
 		"webdavDefaultProxyUpstream": s.cfg.WebDAVDefaultProxyUpstream,
 
-		"webdavPublicScheme": s.cfg.WebDAVPublicScheme,
-		"webdavPublicHost":   s.cfg.WebDAVPublicHost,
+		"webdavPublicHost": s.cfg.ResolvedWebDAVPublicHost(),
 	})
 }

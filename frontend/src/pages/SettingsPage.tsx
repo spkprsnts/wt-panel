@@ -24,12 +24,9 @@ const SETTINGS_LABELS: Record<string, string> = {
   turnableListenHost: "Turnable — интерфейс прослушивания",
   freeturnListenHost: "FreeTurn — интерфейс прослушивания",
   webdavListenHost: "WebDAV — интерфейс прослушивания",
-  turnableDefaultPlatformID: "Turnable — платформа по умолчанию",
   turnableDefaultRouteHost: "Turnable — хост маршрута по умолчанию",
-  turnableDefaultRouteSocket: "Turnable — тип сокета маршрута по умолчанию",
   freeturnDefaultConnectHost: "FreeTurn — хост -connect по умолчанию",
   webdavDefaultProxyUpstream: "WebDAV — upstream-прокси по умолчанию",
-  webdavPublicScheme: "WebDAV — публичная схема (webdav/webdavs)",
   webdavPublicHost: "WebDAV — публичный хост",
 }
 
