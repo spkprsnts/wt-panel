@@ -567,6 +567,19 @@ apply_ssl_settings() {
 
 	systemctl restart "$SERVICE_NAME"
 	green "SSL настроен — панель теперь на https://${target}:${LISTEN_PORT}${base}"
+	if [[ -z "$listen_domain" ]]; then
+		# Let's Encrypt's short-lived IP-certificate profile (see setup_ssl)
+		# chains through its own new root (ISRG Root YE, not the
+		# universally-trusted ISRG Root X1 regular domain certs use) —
+		# confirmed for real against a live VPS: openssl validated the
+		# chain fine, but Chrome on a normal desktop still showed "Не
+		# безопасно", because that root hadn't reached its OS trust store
+		# yet. The certificate itself is genuinely valid; this is
+		# Let's Encrypt's rollout catching up, not a setup problem — so
+		# it's worth flagging here instead of leaving the operator to
+		# wonder whether the install did something wrong.
+		echo "Примечание: сертификат на голый IP использует новый корень Let's Encrypt (ISRG Root YE) для их pilot-программы IP-сертификатов. Он ещё не везде добавлен в доверенные хранилища ОС/браузеров, поэтому браузер может показывать «Небезопасно», даже когда сертификат валиден. Если это важно прямо сейчас — используйте домен: sudo ./install.sh ssl --ssl=DOMAIN."
+	fi
 }
 
 # issue_and_apply_ssl is the setup_ssl + apply_ssl_settings pair cmd_install
