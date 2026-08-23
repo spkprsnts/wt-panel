@@ -57,6 +57,19 @@
 #       install) — see cmd_ssl.
 #   sudo ./install.sh uninstall      stop+remove the service and binary, keep data
 #   sudo ./install.sh uninstall --purge   also delete the data directory (DB, kernel binaries)
+#   sudo ./install.sh menu (or just: wtp)
+#       interactive management menu (URI path, admin password, SSL, restart,
+#       logs, update, uninstall) — the same script also gets installed to
+#       /usr/local/bin/wtp on every install/update (see install_wtp_command), so
+#       `sudo wtp` works from anywhere afterward. Bare `wtp`/`install.sh`
+#       with no arguments shows this menu too, but only once the panel is
+#       already installed and a real terminal is attached — a fresh box (or
+#       a piped/non-interactive run) still gets the install/update behavior
+#       above, unchanged. Path/password/TLS-clear go through
+#       `wt-panel setting` (see cmd/server/setting.go) directly against the
+#       sqlite file with the service stopped — no running panel or API
+#       needed, since this menu exists precisely for when the panel won't
+#       come up at all. See cmd_menu.
 set -euo pipefail
 
 INSTALL_DIR="${WTP_INSTALL_DIR:-/usr/local/wt-panel}"
@@ -738,6 +751,25 @@ prompt_ssl_target() {
 	echo "$target"
 }
 
+WTP_COMMAND_PATH="/usr/local/bin/wtp"
+
+# install_wtp_command copies this script to WTP_COMMAND_PATH so `sudo wtp`
+# works from anywhere after install/update — the same script, just under a
+# permanent, memorable name (mirrors 3x-ui's own `x-ui` command; see
+# cmd_menu). Prefers a real local copy (SCRIPT_DIR genuinely is a
+# checked-out repo — --from-source testing) over re-downloading, so a
+# locally-modified install.sh doesn't get silently clobbered by the
+# published one; falls back to curl for the normal case, where this ran via
+# the piped one-liner and never existed as a file on disk at all.
+install_wtp_command() {
+	if [[ -f "$SCRIPT_DIR/install.sh" ]]; then
+		cp "$SCRIPT_DIR/install.sh" "$WTP_COMMAND_PATH"
+	else
+		curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/install.sh" -o "$WTP_COMMAND_PATH" || return
+	fi
+	chmod +x "$WTP_COMMAND_PATH"
+}
+
 cmd_install() {
 	require_root
 
@@ -770,6 +802,7 @@ cmd_install() {
 	systemctl stop "$SERVICE_NAME" 2>/dev/null || true
 	mv "${BIN_PATH}.new" "$BIN_PATH"
 	chmod +x "$BIN_PATH"
+	install_wtp_command
 
 	local admin_password="" base_path=""
 	if [[ $fresh -eq 1 ]]; then
@@ -792,6 +825,7 @@ cmd_install() {
 		echo "  URI-путь: ${base_path}"
 		echo "  Панель:   http://<IP-сервера>:${LISTEN_PORT}${base_path}"
 		echo "Эти значения также сохранены в ${SERVICE_FILE} — посмотреть снова: systemctl cat ${SERVICE_NAME}"
+		echo "Управление панелью (путь, пароль, SSL, логи, обновление) — команда: sudo wtp"
 
 		if [[ $no_kernels -eq 1 ]]; then
 			echo "Автоустановка ядер пропущена (--no-kernels)."
@@ -909,7 +943,123 @@ cmd_ssl() {
 	issue_and_apply_ssl "$ssl_target" "$base_path" "$admin_password"
 }
 
-case "${1:-install}" in
+# run_setting_offline runs `wt-panel setting ...` (see cmd/server/
+# setting.go) directly against the sqlite file, with the service stopped
+# around it — always symmetric (stop, run, start) so a menu item can never
+# accidentally leave the service down. Returns the setting command's own
+# exit status (bad password length, bad base path, etc. all exit 1) instead
+# of letting it propagate as a script-ending error under this script's own
+# `set -e` — cmd_menu needs to tell success from failure and keep the menu
+# loop going either way, not have the whole script die over one rejected
+# input.
+run_setting_offline() {
+	systemctl stop "$SERVICE_NAME" 2>/dev/null || true
+	local rc=0
+	WTP_DATA_DIR="$DATA_DIR" WTP_DB_PATH="$DB_PATH" "$BIN_PATH" setting "$@" || rc=$?
+	systemctl start "$SERVICE_NAME" 2>/dev/null || true
+	return $rc
+}
+
+# cmd_menu is the interactive management menu — 3x-ui-style — reachable as
+# `sudo wtp` (see install_wtp_command) or `sudo ./install.sh menu`, and as
+# the default action of a bare `wtp`/`install.sh` with no arguments once the
+# panel is already installed and a real terminal is attached (see the
+# dispatcher below). Path/password/TLS-clear go straight through
+# run_setting_offline rather than the panel's HTTP API, specifically so
+# this still works when the panel itself won't start — exactly the
+# situation a "reset my password" or "clear a bad TLS config" request
+# usually comes from. SSL/restart/update/uninstall just call the existing
+# cmd_ssl/cmd_install/cmd_uninstall — no separate logic to keep in sync.
+cmd_menu() {
+	require_root
+	if [[ ! -x "$BIN_PATH" ]]; then
+		red "Панель не установлена — сначала: sudo ./install.sh"
+		exit 1
+	fi
+
+	local choice
+	while true; do
+		echo
+		echo "=== wt-panel ==="
+		echo "1) Статус и текущие настройки"
+		echo "2) Сменить URI-путь"
+		echo "3) Сбросить пароль admin"
+		echo "4) Настроить SSL"
+		echo "5) Перезапустить панель"
+		echo "6) Показать логи"
+		echo "7) Обновить панель"
+		echo "8) Удалить панель"
+		echo "0) Выход"
+		read -r -p "Выбор: " choice || break
+		case "$choice" in
+		1)
+			if systemctl is-active --quiet "$SERVICE_NAME"; then
+				green "Служба: активна"
+			else
+				red "Служба: не запущена"
+			fi
+			run_setting_offline -show || true
+			;;
+		2)
+			local new_path
+			read -r -p "Новый URI-путь (например /abc123/): " new_path
+			if run_setting_offline -webBasePath "$new_path"; then
+				green "Путь изменён. Панель теперь на: http://<IP-сервера>:${LISTEN_PORT}${new_path}"
+			fi
+			;;
+		3)
+			local new_password
+			read -r -p "Новый пароль (Enter — сгенерировать): " new_password
+			[[ -z "$new_password" ]] && new_password=$(random_hex 9)
+			if run_setting_offline -password "$new_password"; then
+				green "Пароль изменён: ${new_password}"
+			fi
+			;;
+		4)
+			cmd_ssl
+			;;
+		5)
+			systemctl restart "$SERVICE_NAME"
+			green "Перезапущено."
+			;;
+		6)
+			journalctl -u "$SERVICE_NAME" -n 100 --no-pager
+			;;
+		7)
+			cmd_install
+			;;
+		8)
+			local confirm
+			read -r -p "Точно удалить панель? Данные останутся, если не указать --purge отдельно. [y/N]: " confirm
+			if [[ "$confirm" =~ ^[Yy]$ ]]; then
+				cmd_uninstall
+				return
+			fi
+			;;
+		0)
+			return
+			;;
+		*)
+			red "Неверный выбор."
+			;;
+		esac
+	done
+}
+
+# A bare invocation with no arguments at all normally means "install"
+# (fresh box, or the documented `sudo bash -c "$(curl ...)"` one-liner run
+# again to update — must stay non-interactive-safe either way). The one
+# exception: once the panel is already installed and a real terminal is
+# attached, there's nothing left to "install" — show the management menu
+# instead, same as typing `wtp`/`sudo ./install.sh menu` explicitly. A
+# piped/non-interactive re-run (no tty) always keeps the install/update
+# behavior, matching prompt_ssl_target's own `-t 0` convention.
+default_cmd="install"
+if [[ $# -eq 0 && -x "$BIN_PATH" && -t 0 ]]; then
+	default_cmd="menu"
+fi
+
+case "${1:-$default_cmd}" in
 install)
 	shift || true
 	cmd_install "$@"
@@ -922,11 +1072,14 @@ ssl)
 	shift || true
 	cmd_ssl "$@"
 	;;
+menu)
+	cmd_menu
+	;;
 --no-kernels | --skip-kernel=* | --ssl=* | --no-ssl | --from-source)
 	cmd_install "$@"
 	;;
 *)
-	red "Использование: $0 [install [--no-kernels] [--skip-kernel=NAME ...] [--ssl=DOMAIN-OR-IP] [--no-ssl] [--from-source]] | ssl [--ssl=DOMAIN-OR-IP] | uninstall [--purge]"
+	red "Использование: $0 [install [--no-kernels] [--skip-kernel=NAME ...] [--ssl=DOMAIN-OR-IP] [--no-ssl] [--from-source]] | ssl [--ssl=DOMAIN-OR-IP] | menu | uninstall [--purge]"
 	exit 1
 	;;
 esac

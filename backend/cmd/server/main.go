@@ -36,6 +36,18 @@ import (
 var version = "dev"
 
 func main() {
+	// "setting" is an offline subcommand (wt-panel setting -show/-password/
+	// -webBasePath/-clearTls — see setting.go) that only opens the sqlite
+	// file directly, with no HTTP server or kernel/xray startup at all —
+	// intercepted before the normal flag set below since it has its own
+	// flags and never falls through to the rest of main(). install.sh's
+	// `wtp` menu is the intended caller, precisely for when the panel won't
+	// even start and the API-based route can't help.
+	if len(os.Args) > 1 && os.Args[1] == "setting" {
+		runSetting(os.Args[2:])
+		return
+	}
+
 	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
 	if *showVersion {
