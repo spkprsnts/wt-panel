@@ -425,23 +425,29 @@ ensure_acme_sh() {
 	_scrub_bad_acme_account_email
 }
 
-# _scrub_bad_acme_account_email drops any ACCOUNT_EMAIL saved in
-# ~/.acme.sh/account.conf by a version of this script from before this
-# fix — back when ensure_acme_sh installed acme.sh with
-# email="admin@$(hostname -f)", which on a VPS with no configured FQDN just
-# resolves to a bare hostname with no dot (e.g. "admin@myvps"). Let's
-# Encrypt's account registration validates the contact email's domain has a
-# dot and rejects the ENTIRE registration outright if it doesn't
-# ("contact email has invalid domain: Domain name needs at least one
-# dot") — seen on a real VPS, and it blocks every certificate issuance on
-# that box from then on, not just the run that first set it, since acme.sh
-# keeps reusing the same account.conf regardless of what this script does
-# or doesn't pass on later runs. Neither Let's Encrypt nor this script's
-# own flow needs a contact email at all (see setup_ssl), so unconditionally
-# dropping the line — not replacing it with a better one — is the fix.
+# _scrub_bad_acme_account_email drops any leftover email a version of this
+# script from before this fix saved — back when ensure_acme_sh installed
+# acme.sh with email="admin@$(hostname -f)", which on a VPS with no
+# configured FQDN just resolves to a bare hostname with no dot (e.g.
+# "admin@myvps"). Let's Encrypt's account registration validates the
+# contact email's domain has a dot and rejects the ENTIRE registration
+# outright if it doesn't ("contact email has invalid domain: Domain name
+# needs at least one dot") — seen on a real VPS. Two places need clearing,
+# not one: acme.sh's _getAccountEmail() checks the per-CA ca.conf's
+# CA_EMAIL FIRST and only falls back to the global account.conf's
+# ACCOUNT_EMAIL after — and _regAccount saves whatever _getAccountEmail()
+# returned into that per-CA ca.conf right before attempting registration,
+# regardless of whether the registration itself then succeeds or fails. So
+# the very first (failed) attempt against a given CA already re-poisons its
+# own ca.conf even after account.conf's copy is clean, which is exactly why
+# clearing only account.conf didn't fix this the first time around. Neither
+# Let's Encrypt nor this script's own flow needs a contact email at all
+# (see setup_ssl), so unconditionally dropping every copy — not replacing
+# them with a better one — is the fix.
 _scrub_bad_acme_account_email() {
 	local conf=~/.acme.sh/account.conf
 	[[ -f "$conf" ]] && sed -i '/^ACCOUNT_EMAIL=/d' "$conf"
+	find ~/.acme.sh/ca -name ca.conf -exec sed -i '/^CA_EMAIL=/d' {} + 2>/dev/null || true
 }
 
 # setup_ssl TARGET issues a real TLS cert for TARGET — a domain, a normal
