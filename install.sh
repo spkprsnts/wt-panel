@@ -1,10 +1,12 @@
 #!/bin/bash
 # wt-panel installer/updater/uninstaller — mirrors 3x-ui's one-line-install
-# shape (systemd unit, enable --now) but scoped down and non-interactive by
-# design: no prompts at all. Fresh installs get a random admin password and
-# a random URI base path printed at the end instead of asked up front,
-# since there's nothing sensible to default them to and a prompt would
-# break `curl | bash`-style piping.
+# shape (systemd unit, enable --now) but scoped down and prompt-free by
+# default: fresh installs get a random admin password and a random URI base
+# path printed at the end instead of asked up front, since there's nothing
+# sensible to default them to. The one exception is SSL target selection
+# (see prompt_ssl_target below) — safe to ask interactively because the
+# documented one-line install form (`bash -c "$(curl ...)"`) never consumes
+# stdin, unlike `curl | bash`; non-interactive runs (no tty) just skip it.
 #
 # Gets the wt-panel binary itself from the newest GitHub Release
 # (.github/workflows/release.yml + .goreleaser.yaml — auto-versioned from
@@ -42,6 +44,15 @@
 #       paths through. --from-source skips the GitHub Release lookup and
 #       always builds locally (needs this script run from inside a
 #       checked-out copy of the repo) — for testing an unreleased change.
+#   sudo ./install.sh ssl [--ssl=DOMAIN-OR-IP]
+#       (re-)run SSL setup against a panel that's already installed and
+#       running — for setting it up later on a box installed with --no-ssl,
+#       switching IP->domain once DNS is pointed, or retrying after a
+#       transient failure. Same interactive prompt as above when no --ssl=
+#       is given; then asks for the panel's current URI base path (hinted
+#       from the install-time value) and admin password (always asked,
+#       never assumed, since either may have changed since install) to
+#       authenticate and push the cert through. See cmd_ssl.
 #   sudo ./install.sh uninstall      stop+remove the service and binary, keep data
 #   sudo ./install.sh uninstall --purge   also delete the data directory (DB, kernel binaries)
 set -euo pipefail
@@ -404,17 +415,36 @@ ensure_acme_sh() {
 	curl -fsSL https://get.acme.sh | sh -s email="$ACME_EMAIL" >/dev/null
 }
 
+# register_zerossl_account fetches EAB (External Account Binding)
+# credentials from ZeroSSL's free, no-signup "eab-credentials-email"
+# endpoint and hands them to acme.sh explicitly via --register-account.
+# ZeroSSL's ACME endpoint requires EAB and acme.sh does have its own
+# built-in flow for resolving it from just an --accountemail during
+# --issue, but that path has been seen failing outright with "Cannot
+# resolve _eab_kid" on a real VPS even with --accountemail passed — doing
+# the same HTTP call ourselves and registering explicitly sidesteps
+# whatever's broken there. Non-fatal on failure (network hiccup, endpoint
+# down): setup_ssl's own --issue still runs afterward and will surface
+# a clear error itself if the account truly isn't usable.
+register_zerossl_account() {
+	ensure_jq
+	local resp kid hmac
+	resp=$(curl -fsS --data "email=${ACME_EMAIL}" https://api.zerossl.com/acme/eab-credentials-email 2>/dev/null) || return 1
+	kid=$(echo "$resp" | jq -r '.eab_kid // empty' 2>/dev/null)
+	hmac=$(echo "$resp" | jq -r '.eab_hmac_key // empty' 2>/dev/null)
+	[[ -n "$kid" && -n "$hmac" ]] || return 1
+	~/.acme.sh/acme.sh --register-account --server zerossl --eab-kid "$kid" --eab-hmac-key "$hmac" >/dev/null 2>&1
+}
+
 # setup_ssl TARGET issues a real TLS cert for TARGET (a domain, via Let's
 # Encrypt, or a bare IP address, via ZeroSSL — Let's Encrypt itself has no
-# IP-certificate program, ZeroSSL's ACME endpoint does, gated behind External
-# Account Binding: --accountemail is what lets acme.sh auto-resolve the EAB
-# kid/hmac for ACME_EMAIL and register that account on the fly, instead of
-# failing with "Cannot resolve _eab_kid") and prints the two file paths
-# on success. Uses acme.sh's standalone mode, so port 80 must be free for
-# the few seconds the HTTP-01 challenge takes — same requirement 3x-ui's own
-# SSL setup has. --reloadcmd restarts the panel automatically on every
-# renewal (acme.sh installs its own cron job for that), not just this first
-# issuance.
+# IP-certificate program, ZeroSSL's ACME endpoint does, see
+# register_zerossl_account above for how the account gets EAB-registered)
+# and prints the two file paths on success. Uses acme.sh's standalone mode,
+# so port 80 must be free for the few seconds the HTTP-01 challenge takes —
+# same requirement 3x-ui's own SSL setup has. --reloadcmd restarts the panel
+# automatically on every renewal (acme.sh installs its own cron job for
+# that), not just this first issuance.
 setup_ssl() {
 	local target="$1"
 	ensure_acme_sh
@@ -426,6 +456,7 @@ setup_ssl() {
 	local issue_args=(--issue -d "$target" --standalone --force)
 	if [[ "$target" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 		echo "Выпускаю TLS-сертификат для IP ${target} через ZeroSSL..."
+		register_zerossl_account || true
 		issue_args+=(--server zerossl --accountemail "$ACME_EMAIL")
 	else
 		echo "Выпускаю TLS-сертификат для домена ${target} через Let's Encrypt..."
@@ -490,6 +521,31 @@ apply_ssl_settings() {
 
 	systemctl restart "$SERVICE_NAME"
 	green "SSL настроен — панель теперь на https://${target}:${LISTEN_PORT}${base}"
+}
+
+# issue_and_apply_ssl is the setup_ssl + apply_ssl_settings pair cmd_install
+# (fresh installs) and cmd_ssl (an already-installed panel, run later) both
+# need — kept as one function so a change to that sequence doesn't have to
+# be made twice.
+issue_and_apply_ssl() {
+	local target="$1" base="$2" admin_password="$3"
+	local ssl_files
+	if ssl_files=$(setup_ssl "$target"); then
+		apply_ssl_settings "$target" "$(echo "$ssl_files" | sed -n 1p)" "$(echo "$ssl_files" | sed -n 2p)" \
+			"$base" "$admin_password"
+	fi
+}
+
+# current_base_path_hint reads the URI base path this install was seeded
+# with (Environment=WTP_INITIAL_BASE_PATH= in the unit file) to use as a
+# prompt default in cmd_ssl — only a hint: WTP_INITIAL_BASE_PATH is a
+# one-time seed (see install_service_unit), so if the operator changed the
+# base path since via the panel's own Settings page, this will be stale and
+# they'll need to type the current one instead of accepting the default.
+current_base_path_hint() {
+	local hint
+	hint=$(sed -n 's/^Environment=WTP_INITIAL_BASE_PATH=//p' "$SERVICE_FILE" 2>/dev/null)
+	echo "${hint:-/}"
 }
 
 install_service_unit() {
@@ -632,11 +688,7 @@ cmd_install() {
 				fi
 			fi
 			if [[ -n "$ssl_target" ]]; then
-				local ssl_files
-				if ssl_files=$(setup_ssl "$ssl_target"); then
-					apply_ssl_settings "$ssl_target" "$(echo "$ssl_files" | sed -n 1p)" "$(echo "$ssl_files" | sed -n 2p)" \
-						"$base_path" "$admin_password"
-				fi
+				issue_and_apply_ssl "$ssl_target" "$base_path" "$admin_password"
 			fi
 		fi
 	else
@@ -663,6 +715,63 @@ cmd_uninstall() {
 	fi
 }
 
+# cmd_ssl (re-)runs SSL setup against a panel that's already installed and
+# running — cmd_install's own SSL step only ever fires on a fresh install
+# (see its own doc comment), so this is how to add/replace a cert later:
+# switching from IP to a domain once DNS is pointed, retrying after a
+# transient acme.sh failure, or setting SSL up for the first time on a box
+# that was installed with --no-ssl. Needs the current admin password (the
+# panel may have changed since install, so this always asks rather than
+# trusting a stale WTP_ADMIN_PASSWORD seed) and the current URI base path
+# (defaulted from the seed, same caveat — see current_base_path_hint).
+cmd_ssl() {
+	require_root
+	if [[ ! -x "$BIN_PATH" ]]; then
+		red "Панель не установлена — сначала: sudo ./install.sh"
+		exit 1
+	fi
+	if ! systemctl is-active --quiet "$SERVICE_NAME"; then
+		red "Служба ${SERVICE_NAME} не запущена — sudo systemctl start ${SERVICE_NAME}"
+		exit 1
+	fi
+
+	local ssl_target="" ssl_explicit=0
+	local arg
+	for arg in "$@"; do
+		case "$arg" in
+		--ssl=*)
+			ssl_target="${arg#--ssl=}"
+			ssl_explicit=1
+			;;
+		*)
+			red "Неизвестный флаг: $arg"
+			exit 1
+			;;
+		esac
+	done
+
+	if [[ $ssl_explicit -eq 0 ]]; then
+		if [[ ! -t 0 ]]; then
+			red "Не в терминале — укажите цель явно: sudo ./install.sh ssl --ssl=DOMAIN-ИЛИ-IP"
+			exit 1
+		fi
+		ssl_target=$(prompt_ssl_target)
+	fi
+	if [[ -z "$ssl_target" ]]; then
+		echo "SSL пропущен."
+		return
+	fi
+
+	local base_path_default input_base base_path admin_password
+	base_path_default=$(current_base_path_hint)
+	read -r -p "URI-путь панели [${base_path_default}]: " input_base || true
+	base_path="${input_base:-$base_path_default}"
+	read -r -s -p "Текущий пароль admin: " admin_password || true
+	echo
+
+	issue_and_apply_ssl "$ssl_target" "$base_path" "$admin_password"
+}
+
 case "${1:-install}" in
 install)
 	shift || true
@@ -672,11 +781,15 @@ uninstall)
 	shift || true
 	cmd_uninstall "${1:-}"
 	;;
+ssl)
+	shift || true
+	cmd_ssl "$@"
+	;;
 --no-kernels | --skip-kernel=* | --ssl=* | --no-ssl | --from-source)
 	cmd_install "$@"
 	;;
 *)
-	red "Использование: $0 [install [--no-kernels] [--skip-kernel=NAME ...] [--ssl=DOMAIN-OR-IP] [--no-ssl] [--from-source]] | uninstall [--purge]"
+	red "Использование: $0 [install [--no-kernels] [--skip-kernel=NAME ...] [--ssl=DOMAIN-OR-IP] [--no-ssl] [--from-source]] | ssl [--ssl=DOMAIN-OR-IP] | uninstall [--purge]"
 	exit 1
 	;;
 esac
