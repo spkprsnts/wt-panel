@@ -6,13 +6,16 @@
 # since there's nothing sensible to default them to and a prompt would
 # break `curl | bash`-style piping.
 #
-# Currently builds from source (this script must be run from inside a
-# checked-out copy of the repo) rather than downloading a release —
-# swap build_from_source for a curl-from-GitHub-releases fetch once wt-panel
-# has actual releases published; see README.
+# Gets the wt-panel binary itself from the newest GitHub Release
+# (.github/workflows/release.yml + .goreleaser.yaml — auto-versioned from
+# Conventional Commits) when one exists, same as the kernel installers
+# already do for Turnable/FreeTurn/Xray-core. Falls back to building from
+# source (needs this script run from inside a checked-out copy of the repo)
+# only if no release is reachable yet, or --from-source was passed
+# explicitly — see get_binary.
 #
 # Usage:
-#   sudo ./install.sh [install] [--no-kernels] [--skip-kernel=NAME ...]
+#   sudo ./install.sh [install] [--no-kernels] [--skip-kernel=NAME ...] [--ssl=DOMAIN-OR-IP] [--from-source]
 #       fresh install, or update if already installed. On a fresh install
 #       (only — an update never re-triggers this) also installs/builds every
 #       kernel (Turnable/FreeTurn/Xray-core from GitHub Releases, olcRTC
@@ -20,6 +23,15 @@
 #       box is immediately usable without a separate trip to the "Ядра"
 #       page. --no-kernels skips all of that; --skip-kernel=NAME (repeatable,
 #       NAME one of turnable/freeturn/xray/olcrtc) skips just that one.
+#       --ssl=DOMAIN-OR-IP issues a real TLS cert via acme.sh (same
+#       dependency 3x-ui's own SSL menu uses) and wires it into the panel's
+#       own HTTPS listener — a domain goes through Let's Encrypt, a bare IP
+#       through ZeroSSL (Let's Encrypt doesn't issue for IPs). Fresh-install
+#       only, same as kernel auto-install — needs the panel already up to
+#       push the cert paths through its own settings API. --from-source
+#       skips the GitHub Release lookup and always builds locally (needs
+#       this script run from inside a checked-out copy of the repo) — for
+#       testing an unreleased change.
 #   sudo ./install.sh uninstall      stop+remove the service and binary, keep data
 #   sudo ./install.sh uninstall --purge   also delete the data directory (DB, kernel binaries)
 set -euo pipefail
@@ -31,6 +43,7 @@ DATA_DIR="${INSTALL_DIR}/data"
 DB_PATH="${DATA_DIR}/wtpanel.db"
 BIN_PATH="${INSTALL_DIR}/wt-panel"
 LISTEN_PORT="${WTP_LISTEN_PORT:-8090}"
+REPO="${WTP_REPO:-spkprsnts/wt-panel}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -115,7 +128,21 @@ ensure_node() {
 	apt-get install -y -qq nodejs
 }
 
+# build_from_source needs SCRIPT_DIR to actually be a checked-out copy of
+# the repo (frontend/ + backend/ next to this script) — true when run as
+# ./install.sh from inside a git clone, false for a bare install.sh fetched
+# on its own (e.g. curl | bash from the README, or as this same file bundled
+# into a release archive). get_binary only ever falls back here after that
+# check, or when --from-source was passed explicitly, so a standalone script
+# with no release reachable fails with a clear message instead of a
+# confusing "no such file or directory" from cd.
 build_from_source() {
+	if [[ ! -f "$SCRIPT_DIR/backend/go.mod" ]]; then
+		red "Не могу собрать из исходников: $SCRIPT_DIR — не копия репозитория."
+		red "Склонируйте репозиторий (git clone https://github.com/${REPO}) и запустите install.sh оттуда, либо дождитесь релиза."
+		exit 1
+	fi
+
 	ensure_git
 	ensure_go
 	ensure_node
@@ -131,11 +158,91 @@ build_from_source() {
 	(cd "$SCRIPT_DIR/backend" && go build -o "${BIN_PATH}.new" ./cmd/server)
 }
 
+ensure_jq() {
+	command -v jq >/dev/null 2>&1 && return
+	ensure_apt_updated
+	apt-get install -y -qq jq
+}
+
+# download_release fetches the newest GitHub Release's wt-panel binary for
+# this host's architecture (linux/amd64 or linux/arm64 — the only two
+# .goreleaser.yaml builds) straight into ${BIN_PATH}.new, matching
+# build_from_source's own output contract so cmd_install doesn't care which
+# one actually ran. Returns non-zero (never exits/aborts) on ANY failure —
+# no releases published yet, unsupported arch, network hiccup, GitHub's
+# unauthenticated rate limit — so get_binary can silently fall back to
+# building from source instead of the whole install failing outright.
+download_release() {
+	local arch
+	case "$(uname -m)" in
+	x86_64) arch=amd64 ;;
+	aarch64) arch=arm64 ;;
+	*) return 1 ;;
+	esac
+	ensure_apt_updated
+	apt-get install -y -qq curl >/dev/null 2>&1 || true
+	ensure_jq
+
+	echo "Проверяю релизы ${REPO}..."
+	local release_json
+	release_json=$(curl -fsSL --max-time 10 "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null) || return 1
+
+	local tag version asset_url
+	tag=$(echo "$release_json" | jq -r '.tag_name // empty' 2>/dev/null) || return 1
+	[[ -z "$tag" ]] && return 1
+	version="${tag#v}"
+	asset_url=$(echo "$release_json" | jq -r --arg name "wt-panel-${version}-linux-${arch}.tar.gz" \
+		'.assets[]? | select(.name == $name) | .browser_download_url' 2>/dev/null)
+	if [[ -z "$asset_url" ]]; then
+		red "В релизе ${tag} нет сборки под linux-${arch}."
+		return 1
+	fi
+
+	echo "Скачиваю wt-panel ${tag} (linux-${arch})..."
+	local tmp_tar tmp_dir
+	tmp_tar=$(mktemp)
+	tmp_dir=$(mktemp -d)
+	if ! curl -fsSL --max-time 120 "$asset_url" -o "$tmp_tar"; then
+		rm -rf "$tmp_tar" "$tmp_dir"
+		return 1
+	fi
+	if ! tar -xzf "$tmp_tar" -C "$tmp_dir" wt-panel 2>/dev/null; then
+		rm -rf "$tmp_tar" "$tmp_dir"
+		return 1
+	fi
+	mv "$tmp_dir/wt-panel" "${BIN_PATH}.new"
+	chmod +x "${BIN_PATH}.new"
+	rm -rf "$tmp_tar" "$tmp_dir"
+	green "Скачан релиз ${tag}."
+}
+
+# get_binary is what cmd_install actually calls: prefer a real GitHub
+# Release (download_release), falling back to a local build only when no
+# release is reachable — see build_from_source's own guard for what happens
+# if that fallback also isn't possible (a standalone script, not a repo
+# checkout). from_source=1 (the --from-source flag) skips straight to the
+# local build, e.g. to test an unreleased change.
+get_binary() {
+	local from_source="$1"
+	if [[ "$from_source" -eq 1 ]]; then
+		build_from_source
+		return
+	fi
+	if download_release; then
+		return
+	fi
+	echo "Релиз недоступен — собираю из исходников..."
+	build_from_source
+}
+
 # json_field EXTRACTS a top-level string/number field's value from a small
 # JSON blob without depending on jq/python3 — deliberate, matching the same
 # "fresh minimal system" bootstrapping philosophy as ensure_go/ensure_node
 # above: a brand new box may have neither. Only handles the flat shapes the
 # API responses below actually return (quoted strings or bare identifiers).
+# download_release above needs real array traversal instead (picking one
+# named asset out of several), so that one uses jq (ensure_jq) rather than
+# straining this against a shape it was never meant for.
 json_field() {
 	local json="$1" field="$2"
 	echo "$json" | sed -n "s/.*\"${field}\"[[:space:]]*:[[:space:]]*\"\{0,1\}\([^\",}]*\)\"\{0,1\}.*/\1/p" | head -1
@@ -239,6 +346,103 @@ install_kernels() {
 	fi
 }
 
+# ensure_acme_sh installs acme.sh (root's own copy, ~/.acme.sh) — the same
+# ACME client 3x-ui's own SSL menu is built on. Idempotent: a re-run just
+# finds it already there.
+ensure_acme_sh() {
+	[[ -x ~/.acme.sh/acme.sh ]] && return
+	echo "acme.sh не найден — устанавливаю..."
+	ensure_apt_updated
+	apt-get install -y -qq curl socat cron
+	curl -fsSL https://get.acme.sh | sh -s email="admin@$(hostname -f 2>/dev/null || echo localhost)" >/dev/null
+}
+
+# setup_ssl TARGET issues a real TLS cert for TARGET (a domain, via Let's
+# Encrypt, or a bare IP address, via ZeroSSL — Let's Encrypt itself has no
+# IP-certificate program, ZeroSSL's ACME endpoint does and acme.sh registers
+# an anonymous account with it automatically) and prints the two file paths
+# on success. Uses acme.sh's standalone mode, so port 80 must be free for
+# the few seconds the HTTP-01 challenge takes — same requirement 3x-ui's own
+# SSL setup has. --reloadcmd restarts the panel automatically on every
+# renewal (acme.sh installs its own cron job for that), not just this first
+# issuance.
+setup_ssl() {
+	local target="$1"
+	ensure_acme_sh
+
+	mkdir -p "${DATA_DIR}/ssl"
+	local cert_file="${DATA_DIR}/ssl/${target}.crt"
+	local key_file="${DATA_DIR}/ssl/${target}.key"
+
+	local issue_args=(--issue -d "$target" --standalone --force)
+	if [[ "$target" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+		echo "Выпускаю TLS-сертификат для IP ${target} через ZeroSSL..."
+		issue_args+=(--server zerossl)
+	else
+		echo "Выпускаю TLS-сертификат для домена ${target} через Let's Encrypt..."
+	fi
+
+	if ! ~/.acme.sh/acme.sh "${issue_args[@]}"; then
+		red "Не удалось выпустить сертификат для ${target} — убедитесь, что порт 80 свободен и ${target} действительно указывает на этот сервер. Настройте SSL вручную позже на странице «Настройки»."
+		return 1
+	fi
+
+	if ! ~/.acme.sh/acme.sh --install-cert -d "$target" \
+		--key-file "$key_file" \
+		--fullchain-file "$cert_file" \
+		--reloadcmd "systemctl restart ${SERVICE_NAME} 2>/dev/null || true"; then
+		red "Сертификат для ${target} выпущен, но не удалось установить его в ${DATA_DIR}/ssl — настройте SSL вручную на странице «Настройки»."
+		return 1
+	fi
+
+	printf '%s\n%s\n' "$cert_file" "$key_file"
+}
+
+# apply_ssl_settings pushes the issued cert's paths (and, for a domain, the
+# hostname) into the panel's own PanelSettings via its settings API — same
+# API the Settings page's "Сеть панели" card uses — then restarts the
+# service so main.go's ListenAndServeTLS branch picks them up (it only reads
+# this row once at startup, see handlers_panel_settings.go). GETs the
+# current settings first and only overwrites TLS/domain fields: the PUT
+# endpoint replaces the whole row, so blindly sending zero values for
+# ListenIP/ListenPort/BasePath would reset those to their unset defaults.
+apply_ssl_settings() {
+	local target="$1" cert_file="$2" key_file="$3" base="$4" admin_password="$5"
+
+	local login_resp token
+	login_resp=$(curl -fsS --max-time 10 -X POST "http://127.0.0.1:${LISTEN_PORT}${base}api/login" \
+		-H 'Content-Type: application/json' \
+		-d "{\"username\":\"admin\",\"password\":\"${admin_password}\"}") || {
+		red "Не удалось войти в панель, чтобы применить SSL-настройки — задайте пути к сертификату вручную на странице «Настройки»."
+		return
+	}
+	token=$(json_field "$login_resp" token)
+	[[ -z "$token" ]] && return
+
+	local current
+	current=$(curl -fsS --max-time 10 -H "Authorization: Bearer ${token}" \
+		"http://127.0.0.1:${LISTEN_PORT}${base}api/settings/panel") || return
+	local listen_ip listen_port base_path public_ip
+	listen_ip=$(json_field "$current" ListenIP)
+	listen_port=$(json_field "$current" ListenPort)
+	base_path=$(json_field "$current" BasePath)
+	public_ip=$(json_field "$current" PublicIP)
+	[[ -z "$listen_port" ]] && listen_port=0
+	local listen_domain=""
+	[[ ! "$target" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && listen_domain="$target"
+
+	curl -fsS --max-time 10 -X PUT "http://127.0.0.1:${LISTEN_PORT}${base}api/settings/panel" \
+		-H "Authorization: Bearer ${token}" -H 'Content-Type: application/json' \
+		-d "{\"listenIp\":\"${listen_ip}\",\"listenDomain\":\"${listen_domain}\",\"listenPort\":${listen_port},\"basePath\":\"${base_path}\",\"tlsCertFile\":\"${cert_file}\",\"tlsKeyFile\":\"${key_file}\",\"publicIp\":\"${public_ip}\"}" \
+		>/dev/null || {
+		red "Не удалось сохранить SSL-настройки панели — задайте пути к сертификату вручную на странице «Настройки»."
+		return
+	}
+
+	systemctl restart "$SERVICE_NAME"
+	green "SSL настроен — панель теперь на https://${target}:${LISTEN_PORT}${base}"
+}
+
 install_service_unit() {
 	local admin_password="$1" base_path="$2"
 	local extra_env=""
@@ -269,12 +473,14 @@ EOF
 cmd_install() {
 	require_root
 
-	local no_kernels=0 skip_kernels=""
+	local no_kernels=0 skip_kernels="" ssl_target="" from_source=0
 	local arg
 	for arg in "$@"; do
 		case "$arg" in
 		--no-kernels) no_kernels=1 ;;
 		--skip-kernel=*) skip_kernels="${skip_kernels} ${arg#--skip-kernel=}" ;;
+		--ssl=*) ssl_target="${arg#--ssl=}" ;;
+		--from-source) from_source=1 ;;
 		*)
 			red "Неизвестный флаг: $arg"
 			exit 1
@@ -287,7 +493,7 @@ cmd_install() {
 	local fresh=1
 	[[ -f "$DB_PATH" ]] && fresh=0
 
-	build_from_source
+	get_binary "$from_source"
 
 	systemctl stop "$SERVICE_NAME" 2>/dev/null || true
 	mv "${BIN_PATH}.new" "$BIN_PATH"
@@ -319,6 +525,14 @@ cmd_install() {
 			echo "Автоустановка ядер пропущена (--no-kernels)."
 		else
 			install_kernels "$admin_password" "$base_path"
+		fi
+
+		if [[ -n "$ssl_target" ]]; then
+			local ssl_files
+			if ssl_files=$(setup_ssl "$ssl_target"); then
+				apply_ssl_settings "$ssl_target" "$(echo "$ssl_files" | sed -n 1p)" "$(echo "$ssl_files" | sed -n 2p)" \
+					"$base_path" "$admin_password"
+			fi
 		fi
 	else
 		green "Обновлено и перезапущено (данные в ${DATA_DIR} сохранены)."
@@ -353,11 +567,11 @@ uninstall)
 	shift || true
 	cmd_uninstall "${1:-}"
 	;;
---no-kernels | --skip-kernel=*)
+--no-kernels | --skip-kernel=* | --ssl=* | --from-source)
 	cmd_install "$@"
 	;;
 *)
-	red "Использование: $0 [install [--no-kernels] [--skip-kernel=NAME ...]] | uninstall [--purge]"
+	red "Использование: $0 [install [--no-kernels] [--skip-kernel=NAME ...] [--ssl=DOMAIN-OR-IP] [--from-source]] | uninstall [--purge]"
 	exit 1
 	;;
 esac
