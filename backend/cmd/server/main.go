@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"flag"
 	"fmt"
@@ -115,10 +116,28 @@ func main() {
 	signalCtx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stopSignals()
 
+	// Validating the cert/key pair up front — rather than just calling
+	// ListenAndServeTLS and inspecting whatever error comes back — lets a
+	// bad path/unreadable/corrupt cert fall back to plain HTTP with a
+	// warning instead of taking the whole panel down. Before this, a wrong
+	// TLSCertFile/TLSKeyFile (e.g. from install.sh's SSL setup writing a
+	// bad path — see setup_ssl) hit log.Fatalf on every single restart:
+	// the service crash-looped indefinitely with no working HTTP listener
+	// at all, so there was no way to reach the Settings page to fix it
+	// short of editing the database directly.
+	useTLS := false
+	if panelSettings.TLSCertFile != "" && panelSettings.TLSKeyFile != "" {
+		if _, err := tls.LoadX509KeyPair(panelSettings.TLSCertFile, panelSettings.TLSKeyFile); err != nil {
+			log.Printf("WARNING: TLS cert/key invalid (%v) — falling back to plain HTTP on %s. Fix the paths on the Settings page.", err, addr)
+		} else {
+			useTLS = true
+		}
+	}
+
 	serveErr := make(chan error, 1)
 	go func() {
 		var err error
-		if panelSettings.TLSCertFile != "" && panelSettings.TLSKeyFile != "" {
+		if useTLS {
 			log.Printf("wt-panel %s listening on %s (TLS)", version, addr)
 			err = httpServer.ListenAndServeTLS(panelSettings.TLSCertFile, panelSettings.TLSKeyFile)
 		} else {
