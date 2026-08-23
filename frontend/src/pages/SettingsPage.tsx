@@ -269,33 +269,38 @@ function PanelNetworkCard() {
 }
 
 // updatePollIntervalMs/updatePollMaxAttempts govern how UpdatingDialog waits
-// for the panel to come back after a self-update: the backend writes its
-// response, waits 300ms, then tears down the HTTP server and re-execs
-// itself (see updatePanel/relaunchSelf) — so the very first few polls will
-// still hit the OLD process before it actually goes down. Only a
-// success *after* at least one observed failure counts as "the new
-// process is up", which is why this polls a plain GET rather than
-// resolving as soon as anything answers.
+// for the panel to come back after a self-update. This compares the
+// version /api/settings reports against beforeVersion (captured right
+// before the update was triggered) rather than just waiting for a request
+// to fail once — a "the panel went briefly unreachable, then answered
+// again" check sounds right but isn't reliable in practice: the backend's
+// own down-window (300ms delay, then a graceful shutdown/re-exec — see
+// updatePanel/relaunchSelf) can easily finish faster than this poll's own
+// interval, so a real update can complete without a single poll ever
+// landing during the gap — confirmed for real: the "wait for one failure"
+// version of this never reloaded at all. Comparing the reported version
+// has no such timing window: the OLD process keeps answering with
+// beforeVersion for as long as it's up, and the moment ANY response comes
+// back with a different version, the new process is unambiguously live.
 const updatePollIntervalMs = 2000
 const updatePollMaxAttempts = 60 // ~2 minutes
 
-function UpdatingDialog({ open }: { open: boolean }) {
+function UpdatingDialog({ open, beforeVersion }: { open: boolean; beforeVersion: string | null }) {
   const [timedOut, setTimedOut] = React.useState(false)
 
   React.useEffect(() => {
     if (!open) return
     setTimedOut(false)
     let cancelled = false
-    let sawDown = false
     let attempts = 0
     let timer: number
 
     const poll = () => {
       api
         .getSettings()
-        .then(() => {
+        .then((s) => {
           if (cancelled) return
-          if (sawDown) {
+          if (beforeVersion !== null && s.version !== beforeVersion) {
             window.location.reload()
             return
           }
@@ -303,7 +308,6 @@ function UpdatingDialog({ open }: { open: boolean }) {
         })
         .catch(() => {
           if (cancelled) return
-          sawDown = true
           scheduleNext()
         })
     }
@@ -321,7 +325,7 @@ function UpdatingDialog({ open }: { open: boolean }) {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [open])
+  }, [open, beforeVersion])
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
@@ -336,15 +340,16 @@ function UpdatingDialog({ open }: { open: boolean }) {
         </DialogHeader>
         {timedOut ? (
           <p className="text-sm text-destructive">
-            Панель не отвечает дольше обычного. Проверьте на сервере: journalctl -u wt-panel — и
-            обновите эту страницу вручную, когда панель снова будет доступна.
+            Версия панели дольше обычного не меняется — либо она не отвечает, либо обновление не
+            применилось. Проверьте на сервере: journalctl -u wt-panel — и обновите эту страницу
+            вручную, когда панель снова будет доступна.
           </p>
         ) : (
           <div className="flex flex-col items-center gap-3 py-2">
             <Loader2 className="size-8 animate-spin text-muted-foreground" />
             <p className="text-center text-sm text-muted-foreground">
               Скачиваем новую версию и перезапускаем панель — эта страница обновится сама, как
-              только она снова будет доступна.
+              только новая версия окажется доступна.
             </p>
           </div>
         )}
@@ -409,7 +414,7 @@ function PanelUpdateCard() {
         <CardDescription>Проверка и установка новой версии wt-panel с GitHub Releases</CardDescription>
       </CardHeader>
       <CardContent>
-        <UpdatingDialog open={updating} />
+        <UpdatingDialog open={updating} beforeVersion={version} />
         {isDev ? (
           <p className="text-sm text-muted-foreground">
             Недоступно — эта сборка запущена из исходников (dev), а не из релиза.
