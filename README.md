@@ -22,6 +22,18 @@ sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/spkprsnts/wt-panel/
 
 Логин/пароль и адрес панели печатаются один раз по завершении.
 
+**Удаление** (сервис + бинарник, данные остаются):
+
+```sh
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/spkprsnts/wt-panel/main/install.sh)" -- uninstall
+```
+
+**Полное удаление** (плюс база данных и бинарники ядер):
+
+```sh
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/spkprsnts/wt-panel/main/install.sh)" -- uninstall --purge
+```
+
 **Разработка:**
 
 ```sh
