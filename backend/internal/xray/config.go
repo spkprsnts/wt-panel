@@ -64,13 +64,17 @@ func BuildConfig(db *gorm.DB) (data []byte, enabledCount int, err error) {
 		if err != nil {
 			return nil, 0, fmt.Errorf("inbound %q (%s, id %d): %w", ib.Remark, ib.Protocol, ib.ID, err)
 		}
+		streamSettings := rawOrNil(ib.StreamSettings)
+		if ib.Protocol == "hysteria2" {
+			streamSettings = fixHysteriaStreamSettings(ib.StreamSettings)
+		}
 		cfg.Inbounds = append(cfg.Inbounds, inboundConfig{
 			Tag:            fmt.Sprintf("inbound-%d", ib.ID),
 			Listen:         ib.Listen,
 			Port:           ib.Port,
 			Protocol:       xrayCoreProtocol(ib.Protocol),
 			Settings:       settings,
-			StreamSettings: rawOrNil(ib.StreamSettings),
+			StreamSettings: streamSettings,
 			Sniffing:       rawOrNil(ib.Sniffing),
 		})
 	}
@@ -169,6 +173,41 @@ func xrayCoreProtocol(p string) string {
 		return "hysteria"
 	}
 	return p
+}
+
+// fixHysteriaStreamSettings self-heals a stored hysteria2 inbound's
+// streamSettings that still has the shape an older build of this panel's
+// own frontend used to send — network:"tcp" with an empty tcpSettings —
+// into what xray-core's hysteria proxy actually requires: network:
+// "hysteria" plus a hysteriaSettings object (see
+// proxy/hysteria/server.go's own streamSettings.ProtocolSettings type
+// assertion, which fails outright — "not hysteria transport" — for
+// anything else). Same self-heal philosophy injectClients already applies
+// to a stale WireGuard inbound's Address field below: an operator's
+// already-saved inbound should start working again the next time xray-core
+// reloads, not require them to notice, re-open, and re-save it by hand.
+// A no-op once the frontend's own fixed buildPayload has actually written
+// "hysteria" — this only ever touches the pre-fix shape.
+func fixHysteriaStreamSettings(raw string) json.RawMessage {
+	def := json.RawMessage(`{"network":"hysteria","hysteriaSettings":{"version":2}}`)
+	if raw == "" {
+		return def
+	}
+	var ss map[string]any
+	if err := json.Unmarshal([]byte(raw), &ss); err != nil {
+		return json.RawMessage(raw)
+	}
+	if network, _ := ss["network"].(string); network == "hysteria" {
+		return json.RawMessage(raw)
+	}
+	ss["network"] = "hysteria"
+	delete(ss, "tcpSettings")
+	ss["hysteriaSettings"] = map[string]any{"version": 2}
+	fixed, err := json.Marshal(ss)
+	if err != nil {
+		return json.RawMessage(raw)
+	}
+	return fixed
 }
 
 func rawOrNil(s string) json.RawMessage {

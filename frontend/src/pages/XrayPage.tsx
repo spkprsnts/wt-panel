@@ -547,8 +547,23 @@ function buildPayload(protocol: XrayProtocol, f: InboundFormState) {
     // so there's no "security" choice or transport choice here, just the
     // same TLS fields always applied. Matches upstream: no obfs/bandwidth
     // knobs in the current inbound schema (both were dropped upstream).
+    //
+    // network/hysteriaSettings (not "tcp"/tcpSettings) is load-bearing, not
+    // cosmetic: xray-core's own hysteria proxy (proxy/hysteria/server.go)
+    // asserts streamSettings.ProtocolSettings is its internal *hysteria.Config
+    // and refuses to start ("not hysteria transport") otherwise — confirmed
+    // against the real upstream source, same place the "hysteria2" vs
+    // "hysteria" protocol-id mismatch was confirmed (see xrayCoreProtocol
+    // on the backend). hysteriaSettings.version must also be 2 —
+    // infra/conf's own HysteriaConfig.Build() rejects anything else, same
+    // check the proxy-level settings.version above already satisfies.
     settings = { version: 2 }
-    streamSettings = { network: "tcp", tcpSettings: {}, security: "tls", tlsSettings: buildTlsSettings(f) }
+    streamSettings = {
+      network: "hysteria",
+      hysteriaSettings: { version: 2 },
+      security: "tls",
+      tlsSettings: buildTlsSettings(f),
+    }
   } else if (protocol === "wireguard") {
     settings = {
       secretKey: f.wgSecretKey,
