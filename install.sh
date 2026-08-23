@@ -511,19 +511,34 @@ setup_ssl() {
 apply_ssl_settings() {
 	local target="$1" cert_file="$2" key_file="$3" base="$4" admin_password="$5"
 
+	# setup_ssl's own --install-cert already fired --reloadcmd (a
+	# "systemctl restart wt-panel") the moment the cert was issued, so the
+	# panel can be mid-restart right here — logging in immediately can hit
+	# "Couldn't connect to server" purely from that timing, not a real
+	# failure (seen on a real VPS on the very first SSL setup that actually
+	# got this far, since every earlier attempt died inside setup_ssl
+	# itself and never reached this race at all).
+	wait_for_panel "$base" || true
+
 	local login_resp token
 	login_resp=$(curl -fsS --max-time 10 -X POST "http://127.0.0.1:${LISTEN_PORT}${base}api/login" \
 		-H 'Content-Type: application/json' \
 		-d "{\"username\":\"admin\",\"password\":\"${admin_password}\"}") || {
-		red "Не удалось войти в панель, чтобы применить SSL-настройки — задайте пути к сертификату вручную на странице «Настройки»."
+		red "Не удалось войти в панель, чтобы применить SSL-настройки. Сертификат уже выпущен — задайте пути вручную на странице «Настройки»: TLS-сертификат: ${cert_file}, TLS-ключ: ${key_file}"
 		return
 	}
 	token=$(json_field "$login_resp" token)
-	[[ -z "$token" ]] && return
+	if [[ -z "$token" ]]; then
+		red "Вход в панель не вернул токен — не удалось применить SSL-настройки. Сертификат уже выпущен — задайте пути вручную на странице «Настройки»: TLS-сертификат: ${cert_file}, TLS-ключ: ${key_file}"
+		return
+	fi
 
 	local current
 	current=$(curl -fsS --max-time 10 -H "Authorization: Bearer ${token}" \
-		"http://127.0.0.1:${LISTEN_PORT}${base}api/settings/panel") || return
+		"http://127.0.0.1:${LISTEN_PORT}${base}api/settings/panel") || {
+		red "Не удалось прочитать текущие настройки панели — не удалось применить SSL-настройки. Сертификат уже выпущен — задайте пути вручную на странице «Настройки»: TLS-сертификат: ${cert_file}, TLS-ключ: ${key_file}"
+		return
+	}
 	local listen_ip listen_port base_path public_ip
 	listen_ip=$(json_field "$current" ListenIP)
 	listen_port=$(json_field "$current" ListenPort)
@@ -537,7 +552,7 @@ apply_ssl_settings() {
 		-H "Authorization: Bearer ${token}" -H 'Content-Type: application/json' \
 		-d "{\"listenIp\":\"${listen_ip}\",\"listenDomain\":\"${listen_domain}\",\"listenPort\":${listen_port},\"basePath\":\"${base_path}\",\"tlsCertFile\":\"${cert_file}\",\"tlsKeyFile\":\"${key_file}\",\"publicIp\":\"${public_ip}\"}" \
 		>/dev/null || {
-		red "Не удалось сохранить SSL-настройки панели — задайте пути к сертификату вручную на странице «Настройки»."
+		red "Не удалось сохранить SSL-настройки панели. Сертификат уже выпущен — задайте пути вручную на странице «Настройки»: TLS-сертификат: ${cert_file}, TLS-ключ: ${key_file}"
 		return
 	}
 
