@@ -1,4 +1,5 @@
 import * as React from "react"
+import { Loader2 } from "lucide-react"
 
 import { api } from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -11,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 const SETTINGS_LABELS: Record<string, string> = {
   listenAddr: "Адрес панели",
@@ -266,6 +268,91 @@ function PanelNetworkCard() {
   )
 }
 
+// updatePollIntervalMs/updatePollMaxAttempts govern how UpdatingDialog waits
+// for the panel to come back after a self-update: the backend writes its
+// response, waits 300ms, then tears down the HTTP server and re-execs
+// itself (see updatePanel/relaunchSelf) — so the very first few polls will
+// still hit the OLD process before it actually goes down. Only a
+// success *after* at least one observed failure counts as "the new
+// process is up", which is why this polls a plain GET rather than
+// resolving as soon as anything answers.
+const updatePollIntervalMs = 2000
+const updatePollMaxAttempts = 60 // ~2 minutes
+
+function UpdatingDialog({ open }: { open: boolean }) {
+  const [timedOut, setTimedOut] = React.useState(false)
+
+  React.useEffect(() => {
+    if (!open) return
+    setTimedOut(false)
+    let cancelled = false
+    let sawDown = false
+    let attempts = 0
+    let timer: number
+
+    const poll = () => {
+      api
+        .getSettings()
+        .then(() => {
+          if (cancelled) return
+          if (sawDown) {
+            window.location.reload()
+            return
+          }
+          scheduleNext()
+        })
+        .catch(() => {
+          if (cancelled) return
+          sawDown = true
+          scheduleNext()
+        })
+    }
+    const scheduleNext = () => {
+      attempts += 1
+      if (attempts >= updatePollMaxAttempts) {
+        setTimedOut(true)
+        return
+      }
+      timer = window.setTimeout(poll, updatePollIntervalMs)
+    }
+    poll()
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [open])
+
+  return (
+    <Dialog open={open} onOpenChange={() => {}}>
+      <DialogContent
+        showCloseButton={false}
+        className="sm:max-w-sm"
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
+        <DialogHeader>
+          <DialogTitle>Обновление панели</DialogTitle>
+        </DialogHeader>
+        {timedOut ? (
+          <p className="text-sm text-destructive">
+            Панель не отвечает дольше обычного. Проверьте на сервере: journalctl -u wt-panel — и
+            обновите эту страницу вручную, когда панель снова будет доступна.
+          </p>
+        ) : (
+          <div className="flex flex-col items-center gap-3 py-2">
+            <Loader2 className="size-8 animate-spin text-muted-foreground" />
+            <p className="text-center text-sm text-muted-foreground">
+              Скачиваем новую версию и перезапускаем панель — эта страница обновится сама, как
+              только она снова будет доступна.
+            </p>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function PanelUpdateCard() {
   const [version, setVersion] = React.useState<string | null>(null)
   const [checking, setChecking] = React.useState(false)
@@ -322,11 +409,8 @@ function PanelUpdateCard() {
         <CardDescription>Проверка и установка новой версии wt-panel с GitHub Releases</CardDescription>
       </CardHeader>
       <CardContent>
-        {updating ? (
-          <p className="text-sm text-muted-foreground">
-            Панель обновляется и перезапускается — обновите страницу через несколько секунд.
-          </p>
-        ) : isDev ? (
+        <UpdatingDialog open={updating} />
+        {isDev ? (
           <p className="text-sm text-muted-foreground">
             Недоступно — эта сборка запущена из исходников (dev), а не из релиза.
           </p>
