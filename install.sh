@@ -759,10 +759,19 @@ WTP_COMMAND_PATH="/usr/local/bin/wtp"
 # cmd_menu). Prefers a real local copy (SCRIPT_DIR genuinely is a
 # checked-out repo — --from-source testing) over re-downloading, so a
 # locally-modified install.sh doesn't get silently clobbered by the
-# published one; falls back to curl for the normal case, where this ran via
-# the piped one-liner and never existed as a file on disk at all.
+# published one — but "genuinely" has to be checked for real
+# (backend/go.mod next to it, same test build_from_source already uses),
+# not just "a file named install.sh happens to exist there": SCRIPT_DIR
+# falls back to $PWD for the piped one-liner (see its own comment above),
+# so an unrelated leftover install.sh sitting in whatever directory the
+# operator happened to be in — e.g. from testing the old two-command
+# curl -o install.sh / bash install.sh form before it became this
+# one-liner — would otherwise get silently copied over wtp forever after,
+# never picking up a real update again even though the panel binary itself
+# updates fine (confirmed on a real VPS: wt-panel itself reached v0.6.0
+# while wtp stayed on an old build with no menu at all).
 install_wtp_command() {
-	if [[ -f "$SCRIPT_DIR/install.sh" ]]; then
+	if [[ -f "$SCRIPT_DIR/install.sh" && -f "$SCRIPT_DIR/backend/go.mod" ]]; then
 		cp "$SCRIPT_DIR/install.sh" "$WTP_COMMAND_PATH"
 	else
 		curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/install.sh" -o "$WTP_COMMAND_PATH" || return
