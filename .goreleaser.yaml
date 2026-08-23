@@ -28,6 +28,7 @@ archives:
       {{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}
     files:
       - README.md
+      - LICENSE
       - install.sh
 
 checksum:
