@@ -213,7 +213,7 @@ func (s *Server) buildOlcrtc(c *gin.Context) {
 	// — so the KernelInstall row gets recorded even if the operator reloads
 	// the page (or never comes back) before the build completes. See
 	// JobManager.StartOlcRTCBuild's doc comment.
-	job := s.jobs.StartOlcRTCBuild(req.Ref, s.cfg.OlcRTCBinPath, func(version, log string) {
+	job := s.jobs.StartOlcRTCBuild(req.Ref, s.cfg.OlcRTCBinPath, s.cfg.DataDir, func(version, log string) {
 		s.recordKernelInstall(models.CoreOlcRTC, version, "build", log)
 		s.restartProfilesOfType(models.CoreOlcRTC)
 	})

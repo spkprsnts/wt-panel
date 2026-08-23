@@ -124,12 +124,12 @@ func (m *JobManager) finish(job *Job, status JobStatus, version string) {
 // record (see handlers_kernels.go's recordKernelInstall) can't get silently
 // skipped just because nobody was around to observe the "success" status
 // over HTTP.
-func (m *JobManager) StartOlcRTCBuild(ref, destPath string, onSuccess func(version, log string)) *Job {
+func (m *JobManager) StartOlcRTCBuild(ref, destPath, dataDir string, onSuccess func(version, log string)) *Job {
 	job, running := m.startJob("olcrtc", ref)
 	if running {
 		return job
 	}
-	go m.runOlcRTCBuild(job, ref, destPath, onSuccess)
+	go m.runOlcRTCBuild(job, ref, destPath, dataDir, onSuccess)
 	return job
 }
 
@@ -283,7 +283,28 @@ func readMemInfoKB() (totalKB, swapKB int64, err error) {
 	return totalKB, swapKB, nil
 }
 
-func (m *JobManager) runOlcRTCBuild(job *Job, ref, destPath string, onSuccess func(version, log string)) {
+// olcrtcGoEnv points GOPATH/GOCACHE/GOMODCACHE (and HOME, as a catch-all for
+// any other tool that consults it) at a fixed directory under the panel's
+// own data dir instead of leaving Go to derive them from $HOME. The panel
+// normally runs as a systemd service with no User= directive, which means
+// systemd never populates HOME for it — Go's "go run" then has nothing to
+// derive a default module cache location from and fails outright with
+// "module cache not found: neither GOMODCACHE nor GOPATH is set" (seen on a
+// real fresh VPS). Anchoring it here instead of $HOME also means the module
+// cache survives and gets reused across separate olcRTC builds, since tmpDir
+// itself is wiped after every run.
+func olcrtcGoEnv(dataDir string) []string {
+	base := filepath.Join(dataDir, "olcrtc-gocache")
+	gopath := filepath.Join(base, "gopath")
+	return []string{
+		"HOME=" + base,
+		"GOPATH=" + gopath,
+		"GOCACHE=" + filepath.Join(base, "gocache"),
+		"GOMODCACHE=" + filepath.Join(gopath, "pkg", "mod"),
+	}
+}
+
+func (m *JobManager) runOlcRTCBuild(job *Job, ref, destPath, dataDir string, onSuccess func(version, log string)) {
 	tmpDir, err := os.MkdirTemp("", "olcrtc-build-*")
 	if err != nil {
 		m.appendLog(job, "mkdir temp dir: "+err.Error())
@@ -291,6 +312,13 @@ func (m *JobManager) runOlcRTCBuild(job *Job, ref, destPath string, onSuccess fu
 		return
 	}
 	defer os.RemoveAll(tmpDir)
+
+	goEnv := olcrtcGoEnv(dataDir)
+	if err := os.MkdirAll(filepath.Join(dataDir, "olcrtc-gocache"), 0o755); err != nil {
+		m.appendLog(job, "mkdir go cache dir: "+err.Error())
+		m.finish(job, JobFailed, "")
+		return
+	}
 
 	run := func(dir string, env []string, name string, args ...string) bool {
 		m.appendLog(job, fmt.Sprintf("$ %s %s", name, strings.Join(args, " ")))
@@ -337,7 +365,7 @@ func (m *JobManager) runOlcRTCBuild(job *Job, ref, destPath string, onSuccess fu
 		resolvedSHA = ref
 	}
 
-	if !run(tmpDir, []string{"GOFLAGS=-buildvcs=false"}, "go", "run",
+	if !run(tmpDir, append(goEnv, "GOFLAGS=-buildvcs=false"), "go", "run",
 		"github.com/magefile/mage@latest", "build") {
 		m.finish(job, JobFailed, resolvedSHA)
 		return
