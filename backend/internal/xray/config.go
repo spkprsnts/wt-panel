@@ -68,7 +68,7 @@ func BuildConfig(db *gorm.DB) (data []byte, enabledCount int, err error) {
 			Tag:            fmt.Sprintf("inbound-%d", ib.ID),
 			Listen:         ib.Listen,
 			Port:           ib.Port,
-			Protocol:       ib.Protocol,
+			Protocol:       xrayCoreProtocol(ib.Protocol),
 			Settings:       settings,
 			StreamSettings: rawOrNil(ib.StreamSettings),
 			Sniffing:       rawOrNil(ib.Sniffing),
@@ -147,6 +147,28 @@ func injectClients(ib models.XrayInbound) (json.RawMessage, error) {
 	}
 
 	return json.Marshal(settings)
+}
+
+// xrayCoreProtocol translates this panel's own stored XrayInbound.Protocol
+// value into the exact string xray-core's infra/conf package actually
+// registers a config loader under. Every value round-trips as-is except
+// "hysteria2": xray-core's own inbound config id for it is "hysteria" (see
+// XTLS/Xray-core's infra/conf/xray.go, kernelConfigLoader map — confirmed
+// against the real upstream source, not just its client-facing hysteria2://
+// URI scheme, which is an unrelated convention). Sending "hysteria2"
+// verbatim is exactly what produced a real, reproducible startup crash —
+// "infra/conf: unknown config id: hysteria2" — on every xray-core version
+// tested, including a build from the same week this was fixed. Kept as a
+// translation at this one boundary, rather than renaming the stored value
+// everywhere (XrayInbound.Protocol, the frontend's XrayProtocol type,
+// hysteria2:// client links, UI labels), so existing rows with
+// Protocol="hysteria2" already in a deployed database keep working
+// untouched — no migration needed.
+func xrayCoreProtocol(p string) string {
+	if p == "hysteria2" {
+		return "hysteria"
+	}
+	return p
 }
 
 func rawOrNil(s string) json.RawMessage {
