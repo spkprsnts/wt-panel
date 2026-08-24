@@ -667,6 +667,21 @@ current_admin_password_hint() {
 	sed -n 's/^Environment=WTP_ADMIN_PASSWORD=//p' "$SERVICE_FILE" 2>/dev/null
 }
 
+# current_jwt_secret_hint reads the JWT signing secret this install already
+# has seeded (Environment=WTP_JWT_SECRET= in the unit file) — unlike the two
+# hints above, this one isn't a "best guess, may be stale" convenience: the
+# backend has nowhere else to get this value from (config.getEnv falls back
+# to the hardcoded, publicly-known "dev-insecure-secret-change-me" default
+# the instant it's unset — see internal/config/config.go), and there's no
+# admin_password/base_path-style DB row to fall back on either, since
+# nothing ever persists it there. So install_service_unit must always carry
+# whatever secret is already running forward into every rewrite of the unit
+# file, fresh install or update alike, or every update would silently drop
+# back to that public default and invalidate every session in the process.
+current_jwt_secret_hint() {
+	sed -n 's/^Environment=WTP_JWT_SECRET=//p' "$SERVICE_FILE" 2>/dev/null
+}
+
 # probe_panel_login checks whether base+password actually authenticate,
 # printing nothing either way — cmd_ssl uses it to try the install-time
 # seed values first (see the two hints above) before bothering the operator
@@ -686,10 +701,11 @@ probe_panel_login() {
 }
 
 install_service_unit() {
-	local admin_password="$1" base_path="$2"
+	local admin_password="$1" base_path="$2" jwt_secret="$3"
 	local extra_env=""
 	[[ -n "$admin_password" ]] && extra_env+=$'\n'"Environment=WTP_ADMIN_PASSWORD=${admin_password}"
 	[[ -n "$base_path" ]] && extra_env+=$'\n'"Environment=WTP_INITIAL_BASE_PATH=${base_path}"
+	[[ -n "$jwt_secret" ]] && extra_env+=$'\n'"Environment=WTP_JWT_SECRET=${jwt_secret}"
 
 	cat >"$SERVICE_FILE" <<EOF
 [Unit]
@@ -813,7 +829,7 @@ cmd_install() {
 	mv "${BIN_PATH}.new" "$BIN_PATH"
 	chmod +x "$BIN_PATH"
 
-	local admin_password="" base_path=""
+	local admin_password="" base_path="" jwt_secret=""
 	if [[ $fresh -eq 1 ]]; then
 		# 9 bytes -> 18 hex chars for the password, 4 -> 8 for the path
 		# segment — both env-var-seeded once, on this very first boot (see
@@ -821,9 +837,22 @@ cmd_install() {
 		# permanently since they're no-ops once the rows exist.
 		admin_password=$(random_hex 9)
 		base_path="/$(random_hex 4)/"
+		# 32 bytes -> 64 hex chars for the JWT signing secret. Unlike the
+		# two above, this one is NOT a one-time DB seed — every process
+		# startup reads it straight from this env var (see
+		# current_jwt_secret_hint's own comment) — so it's generated once
+		# here and then carried forward unchanged on every future update
+		# below, never regenerated.
+		jwt_secret=$(random_hex 32)
+	else
+		jwt_secret=$(current_jwt_secret_hint)
+		# An install from before this env var existed has nothing to carry
+		# forward — seed it now rather than leaving the service running on
+		# the public "dev-insecure-secret-change-me" default indefinitely.
+		[[ -z "$jwt_secret" ]] && jwt_secret=$(random_hex 32)
 	fi
 
-	install_service_unit "$admin_password" "$base_path"
+	install_service_unit "$admin_password" "$base_path" "$jwt_secret"
 	systemctl enable --now "$SERVICE_NAME"
 
 	sleep 1
