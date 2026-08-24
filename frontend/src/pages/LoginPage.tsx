@@ -56,6 +56,8 @@ export function LoginPage() {
               <Label htmlFor="username">{t("login.username")}</Label>
               <Input
                 id="username"
+                name="username"
+                autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoFocus
@@ -65,7 +67,9 @@ export function LoginPage() {
               <Label htmlFor="password">{t("login.password")}</Label>
               <Input
                 id="password"
+                name="password"
                 type="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
