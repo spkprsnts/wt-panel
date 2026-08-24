@@ -16,6 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const SETTINGS_LABEL_KEYS: Record<string, TranslationKey> = {
   listenAddr: "settings.label.listenAddr",
@@ -607,12 +608,26 @@ export function SettingsPage() {
   return (
     <div className="mx-auto max-w-3xl p-6">
       <h1 className="mb-6 text-xl font-semibold">{t("settings.pageTitle")}</h1>
-      <div className="flex flex-col gap-6">
-        <AccountCard />
-        <PanelNetworkCard />
-        <PanelUpdateCard />
-        <ConfigCard />
-      </div>
+      <Tabs defaultValue="account">
+        <TabsList>
+          <TabsTrigger value="account">{t("settings.account.title")}</TabsTrigger>
+          <TabsTrigger value="network">{t("settings.network.title")}</TabsTrigger>
+          <TabsTrigger value="update">{t("settings.update.title")}</TabsTrigger>
+          <TabsTrigger value="config">{t("settings.config.title")}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="account">
+          <AccountCard />
+        </TabsContent>
+        <TabsContent value="network">
+          <PanelNetworkCard />
+        </TabsContent>
+        <TabsContent value="update">
+          <PanelUpdateCard />
+        </TabsContent>
+        <TabsContent value="config">
+          <ConfigCard />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
