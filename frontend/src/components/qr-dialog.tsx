@@ -1,6 +1,7 @@
 import * as React from "react"
 import QRCode from "qrcode"
 
+import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
@@ -42,6 +43,7 @@ export function QrDialog({
   onDownload?: () => Promise<void>
   downloadLabel?: string
 }) {
+  const t = useT()
   const [open, setOpen] = React.useState(false)
   const [variants, setVariants] = React.useState<QrVariant[] | null>(null)
   const [activeKey, setActiveKey] = React.useState("")
@@ -70,7 +72,7 @@ export function QrDialog({
         setVariants(v)
         setActiveKey(v[0]?.key ?? "")
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Не удалось загрузить"))
+      .catch((err) => setError(err instanceof Error ? err.message : t("qrDialog.loadFailed")))
   }, [open])
 
   const active = variants?.find((v) => v.key === activeKey) ?? null
@@ -109,7 +111,7 @@ export function QrDialog({
     try {
       await onDownload()
     } catch (err) {
-      setDownloadError(err instanceof Error ? err.message : "Не удалось скачать файл")
+      setDownloadError(err instanceof Error ? err.message : t("qrDialog.downloadFailed"))
     } finally {
       setDownloading(false)
     }
@@ -124,7 +126,7 @@ export function QrDialog({
         </DialogHeader>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {!error && !variants && <p className="text-sm text-muted-foreground">Загрузка...</p>}
+        {!error && !variants && <p className="text-sm text-muted-foreground">{t("common.loading")}</p>}
 
         {variants && variants.length > 0 && (
           <div className="flex flex-col gap-3">
@@ -147,7 +149,7 @@ export function QrDialog({
             {hasHostChoice && (
               <div className="flex items-center justify-center gap-2">
                 <Label htmlFor="qr-use-domain" className="text-sm font-normal">
-                  Использовать домен
+                  {t("qrDialog.useDomain")}
                 </Label>
                 <Switch id="qr-use-domain" checked={useDomain} onCheckedChange={setUseDomain} />
               </div>
@@ -157,14 +159,14 @@ export function QrDialog({
               <button
                 type="button"
                 onClick={handleCopy}
-                title="Нажмите, чтобы скопировать содержимое"
+                title={t("qrDialog.clickToCopy")}
                 className="mx-auto cursor-pointer rounded-md border p-2 transition-opacity hover:opacity-80"
               >
                 <img src={dataUrl} alt={active?.label ?? "QR"} className="size-56" />
               </button>
             )}
             <p className="text-center text-xs text-muted-foreground">
-              {copied ? "Скопировано!" : "Нажмите на QR-код, чтобы скопировать ссылку"}
+              {copied ? t("common.copied") : t("qrDialog.clickQrToCopy")}
             </p>
             <code className="max-h-24 overflow-y-auto rounded-md border bg-muted p-2 text-xs break-all">
               {activeContent}
@@ -176,7 +178,7 @@ export function QrDialog({
           <DialogFooter className="flex-col items-stretch gap-1 sm:flex-col">
             {downloadError && <p className="text-xs text-destructive">{downloadError}</p>}
             <Button type="button" variant="outline" onClick={handleDownload} disabled={downloading}>
-              {downloading ? "Скачиваем..." : (downloadLabel ?? "Скачать .json")}
+              {downloading ? t("common.downloading") : (downloadLabel ?? t("qrDialog.downloadDefault"))}
             </Button>
           </DialogFooter>
         )}

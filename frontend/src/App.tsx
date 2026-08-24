@@ -1,6 +1,7 @@
 import { Navigate, Route, BrowserRouter, Routes } from "react-router-dom"
 
 import { BASE_PATH, getToken } from "@/lib/api"
+import { LanguageProvider } from "@/lib/i18n"
 import { DialogPromptProvider } from "@/components/dialog-prompt"
 import { AppLayout } from "@/components/layout/app-layout"
 import { LoginPage } from "@/pages/LoginPage"
@@ -18,27 +19,29 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <DialogPromptProvider>
-      <BrowserRouter basename={BASE_PATH}>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route
-            element={
-              <RequireAuth>
-                <AppLayout />
-              </RequireAuth>
-            }
-          >
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/clients" element={<ClientsPage />} />
-            <Route path="/xray" element={<XrayPage />} />
-            <Route path="/rooms" element={<CallRoomsPage />} />
-            <Route path="/kernels" element={<KernelsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-          </Route>
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </DialogPromptProvider>
+    <LanguageProvider>
+      <DialogPromptProvider>
+        <BrowserRouter basename={BASE_PATH}>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route
+              element={
+                <RequireAuth>
+                  <AppLayout />
+                </RequireAuth>
+              }
+            >
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/clients" element={<ClientsPage />} />
+              <Route path="/xray" element={<XrayPage />} />
+              <Route path="/rooms" element={<CallRoomsPage />} />
+              <Route path="/kernels" element={<KernelsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </DialogPromptProvider>
+    </LanguageProvider>
   )
 }

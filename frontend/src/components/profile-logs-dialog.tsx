@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { api } from "@/lib/api"
+import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -18,6 +19,7 @@ export function ProfileLogsDialog({
   profileId: number
   profileName: string
 }) {
+  const t = useT()
   const [open, setOpen] = React.useState(false)
   const [log, setLog] = React.useState("")
   const [running, setRunning] = React.useState(false)
@@ -35,7 +37,7 @@ export function ProfileLogsDialog({
       setRunning(resp.running)
       setPid(resp.pid)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось загрузить логи")
+      setError(err instanceof Error ? err.message : t("profileLogs.loadFailed"))
     } finally {
       setLoading(false)
     }
@@ -67,20 +69,22 @@ export function ProfileLogsDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button size="sm" variant="ghost">
-          Логи
+          {t("profileLogs.trigger")}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[80vh] overflow-hidden sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Логи: {profileName}</DialogTitle>
+          <DialogTitle>
+            {t("profileLogs.title")}: {profileName}
+          </DialogTitle>
         </DialogHeader>
         <div className="flex items-center gap-2 text-sm">
           <Badge variant={running ? "default" : "secondary"}>
-            {running ? "работает" : "не работает"}
+            {running ? t("profileLogs.running") : t("profileLogs.notRunning")}
           </Badge>
           {running && pid > 0 && <span className="text-muted-foreground">PID {pid}</span>}
           <Button size="sm" variant="outline" className="ml-auto" onClick={fetchLogs} disabled={loading}>
-            Обновить
+            {t("profileLogs.refresh")}
           </Button>
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}
@@ -88,7 +92,7 @@ export function ProfileLogsDialog({
           ref={logRef}
           className="max-h-[55vh] overflow-auto rounded-md border bg-muted/30 p-3 text-xs whitespace-pre-wrap"
         >
-          {log || (loading ? "Загрузка..." : "Лог пуст")}
+          {log || (loading ? t("common.loading") : t("profileLogs.empty"))}
         </pre>
       </DialogContent>
     </Dialog>

@@ -2,6 +2,7 @@ import * as React from "react"
 import { Moon, Sun } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import { getEffectiveTheme, setTheme, type Theme } from "@/lib/theme"
 
@@ -16,6 +17,7 @@ export function ThemeToggle({
   className?: string
   showLabel?: boolean
 }) {
+  const t = useT()
   const [theme, setThemeState] = React.useState<Theme>(() => getEffectiveTheme())
 
   function toggle() {
@@ -25,7 +27,7 @@ export function ThemeToggle({
   }
 
   const Icon = theme === "dark" ? Sun : Moon
-  const label = theme === "dark" ? "Светлая тема" : "Тёмная тема"
+  const label = theme === "dark" ? t("themeToggle.light") : t("themeToggle.dark")
 
   return (
     <Button

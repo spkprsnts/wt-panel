@@ -3,6 +3,8 @@ import { Loader2 } from "lucide-react"
 
 import { api } from "@/lib/api"
 import { useDialogPrompt } from "@/components/dialog-prompt"
+import { useT } from "@/lib/i18n"
+import type { TranslationKey } from "@/i18n"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,25 +17,26 @@ import {
 } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
-const SETTINGS_LABELS: Record<string, string> = {
-  listenAddr: "Адрес панели",
-  publicOrigin: "Публичный origin (для ссылок подписки)",
-  publicIP: "Публичный IP/хост VPS",
-  dataDir: "Каталог данных",
-  turnableBinPath: "Бинарник Turnable",
-  olcrtcBinPath: "Бинарник olcRTC",
-  webdavBinPath: "Бинарник WebDAV",
-  freeturnBinPath: "Бинарник FreeTurn",
-  turnableListenHost: "Turnable — интерфейс прослушивания",
-  freeturnListenHost: "FreeTurn — интерфейс прослушивания",
-  webdavListenHost: "WebDAV — интерфейс прослушивания",
-  turnableDefaultRouteHost: "Turnable — хост маршрута по умолчанию",
-  freeturnDefaultConnectHost: "FreeTurn — хост -connect по умолчанию",
-  webdavDefaultProxyUpstream: "WebDAV — upstream-прокси по умолчанию",
-  webdavPublicHost: "WebDAV — публичный хост",
+const SETTINGS_LABEL_KEYS: Record<string, TranslationKey> = {
+  listenAddr: "settings.label.listenAddr",
+  publicOrigin: "settings.label.publicOrigin",
+  publicIP: "settings.network.publicIpLabel",
+  dataDir: "settings.label.dataDir",
+  turnableBinPath: "settings.label.turnableBinPath",
+  olcrtcBinPath: "settings.label.olcrtcBinPath",
+  webdavBinPath: "settings.label.webdavBinPath",
+  freeturnBinPath: "settings.label.freeturnBinPath",
+  turnableListenHost: "settings.label.turnableListenHost",
+  freeturnListenHost: "settings.label.freeturnListenHost",
+  webdavListenHost: "settings.label.webdavListenHost",
+  turnableDefaultRouteHost: "settings.label.turnableDefaultRouteHost",
+  freeturnDefaultConnectHost: "settings.label.freeturnDefaultConnectHost",
+  webdavDefaultProxyUpstream: "settings.label.webdavDefaultProxyUpstream",
+  webdavPublicHost: "settings.label.webdavPublicHost",
 }
 
 function AccountCard() {
+  const t = useT()
   const [username, setUsername] = React.useState<string | null>(null)
   const [currentPassword, setCurrentPassword] = React.useState("")
   const [newPassword, setNewPassword] = React.useState("")
@@ -51,7 +54,7 @@ function AccountCard() {
     setError(null)
     setSuccess(false)
     if (newPassword !== confirmPassword) {
-      setError("Новые пароли не совпадают")
+      setError(t("settings.account.passwordMismatch"))
       return
     }
     setLoading(true)
@@ -62,7 +65,7 @@ function AccountCard() {
       setNewPassword("")
       setConfirmPassword("")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось сменить пароль")
+      setError(err instanceof Error ? err.message : t("settings.account.changeFailed"))
     } finally {
       setLoading(false)
     }
@@ -71,13 +74,15 @@ function AccountCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Аккаунт</CardTitle>
-        <CardDescription>{username ? `Вход выполнен как ${username}` : "Загрузка..."}</CardDescription>
+        <CardTitle>{t("settings.account.title")}</CardTitle>
+        <CardDescription>
+          {username ? `${t("settings.account.loggedInAs")} ${username}` : t("common.loading")}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="flex max-w-sm flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="current-password">Текущий пароль</Label>
+            <Label htmlFor="current-password">{t("settings.account.currentPassword")}</Label>
             <Input
               id="current-password"
               type="password"
@@ -87,7 +92,7 @@ function AccountCard() {
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="new-password">Новый пароль</Label>
+            <Label htmlFor="new-password">{t("settings.account.newPassword")}</Label>
             <Input
               id="new-password"
               type="password"
@@ -98,7 +103,7 @@ function AccountCard() {
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="confirm-password">Повторите новый пароль</Label>
+            <Label htmlFor="confirm-password">{t("settings.account.confirmPassword")}</Label>
             <Input
               id="confirm-password"
               type="password"
@@ -108,9 +113,9 @@ function AccountCard() {
             />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          {success && <p className="text-sm text-green-600">Пароль изменён</p>}
+          {success && <p className="text-sm text-green-600">{t("settings.account.changed")}</p>}
           <Button type="submit" disabled={loading}>
-            {loading ? "Сохраняем..." : "Сменить пароль"}
+            {loading ? t("common.saving") : t("settings.account.changePassword")}
           </Button>
         </form>
       </CardContent>
@@ -118,7 +123,32 @@ function AccountCard() {
   )
 }
 
+// buildTargetUrl guesses the address the panel will actually be reachable
+// at once a network-settings restart completes, from whatever's currently
+// filled into PanelNetworkCard's own form — so PanelRestartDialog can
+// navigate the browser there directly instead of just reloading whatever
+// URL happens to be open right now (which 404s the instant the operator
+// changes the base path, and simply stops responding at all the instant
+// they change the domain or port — see PanelRestartDialog's own comment).
+// Best-effort by design: anything left blank/unchanged falls back to
+// window.location's own current value, since that's still correct unless
+// the operator actually edited that particular field.
+function buildTargetUrl(opts: {
+  listenDomain: string
+  listenPort: string
+  publicIp: string
+  basePath: string
+  hasTls: boolean
+}): string {
+  const scheme = opts.hasTls ? "https" : "http"
+  const host = opts.listenDomain || opts.publicIp || window.location.hostname
+  const port = Number(opts.listenPort) || Number(window.location.port) || 8090
+  const path = opts.basePath || "/"
+  return `${scheme}://${host}:${port}${path}`
+}
+
 function PanelNetworkCard() {
+  const t = useT()
   const { confirm } = useDialogPrompt()
   const [listenIp, setListenIp] = React.useState("")
   const [listenDomain, setListenDomain] = React.useState("")
@@ -133,6 +163,7 @@ function PanelNetworkCard() {
   const [saved, setSaved] = React.useState(false)
   const [restarting, setRestarting] = React.useState(false)
   const [beforeBootId, setBeforeBootId] = React.useState<string | null>(null)
+  const [targetUrl, setTargetUrl] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     api
@@ -166,7 +197,7 @@ function PanelNetworkCard() {
       })
       setSaved(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось сохранить")
+      setError(err instanceof Error ? err.message : t("settings.network.saveFailed"))
     } finally {
       setLoading(false)
     }
@@ -174,10 +205,10 @@ function PanelNetworkCard() {
 
   async function handleRestart() {
     if (
-      !(await confirm(
-        "Перезапустить панель? Все процессы ядер (Turnable/olcRTC/FreeTurn/WebDAV) будут остановлены и подняты заново — активные звонки на пару секунд прервутся.",
-        { destructive: true, confirmLabel: "Перезапустить" }
-      ))
+      !(await confirm(t("settings.network.restartConfirm"), {
+        destructive: true,
+        confirmLabel: t("settings.network.restartButton"),
+      }))
     ) {
       return
     }
@@ -186,86 +217,109 @@ function PanelNetworkCard() {
       const before = await api.getSettings()
       await api.restartPanel()
       setBeforeBootId(before.bootId)
+      setTargetUrl(
+        buildTargetUrl({
+          listenDomain,
+          listenPort,
+          publicIp,
+          basePath,
+          hasTls: !!tlsCertFile && !!tlsKeyFile,
+        })
+      )
       setRestarting(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось запустить перезапуск")
+      setError(err instanceof Error ? err.message : t("settings.network.restartFailed"))
     }
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Сеть панели</CardTitle>
-        <CardDescription>
-          Сохраняется сразу, но применяется только после перезапуска панели — процесс читает эти
-          настройки один раз при старте
-        </CardDescription>
+        <CardTitle>{t("settings.network.title")}</CardTitle>
+        <CardDescription>{t("settings.network.description")}</CardDescription>
       </CardHeader>
       <CardContent>
         <PanelRestartDialog
           open={restarting}
           beforeBootId={beforeBootId}
-          title="Перезапуск панели"
-          message="Панель перезапускается — эта страница обновится сама. Если менялись IP/домен/порт/URI-путь, откройте её по новому адресу вручную, когда она снова будет доступна."
+          title={t("settings.network.restartDialogTitle")}
+          message={t("settings.network.restartDialogMessage")}
+          targetUrl={targetUrl}
         />
         {!loaded ? (
-          <p className="text-sm text-muted-foreground">Загрузка...</p>
+          <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
         ) : (
           <form onSubmit={handleSubmit} className="flex max-w-sm flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="panel-public-ip">Публичный IP/хост VPS</Label>
+              <Label htmlFor="panel-public-ip">{t("settings.network.publicIpLabel")}</Label>
               <Input
                 id="panel-public-ip"
                 value={publicIp}
                 onChange={(e) => setPublicIp(e.target.value)}
-                placeholder="Автоматически определяется при первом запуске"
+                placeholder={t("settings.network.publicIpPlaceholder")}
               />
-              <p className="text-xs text-muted-foreground">
-                Зашивается в конфиг клиентов Turnable/FreeTurn — определяется автоматически при
-                первой установке панели, но может ошибиться (несколько сетевых интерфейсов, NAT,
-                IPv6-only). Пустое значение — причина ошибки Turnable &quot;public_ip is
-                required&quot;.
-              </p>
+              <p className="text-xs text-muted-foreground">{t("settings.network.publicIpHelp")}</p>
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="panel-listen-ip">IP-адрес для управления панелью</Label>
-              <Input id="panel-listen-ip" value={listenIp} onChange={(e) => setListenIp(e.target.value)} placeholder="Оставьте пустым для подключения с любого IP" />
+              <Label htmlFor="panel-listen-ip">{t("settings.network.listenIpLabel")}</Label>
+              <Input
+                id="panel-listen-ip"
+                value={listenIp}
+                onChange={(e) => setListenIp(e.target.value)}
+                placeholder={t("settings.network.listenIpPlaceholder")}
+              />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="panel-listen-domain">Домен панели</Label>
+              <Label htmlFor="panel-listen-domain">{t("settings.network.listenDomainLabel")}</Label>
               <Input
                 id="panel-listen-domain"
                 value={listenDomain}
                 onChange={(e) => setListenDomain(e.target.value)}
-                placeholder="Оставьте пустым для подключения с любых доменов и IP"
+                placeholder={t("settings.network.listenDomainPlaceholder")}
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="panel-listen-port">Порт панели</Label>
-              <Input id="panel-listen-port" type="number" value={listenPort} onChange={(e) => setListenPort(e.target.value)} placeholder="По умолчанию" />
-              <p className="text-xs text-muted-foreground">Порт, на котором работает панель</p>
+              <Label htmlFor="panel-listen-port">{t("settings.network.listenPortLabel")}</Label>
+              <Input
+                id="panel-listen-port"
+                type="number"
+                value={listenPort}
+                onChange={(e) => setListenPort(e.target.value)}
+                placeholder={t("settings.network.listenPortPlaceholder")}
+              />
+              <p className="text-xs text-muted-foreground">{t("settings.network.listenPortHelp")}</p>
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="panel-base-path">URI-путь</Label>
+              <Label htmlFor="panel-base-path">{t("settings.network.basePathLabel")}</Label>
               <Input id="panel-base-path" value={basePath} onChange={(e) => setBasePath(e.target.value)} required />
-              <p className="text-xs text-muted-foreground">Должен начинаться с &apos;/&apos; и заканчиваться &apos;/&apos;</p>
+              <p className="text-xs text-muted-foreground">{t("settings.network.basePathHelp")}</p>
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="panel-tls-cert">Путь к файлу публичного ключа сертификата панели</Label>
-              <Input id="panel-tls-cert" value={tlsCertFile} onChange={(e) => setTlsCertFile(e.target.value)} placeholder="Введите полный путь, начинающийся с '/'" />
+              <Label htmlFor="panel-tls-cert">{t("settings.network.tlsCertLabel")}</Label>
+              <Input
+                id="panel-tls-cert"
+                value={tlsCertFile}
+                onChange={(e) => setTlsCertFile(e.target.value)}
+                placeholder={t("settings.network.pathPlaceholder")}
+              />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="panel-tls-key">Путь к файлу приватного ключа сертификата панели</Label>
-              <Input id="panel-tls-key" value={tlsKeyFile} onChange={(e) => setTlsKeyFile(e.target.value)} placeholder="Введите полный путь, начинающийся с '/'" />
+              <Label htmlFor="panel-tls-key">{t("settings.network.tlsKeyLabel")}</Label>
+              <Input
+                id="panel-tls-key"
+                value={tlsKeyFile}
+                onChange={(e) => setTlsKeyFile(e.target.value)}
+                placeholder={t("settings.network.pathPlaceholder")}
+              />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            {saved && <p className="text-sm text-green-600">Сохранено — перезапустите панель, чтобы изменения вступили в силу</p>}
+            {saved && <p className="text-sm text-green-600">{t("settings.network.saved")}</p>}
             <div className="flex gap-2">
               <Button type="submit" disabled={loading}>
-                {loading ? "Сохраняем..." : "Сохранить"}
+                {loading ? t("common.saving") : t("common.save")}
               </Button>
               <Button type="button" variant="destructive" onClick={handleRestart}>
-                Перезапустить панель
+                {t("settings.network.restartButton")}
               </Button>
             </div>
           </form>
@@ -299,12 +353,20 @@ function PanelRestartDialog({
   beforeBootId,
   title,
   message,
+  targetUrl,
 }: {
   open: boolean
   beforeBootId: string | null
   title: string
   message: string
+  // Where to send the browser once the panel is confirmed back up —
+  // PanelNetworkCard's restart passes its best guess at the post-restart
+  // address (see buildTargetUrl); everything else (a plain "Update panel"
+  // restart, which never touches network settings) leaves this unset and
+  // gets the old reload-in-place behavior.
+  targetUrl?: string | null
 }) {
+  const t = useT()
   const [timedOut, setTimedOut] = React.useState(false)
 
   React.useEffect(() => {
@@ -314,13 +376,43 @@ function PanelRestartDialog({
     let attempts = 0
     let timer: number
 
+    // crossOrigin is true when the operator changed the panel's own
+    // domain/port as part of this restart — the browser is currently
+    // pointed at the OLD address, and the moment the new process rebinds
+    // elsewhere, that old address stops answering *permanently*, not just
+    // during the restart window (see the bootId comment below for the
+    // same-origin case, which this is deliberately not). Polling it with
+    // the usual same-origin bootId comparison would just spin until
+    // restartPollMaxAttempts and give up. A `no-cors` fetch of the NEW
+    // address instead only asks "does anything answer here yet" — the
+    // browser refuses to expose the response body cross-origin, but the
+    // promise still resolves the instant a real HTTP response comes back
+    // and rejects on connection-refused/timeout/TLS failure, which is
+    // exactly the yes/no this needs. A top-level navigation afterward
+    // (unlike fetch/XHR) is never CORS-restricted, so redirecting there is
+    // safe even though reading it first wasn't an option.
+    const crossOrigin = !!targetUrl && new URL(targetUrl, window.location.href).origin !== window.location.origin
+
     const poll = () => {
+      if (crossOrigin) {
+        fetch(targetUrl!, { mode: "no-cors", cache: "no-store" })
+          .then(() => {
+            if (cancelled) return
+            window.location.href = targetUrl!
+          })
+          .catch(() => {
+            if (cancelled) return
+            scheduleNext()
+          })
+        return
+      }
       api
         .getSettings()
         .then((s) => {
           if (cancelled) return
           if (beforeBootId !== null && s.bootId !== beforeBootId) {
-            window.location.reload()
+            if (targetUrl) window.location.href = targetUrl
+            else window.location.reload()
             return
           }
           scheduleNext()
@@ -344,7 +436,7 @@ function PanelRestartDialog({
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [open, beforeBootId])
+  }, [open, beforeBootId, targetUrl])
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
@@ -358,11 +450,7 @@ function PanelRestartDialog({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         {timedOut ? (
-          <p className="text-sm text-destructive">
-            Панель дольше обычного не перезапускается — либо она не отвечает, либо изменения не
-            применились (например, сменился IP/домен/порт панели — тогда откройте её по новому
-            адресу). Проверьте на сервере: journalctl -u wt-panel.
-          </p>
+          <p className="text-sm text-destructive">{t("settings.restartDialog.timedOut")}</p>
         ) : (
           <div className="flex flex-col items-center gap-3 py-2">
             <Loader2 className="size-8 animate-spin text-muted-foreground" />
@@ -375,6 +463,7 @@ function PanelRestartDialog({
 }
 
 function PanelUpdateCard() {
+  const t = useT()
   const { confirm } = useDialogPrompt()
   const [version, setVersion] = React.useState<string | null>(null)
   const [checking, setChecking] = React.useState(false)
@@ -400,7 +489,7 @@ function PanelUpdateCard() {
       setLatestVersion(res.latestVersion)
       setUpdateAvailable(res.updateAvailable)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось проверить обновления")
+      setError(err instanceof Error ? err.message : t("settings.update.checkFailed"))
     } finally {
       setChecking(false)
     }
@@ -408,10 +497,10 @@ function PanelUpdateCard() {
 
   async function handleUpdate() {
     if (
-      !(await confirm(
-        "Обновить панель? Все процессы ядер (Turnable/olcRTC/FreeTurn/WebDAV) будут остановлены и подняты заново — активные звонки на пару секунд прервутся.",
-        { destructive: true, confirmLabel: "Обновить" }
-      ))
+      !(await confirm(t("settings.update.confirm"), {
+        destructive: true,
+        confirmLabel: t("settings.update.button"),
+      }))
     ) {
       return
     }
@@ -422,7 +511,7 @@ function PanelUpdateCard() {
       setBeforeBootId(before.bootId)
       setUpdating(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось запустить обновление")
+      setError(err instanceof Error ? err.message : t("settings.update.startFailed"))
     }
   }
 
@@ -431,44 +520,42 @@ function PanelUpdateCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Обновление панели</CardTitle>
-        <CardDescription>Проверка и установка новой версии wt-panel с GitHub Releases</CardDescription>
+        <CardTitle>{t("settings.update.title")}</CardTitle>
+        <CardDescription>{t("settings.update.description")}</CardDescription>
       </CardHeader>
       <CardContent>
         <PanelRestartDialog
           open={updating}
           beforeBootId={beforeBootId}
-          title="Обновление панели"
-          message="Скачиваем новую версию и перезапускаем панель — эта страница обновится сама, как только новая версия окажется доступна."
+          title={t("settings.update.dialogTitle")}
+          message={t("settings.update.dialogMessage")}
         />
         {isDev ? (
-          <p className="text-sm text-muted-foreground">
-            Недоступно — эта сборка запущена из исходников (dev), а не из релиза.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("settings.update.devBuild")}</p>
         ) : (
           <div className="flex flex-col gap-3">
             <p className="text-sm text-muted-foreground">
-              Текущая версия: <span className="font-mono">{version ?? "..."}</span>
+              {t("settings.update.currentVersion")} <span className="font-mono">{version ?? "..."}</span>
             </p>
             {latestVersion !== null && (
               <p className="text-sm">
                 {updateAvailable ? (
                   <>
-                    Доступна версия <span className="font-mono">v{latestVersion}</span>
+                    {t("settings.update.versionAvailable")} <span className="font-mono">v{latestVersion}</span>
                   </>
                 ) : (
-                  "Установлена последняя версия"
+                  t("settings.update.upToDate")
                 )}
               </p>
             )}
             {error && <p className="text-sm text-destructive">{error}</p>}
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={handleCheck} disabled={checking}>
-                {checking ? "Проверяем..." : "Проверить обновления"}
+                {checking ? t("settings.update.checking") : t("settings.update.check")}
               </Button>
               {updateAvailable && (
                 <Button type="button" onClick={handleUpdate}>
-                  Обновить
+                  {t("settings.update.button")}
                 </Button>
               )}
             </div>
@@ -480,6 +567,7 @@ function PanelUpdateCard() {
 }
 
 function ConfigCard() {
+  const t = useT()
   const [settings, setSettings] = React.useState<Record<string, string> | null>(null)
 
   React.useEffect(() => {
@@ -489,22 +577,21 @@ function ConfigCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Конфигурация панели</CardTitle>
-        <CardDescription>
-          Только для чтения — задаётся через переменные окружения (см. README),
-          для изменения нужно перезапустить панель
-        </CardDescription>
+        <CardTitle>{t("settings.config.title")}</CardTitle>
+        <CardDescription>{t("settings.config.description")}</CardDescription>
       </CardHeader>
       <CardContent>
         {settings === null ? (
-          <p className="text-sm text-muted-foreground">Загрузка...</p>
+          <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
         ) : (
           <div className="flex flex-col gap-2 text-sm">
             {Object.entries(settings)
               .filter(([key]) => key !== "version" && key !== "bootId")
               .map(([key, value]) => (
                 <div key={key} className="flex items-center justify-between gap-4 border-b py-1.5 last:border-0">
-                  <span className="text-muted-foreground">{SETTINGS_LABELS[key] ?? key}</span>
+                  <span className="text-muted-foreground">
+                    {SETTINGS_LABEL_KEYS[key] ? t(SETTINGS_LABEL_KEYS[key]) : key}
+                  </span>
                   <span className="truncate font-mono text-xs">{value || "—"}</span>
                 </div>
               ))}
@@ -516,9 +603,10 @@ function ConfigCard() {
 }
 
 export function SettingsPage() {
+  const t = useT()
   return (
     <div className="mx-auto max-w-3xl p-6">
-      <h1 className="mb-6 text-xl font-semibold">Настройки</h1>
+      <h1 className="mb-6 text-xl font-semibold">{t("settings.pageTitle")}</h1>
       <div className="flex flex-col gap-6">
         <AccountCard />
         <PanelNetworkCard />

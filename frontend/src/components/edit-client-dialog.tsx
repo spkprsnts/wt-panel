@@ -2,6 +2,7 @@ import * as React from "react"
 import { Pencil } from "lucide-react"
 
 import { api, type Client } from "@/lib/api"
+import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -19,6 +20,7 @@ export function EditClientDialog({
   client: Client
   onUpdated: () => void
 }) {
+  const t = useT()
   const [open, setOpen] = React.useState(false)
   // See EditProfileDialog's openCount comment — same reasoning: remount on
   // open instead of unmounting on close, so Radix's Dialog exit animation
@@ -53,19 +55,19 @@ export function EditClientDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="ghost" title="Редактировать клиента">
+        <Button size="sm" variant="ghost" title={t("clientDialogs.editTooltip")}>
           <Pencil className="size-4" />
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Редактирование клиента</DialogTitle>
+          <DialogTitle>{t("clientDialogs.editTitle")}</DialogTitle>
         </DialogHeader>
         <ClientForm
           key={`${client.ID}-${openCount}`}
           initialValues={initialValues}
-          submitLabel="Сохранить"
-          submittingLabel="Сохраняем..."
+          submitLabel={t("common.save")}
+          submittingLabel={t("common.saving")}
           onSubmit={handleSubmit}
         />
       </DialogContent>

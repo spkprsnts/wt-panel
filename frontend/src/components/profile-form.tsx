@@ -1,5 +1,7 @@
 import * as React from "react"
 
+import { useT } from "@/lib/i18n"
+import type { TranslationKey } from "@/i18n"
 import { api, type CallRoom, type CoreType, type RoomProvider, type XrayInbound } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,14 +19,23 @@ import { DialogFooter } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 
-const CORE_LABELS: Record<CoreType, string> = {
-  turnable: "Turnable (TURN/SFU)",
-  olcrtc: "olcRTC (видеоконференции)",
-  freeturn: "FreeTurn (WebRTC/UDP)",
-  webdav: "WebDAV-tunnel (SOCKS5 через WebDAV)",
+const CORE_LABELS: Record<CoreType, TranslationKey> = {
+  turnable: "profileForm.core.turnable",
+  olcrtc: "profileForm.core.olcrtc",
+  freeturn: "profileForm.core.freeturn",
+  webdav: "profileForm.core.webdav",
 }
 
-// useCallRooms feeds the "Комнаты звонков" journal into whichever combobox
+// olcRTC's room id/URL hints reuse the same rooms.hint.* copy the Call
+// Rooms journal already shows per provider — same field, same providers
+// (minus "vk", which olcRTC never uses), so no reason to duplicate the text.
+const OLCRTC_ROOM_ID_HINT_KEYS: Record<OlcrtcState["provider"], TranslationKey> = {
+  jitsi: "rooms.hint.jitsi",
+  telemost: "rooms.hint.telemost",
+  wbstream: "rooms.hint.wbstream",
+}
+
+// useCallRooms feeds the "Call rooms" journal into whichever combobox
 // wants it as suggestions (Turnable's single call id, FreeTurn's multiple
 // links, olcRTC's room id) — one fetch per provider, shared instead of each
 // field re-fetching independently the way the old per-field RoomQuickPick
@@ -41,23 +52,24 @@ function useCallRooms(provider: RoomProvider): CallRoom[] {
 // call-id fields — both ultimately need the same "where do I even get one
 // of these" instructions, since both take a bare VK Calls id, not a link.
 function VkCallHint() {
+  const t = useT()
   return (
     <p className="text-xs text-muted-foreground">
-      Перейдите на vk.com/calls и создайте звонок. В адресной строке
-      появится ссылка вида <code>vk.com/call/join/ABC123xyz...</code> —
-      скопируйте всё после <code>/join/</code>.
+      {t("profileForm.vkHint.line1")} <code>vk.com/call/join/ABC123xyz...</code> —{" "}
+      {t("profileForm.vkHint.line1b")} <code>/join/</code>.
       <br />
-      Совет: можно поискать в Google <code>"https://vk.com/call/join/"</code>,
-      чтобы найти уже существующую публичную комнату.
+      {t("profileForm.vkHint.line2")} <code>"https://vk.com/call/join/"</code>
+      {t("profileForm.vkHint.line2b")}
     </p>
   )
 }
 
 function AdvancedFields({ children }: { children: React.ReactNode }) {
+  const t = useT()
   return (
     <details className="rounded-md border p-3 text-sm">
       <summary className="cursor-pointer font-medium text-muted-foreground">
-        Расширенные настройки (необязательно)
+        {t("profileForm.advancedSettings")}
       </summary>
       <div className="mt-3 flex flex-col gap-3">{children}</div>
     </details>
@@ -79,6 +91,7 @@ function KeyField({
   onGenerate: () => Promise<unknown>
   placeholder?: string
 }) {
+  const t = useT()
   const [generating, setGenerating] = React.useState(false)
   const [genError, setGenError] = React.useState<string | null>(null)
 
@@ -88,7 +101,7 @@ function KeyField({
     try {
       await onGenerate()
     } catch (err) {
-      setGenError(err instanceof Error ? err.message : "Не удалось сгенерировать ключ")
+      setGenError(err instanceof Error ? err.message : t("profileForm.keyField.generateFailed"))
     } finally {
       setGenerating(false)
     }
@@ -101,11 +114,11 @@ function KeyField({
           id={id}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder ?? "оставьте пустым и нажмите «Сгенерировать»"}
+          placeholder={placeholder ?? t("profileForm.keyField.placeholder")}
           className="font-mono text-xs"
         />
         <Button type="button" variant="outline" size="sm" onClick={handleGenerate} disabled={generating}>
-          {generating ? "..." : "Сгенерировать"}
+          {generating ? "..." : t("profileForm.keyField.generate")}
         </Button>
       </div>
       {genError && <p className="text-xs text-destructive">{genError}</p>}
@@ -589,6 +602,7 @@ export function ProfileForm({
   submittingLabel: string
   onSubmit: (payload: ProfileSubmitPayload) => Promise<void>
 }) {
+  const t = useT()
   const [name, setName] = React.useState(initialValues.name)
   const [coreType, setCoreType] = React.useState<CoreType>(initialValues.coreType)
   const [loading, setLoading] = React.useState(false)
@@ -715,28 +729,28 @@ export function ProfileForm({
         xrayMux: showDualRoute && xrayDualRoute ? xrayMux : "",
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось сохранить профиль")
+      setError(err instanceof Error ? err.message : t("profileForm.saveFailed"))
     } finally {
       setLoading(false)
     }
   }
 
-  // xrayBlock sits above the "Маршрут"/"-connect" box for Turnable/FreeTurn.
+  // xrayBlock sits above the "Route"/"-connect" box for Turnable/FreeTurn.
   const xrayBlock = (
     <div className="flex flex-col gap-4 rounded-md border p-3">
       <div className="flex items-center justify-between">
-        <Label htmlFor="xray-enabled">Xray-оверлей (VLESS/Trojan/Hysteria2/WireGuard)</Label>
+        <Label htmlFor="xray-enabled">{t("profileForm.xray.overlayLabel")}</Label>
         <Switch id="xray-enabled" checked={xrayEnabled} onCheckedChange={setXrayEnabled} />
       </div>
       {xrayEnabled && (
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="xray-inbound">Инбаунд</Label>
+            <Label htmlFor="xray-inbound">{t("profileForm.xray.inboundLabel")}</Label>
             <div className="flex gap-2">
               <div className="flex-1">
                 <Select value={xrayInboundId} onValueChange={handlePickInbound}>
                   <SelectTrigger id="xray-inbound" className="w-full">
-                    <SelectValue placeholder="Выбрать из настроенных на странице Xray..." />
+                    <SelectValue placeholder={t("profileForm.xray.inboundPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
                     {visibleInbounds.map((ib) => (
@@ -752,23 +766,13 @@ export function ProfileForm({
                   fallback below stayed hidden forever after. */}
               {xrayInboundId && (
                 <Button type="button" variant="outline" size="sm" onClick={() => setXrayInboundId("")}>
-                  Сбросить
+                  {t("profileForm.xray.reset")}
                 </Button>
               )}
             </div>
             {coreType === "freeturn" && (
               <p className="text-xs text-muted-foreground">
-                FreeTurn форвардит только по UDP — доступны инбаунды Hysteria2 и WireGuard.
-              </p>
-            )}
-            {coreType === "olcrtc" && (
-              <p className="text-xs text-muted-foreground">
-                У olcRTC нет транспорта, совместимого с WireGuard — такие инбаунды здесь не предлагаются.
-              </p>
-            )}
-            {(coreType === "turnable" || coreType === "freeturn") && xrayInboundId && (
-              <p className="text-xs text-muted-foreground">
-                Маршрут ниже выставлен автоматически на этот инбаунд (127.0.0.1).
+                {t("profileForm.xray.freeturnNote")}
               </p>
             )}
           </div>
@@ -790,24 +794,24 @@ export function ProfileForm({
                     variant={xrayManualMode === "wireguard" ? "default" : "outline"}
                     onClick={() => setXrayManualMode("wireguard")}
                   >
-                    WireGuard-конфиг
+                    {t("profileForm.xray.wireguardConfig")}
                   </Button>
                 </div>
               )}
               {(!supportsWireGuardManual || xrayManualMode === "uri") && (
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="xray-manual-uri">Укажите готовый URI вручную</Label>
+                  <Label htmlFor="xray-manual-uri">{t("profileForm.xray.manualUriLabel")}</Label>
                   <Input
                     id="xray-manual-uri"
                     value={xrayManualUri}
                     onChange={(e) => setXrayManualUri(e.target.value)}
-                    placeholder={coreType === "freeturn" ? "hysteria2://..." : "vless://... или trojan://... или hysteria2://..."}
+                    placeholder={coreType === "freeturn" ? "hysteria2://..." : t("profileForm.xray.manualUriPlaceholder")}
                   />
                 </div>
               )}
               {supportsWireGuardManual && xrayManualMode === "wireguard" && (
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="xray-manual-wg">WireGuard-конфиг</Label>
+                  <Label htmlFor="xray-manual-wg">{t("profileForm.xray.wireguardConfig")}</Label>
                   <Textarea
                     id="xray-manual-wg"
                     value={xrayManualWireGuard}
@@ -823,13 +827,13 @@ export function ProfileForm({
           {showDualRoute && (
             <div className="flex flex-col gap-3 rounded-md border p-3">
               <div className="flex items-center justify-between">
-                <Label htmlFor="xray-dual-route">Dual Route (прямое подключение с фолбэком на туннель)</Label>
+                <Label htmlFor="xray-dual-route">{t("profileForm.xray.dualRouteLabel")}</Label>
                 <Switch id="xray-dual-route" checked={xrayDualRoute} onCheckedChange={setXrayDualRoute} />
               </div>
               {xrayDualRoute && (
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="xray-direct-address">Прямой адрес (host:port)</Label>
+                    <Label htmlFor="xray-direct-address">{t("profileForm.xray.directAddressLabel")}</Label>
                     <Input
                       id="xray-direct-address"
                       value={xrayDirectAddress}
@@ -839,7 +843,7 @@ export function ProfileForm({
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="flex flex-col gap-2">
-                      <Label htmlFor="xray-hc-interval">Интервал health-check, сек</Label>
+                      <Label htmlFor="xray-hc-interval">{t("profileForm.xray.hcIntervalLabel")}</Label>
                       <Input
                         id="xray-hc-interval"
                         type="number"
@@ -849,7 +853,7 @@ export function ProfileForm({
                       />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label htmlFor="xray-mux">Mux (потоков)</Label>
+                      <Label htmlFor="xray-mux">{t("profileForm.xray.muxLabel")}</Label>
                       <Input
                         id="xray-mux"
                         type="number"
@@ -871,7 +875,7 @@ export function ProfileForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <Label htmlFor="profile-name">Имя профиля</Label>
+        <Label htmlFor="profile-name">{t("profileForm.name")}</Label>
         <Input
           id="profile-name"
           value={name}
@@ -882,7 +886,7 @@ export function ProfileForm({
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label>Ядро</Label>
+        <Label>{t("profileForm.coreLabel")}</Label>
         <Select
           value={coreType}
           onValueChange={(v) => setCoreType(v as CoreType)}
@@ -894,14 +898,14 @@ export function ProfileForm({
           <SelectContent>
             {(Object.keys(CORE_LABELS) as (keyof typeof CORE_LABELS)[]).map((ct) => (
               <SelectItem key={ct} value={ct}>
-                {CORE_LABELS[ct]}
+                {t(CORE_LABELS[ct])}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         {mode === "edit" && (
           <p className="text-xs text-muted-foreground">
-            Нельзя сменить ядро существующего профиля — удалите и создайте заново.
+            {t("profileForm.coreLockedNote")}
           </p>
         )}
       </div>
@@ -909,7 +913,7 @@ export function ProfileForm({
       {coreType === "turnable" && (
         <>
           <div className="flex flex-col gap-2">
-            <Label>Тип подключения</Label>
+            <Label>{t("profileForm.turnable.connectionType")}</Label>
             <Select
               value={tn.connectionType}
               onValueChange={(v) => setTn({ ...tn, connectionType: v as TurnableState["connectionType"] })}
@@ -918,28 +922,28 @@ export function ProfileForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="relay">Relay (рекомендуется)</SelectItem>
-                <SelectItem value="direct">Direct (не рекомендуется, небезопасно)</SelectItem>
+                <SelectItem value="relay">{t("profileForm.turnable.connectionTypeRelay")}</SelectItem>
+                <SelectItem value="direct">{t("profileForm.turnable.connectionTypeDirect")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label>Протокол</Label>
+            <Label>{t("profileForm.turnable.protocol")}</Label>
             <Select value={tn.proto} onValueChange={(v) => setTn({ ...tn, proto: v as TurnableState["proto"] })}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="srtp">SRTP (рекомендуется)</SelectItem>
+                <SelectItem value="srtp">{t("profileForm.turnable.protoSrtp")}</SelectItem>
                 <SelectItem value="dtls">DTLS</SelectItem>
-                <SelectItem value="none">None (не рекомендуется, опасно)</SelectItem>
+                <SelectItem value="none">{t("profileForm.turnable.protoNone")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label>Платформа</Label>
+            <Label>{t("profileForm.turnable.platform")}</Label>
             <Select value={tn.platformId} onValueChange={(v) => setTn({ ...tn, platformId: v })}>
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -951,7 +955,7 @@ export function ProfileForm({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="peers">Peers (параллельных соединений)</Label>
+            <Label htmlFor="peers">{t("profileForm.turnable.peersLabel")}</Label>
             <Input
               id="peers"
               type="number"
@@ -962,14 +966,15 @@ export function ProfileForm({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="call-id">ID звонка</Label>
+            <Label htmlFor="call-id">{t("profileForm.turnable.callIdLabel")}</Label>
             <Combobox
               id="call-id"
               options={vkRoomOptions}
               value={tn.callId}
               onChange={(v) => setTn({ ...tn, callId: v })}
-              placeholder="ABC123xyz... или выбрать из журнала комнат"
+              placeholder={t("profileForm.callIdComboPlaceholder")}
               required
+              noMatchesText={t("common.noMatches")}
             />
             <VkCallHint />
           </div>
@@ -977,11 +982,11 @@ export function ProfileForm({
           {xrayBlock}
 
           <div className="rounded-md border p-3">
-            <p className="mb-3 text-sm font-medium">Маршрут (куда форвардить трафик)</p>
+            <p className="mb-3 text-sm font-medium">{t("profileForm.turnable.routeTitle")}</p>
             <div className="flex flex-col gap-3">
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="route-host">Хост</Label>
+                  <Label htmlFor="route-host">{t("profileForm.hostLabel")}</Label>
                   <Input
                     id="route-host"
                     value={tn.routeHost}
@@ -989,7 +994,7 @@ export function ProfileForm({
                   />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="route-port">Порт</Label>
+                  <Label htmlFor="route-port">{t("profileForm.portLabel")}</Label>
                   <Input
                     id="route-port"
                     type="number"
@@ -1002,7 +1007,7 @@ export function ProfileForm({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-2">
-                  <Label>Тип сокета</Label>
+                  <Label>{t("profileForm.turnable.socketType")}</Label>
                   <Select
                     value={tn.routeSocket}
                     onValueChange={(v) => {
@@ -1020,7 +1025,7 @@ export function ProfileForm({
                   </Select>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label>Транспорт</Label>
+                  <Label>{t("profileForm.turnable.routeTransportLabel")}</Label>
                   <Select
                     value={tn.routeTransport}
                     onValueChange={(v) => setTn({ ...tn, routeTransport: v as TurnableState["routeTransport"] })}
@@ -1029,8 +1034,8 @@ export function ProfileForm({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">None (для UDP)</SelectItem>
-                      <SelectItem value="kcp">KCP (для TCP)</SelectItem>
+                      <SelectItem value="none">{t("profileForm.turnable.transportNoneUdp")}</SelectItem>
+                      <SelectItem value="kcp">{t("profileForm.turnable.transportKcpTcp")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1039,7 +1044,7 @@ export function ProfileForm({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label>Шифрование</Label>
+            <Label>{t("profileForm.turnable.encryptionLabel")}</Label>
             <Select
               value={tn.encryption}
               onValueChange={(v) => setTn({ ...tn, encryption: v as TurnableState["encryption"] })}
@@ -1048,15 +1053,15 @@ export function ProfileForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="handshake">Handshake (рекомендуется, быстрее)</SelectItem>
-                <SelectItem value="full">Full (шифрует весь трафик)</SelectItem>
+                <SelectItem value="handshake">{t("profileForm.turnable.encryptionHandshake")}</SelectItem>
+                <SelectItem value="full">{t("profileForm.turnable.encryptionFull")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <KeyField
             id="pub-key"
-            label="Публичный ключ (pub_key)"
+            label={t("profileForm.turnable.pubKeyLabel")}
             value={tn.pubKey}
             onChange={(v) => setTn({ ...tn, pubKey: v })}
             onGenerate={() =>
@@ -1066,12 +1071,12 @@ export function ProfileForm({
             }
           />
           <div className="flex flex-col gap-2">
-            <Label htmlFor="priv-key">Приватный ключ (priv_key)</Label>
+            <Label htmlFor="priv-key">{t("profileForm.turnable.privKeyLabel")}</Label>
             <Input
               id="priv-key"
               value={tn.privKey}
               onChange={(e) => setTn({ ...tn, privKey: e.target.value })}
-              placeholder="заполняется вместе с публичным ключом"
+              placeholder={t("profileForm.turnable.privKeyPlaceholder")}
               className="font-mono text-xs"
             />
           </div>
@@ -1081,7 +1086,7 @@ export function ProfileForm({
       {coreType === "olcrtc" && (
         <>
           <div className="flex flex-col gap-2">
-            <Label>Провайдер</Label>
+            <Label>{t("profileForm.olcrtc.provider")}</Label>
             <Select
               value={oc.provider}
               onValueChange={(v) => setOc({ ...oc, provider: v as OlcrtcState["provider"] })}
@@ -1091,7 +1096,7 @@ export function ProfileForm({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="jitsi">Jitsi</SelectItem>
-                <SelectItem value="telemost">Телемост</SelectItem>
+                <SelectItem value="telemost">Telemost</SelectItem>
                 <SelectItem value="wbstream">WB Stream</SelectItem>
               </SelectContent>
             </Select>
@@ -1099,7 +1104,7 @@ export function ProfileForm({
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="room-id">
-              {oc.provider === "jitsi" ? "URL комнаты (https://.../room)" : "ID комнаты"}
+              {oc.provider === "jitsi" ? t("profileForm.olcrtc.roomUrlLabel") : t("profileForm.olcrtc.roomIdLabel")}
             </Label>
             <Combobox
               id="room-id"
@@ -1108,12 +1113,14 @@ export function ProfileForm({
               onChange={(v) => setOc({ ...oc, roomId: v })}
               placeholder={oc.provider === "jitsi" ? "https://meet.example.org/myroom" : ""}
               required
+              noMatchesText={t("common.noMatches")}
             />
+            <p className="text-xs text-muted-foreground">{t(OLCRTC_ROOM_ID_HINT_KEYS[oc.provider])}</p>
           </div>
 
           <KeyField
             id="crypto-key"
-            label="Ключ шифрования (crypto.key)"
+            label={t("profileForm.olcrtc.cryptoKeyLabel")}
             value={oc.cryptoKey}
             onChange={(v) => setOc({ ...oc, cryptoKey: v })}
             onGenerate={() => api.keygenHex32().then(({ key }) => setOc((s) => ({ ...s, cryptoKey: key })))}
@@ -1125,7 +1132,7 @@ export function ProfileForm({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label>Транспорт</Label>
+            <Label>{t("profileForm.olcrtc.transportLabel")}</Label>
             <Select
               value={oc.transport}
               onValueChange={(v) => setOc({ ...oc, transport: v as OlcrtcState["transport"] })}
@@ -1146,11 +1153,11 @@ export function ProfileForm({
             <AdvancedFields>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="vp8-fps">FPS</Label>
+                  <Label htmlFor="vp8-fps">VP8 stream FPS</Label>
                   <Input id="vp8-fps" type="number" value={oc.vp8Fps} onChange={(e) => setOc({ ...oc, vp8Fps: e.target.value })} />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="vp8-batch">Batch size</Label>
+                  <Label htmlFor="vp8-batch">Frames per tick</Label>
                   <Input id="vp8-batch" type="number" value={oc.vp8Batch} onChange={(e) => setOc({ ...oc, vp8Batch: e.target.value })} />
                 </div>
               </div>
@@ -1161,19 +1168,19 @@ export function ProfileForm({
             <AdvancedFields>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="sei-fps">FPS</Label>
+                  <Label htmlFor="sei-fps">H264 stream FPS</Label>
                   <Input id="sei-fps" type="number" value={oc.seiFps} onChange={(e) => setOc({ ...oc, seiFps: e.target.value })} />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="sei-batch">Batch size</Label>
+                  <Label htmlFor="sei-batch">Frames per tick</Label>
                   <Input id="sei-batch" type="number" value={oc.seiBatch} onChange={(e) => setOc({ ...oc, seiBatch: e.target.value })} />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="sei-frag">Fragment size</Label>
+                  <Label htmlFor="sei-frag">Fragment size (bytes)</Label>
                   <Input id="sei-frag" type="number" value={oc.seiFrag} onChange={(e) => setOc({ ...oc, seiFrag: e.target.value })} />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="sei-ack">ACK timeout, мс</Label>
+                  <Label htmlFor="sei-ack">ACK timeout (ms)</Label>
                   <Input id="sei-ack" type="number" value={oc.seiAck} onChange={(e) => setOc({ ...oc, seiAck: e.target.value })} />
                 </div>
               </div>
@@ -1183,7 +1190,7 @@ export function ProfileForm({
           {oc.transport === "videochannel" && (
             <AdvancedFields>
               <div className="flex flex-col gap-2">
-                <Label>Кодек</Label>
+                <Label>Codec</Label>
                 <Select
                   value={oc.videoCodec}
                   onValueChange={(v) => setOc({ ...oc, videoCodec: v as OlcrtcState["videoCodec"] })}
@@ -1192,18 +1199,18 @@ export function ProfileForm({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="qrcode">QR-код</SelectItem>
-                    <SelectItem value="tile">Tile</SelectItem>
+                    <SelectItem value="qrcode">qrcode</SelectItem>
+                    <SelectItem value="tile">tile</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="video-width">Ширина</Label>
+                  <Label htmlFor="video-width">Width (px)</Label>
                   <Input id="video-width" type="number" value={oc.videoWidth} onChange={(e) => setOc({ ...oc, videoWidth: e.target.value })} />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="video-height">Высота</Label>
+                  <Label htmlFor="video-height">Height (px)</Label>
                   <Input id="video-height" type="number" value={oc.videoHeight} onChange={(e) => setOc({ ...oc, videoHeight: e.target.value })} />
                 </div>
                 <div className="flex flex-col gap-2">
@@ -1211,7 +1218,7 @@ export function ProfileForm({
                   <Input id="video-fps" type="number" value={oc.videoFps} onChange={(e) => setOc({ ...oc, videoFps: e.target.value })} />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label>Коррекция QR</Label>
+                  <Label>QR error correction</Label>
                   <Select
                     value={oc.videoQrRecovery}
                     onValueChange={(v) => setOc({ ...oc, videoQrRecovery: v as OlcrtcState["videoQrRecovery"] })}
@@ -1220,10 +1227,10 @@ export function ProfileForm({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="highest">Highest</SelectItem>
+                      <SelectItem value="low">low</SelectItem>
+                      <SelectItem value="medium">medium</SelectItem>
+                      <SelectItem value="high">high</SelectItem>
+                      <SelectItem value="highest">highest</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1231,11 +1238,11 @@ export function ProfileForm({
               {oc.videoCodec === "tile" && (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="video-tile-module">Tile module</Label>
+                    <Label htmlFor="video-tile-module">Tile size (px)</Label>
                     <Input id="video-tile-module" type="number" value={oc.videoTileModule} onChange={(e) => setOc({ ...oc, videoTileModule: e.target.value })} />
                   </div>
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="video-tile-rs">Tile RS, %</Label>
+                    <Label htmlFor="video-tile-rs">Reed-Solomon parity (%)</Label>
                     <Input id="video-tile-rs" type="number" value={oc.videoTileRs} onChange={(e) => setOc({ ...oc, videoTileRs: e.target.value })} />
                   </div>
                 </div>
@@ -1248,18 +1255,19 @@ export function ProfileForm({
       {coreType === "freeturn" && (
         <>
           <div className="flex flex-col gap-2">
-            <Label>ID звонков</Label>
+            <Label>{t("profileForm.freeturn.callIdsLabel")}</Label>
             <MultiSelect
               options={vkRoomOptions}
               value={ft.links}
               onChange={(v) => setFt({ ...ft, links: v })}
-              placeholder="ABC123xyz... или выбрать из журнала комнат"
+              placeholder={t("profileForm.callIdComboPlaceholder")}
+              customValuePlaceholder={t("common.customValue")}
             />
             <VkCallHint />
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label>Транспорт (до TURN-сервера)</Label>
+            <Label>{t("profileForm.freeturn.transportLabel")}</Label>
             <Select
               value={ft.transport}
               onValueChange={(v) => setFt({ ...ft, transport: v as FreeturnState["transport"] })}
@@ -1277,10 +1285,10 @@ export function ProfileForm({
           {xrayBlock}
 
           <div className="rounded-md border p-3">
-            <p className="mb-3 text-sm font-medium">Куда форвардить трафик (-connect)</p>
+            <p className="mb-3 text-sm font-medium">{t("profileForm.freeturn.forwardTitle")}</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="connect-host">Хост</Label>
+                <Label htmlFor="connect-host">{t("profileForm.hostLabel")}</Label>
                 <Input
                   id="connect-host"
                   value={ft.connectHost}
@@ -1288,7 +1296,7 @@ export function ProfileForm({
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="connect-port">Порт</Label>
+                <Label htmlFor="connect-port">{t("profileForm.portLabel")}</Label>
                 <Input
                   id="connect-port"
                   type="number"
@@ -1302,7 +1310,7 @@ export function ProfileForm({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label>Профиль обфускации (-obf-profile)</Label>
+            <Label>{t("profileForm.freeturn.obfProfileLabel")}</Label>
             <Select
               value={ft.obfProfile}
               onValueChange={(v) => setFt({ ...ft, obfProfile: v as FreeturnState["obfProfile"] })}
@@ -1311,10 +1319,10 @@ export function ProfileForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="rtpopus">rtpopus (рекомендуется)</SelectItem>
+                <SelectItem value="rtpopus">{t("profileForm.freeturn.obfProfileRecommended")}</SelectItem>
                 <SelectItem value="rtpopus2">rtpopus2</SelectItem>
                 <SelectItem value="rtpopus3">rtpopus3</SelectItem>
-                <SelectItem value="none">None (без маскировки)</SelectItem>
+                <SelectItem value="none">{t("profileForm.freeturn.obfProfileNone")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1322,7 +1330,7 @@ export function ProfileForm({
           {ft.obfProfile !== "none" && (
             <KeyField
               id="obf-key"
-              label="Ключ обфускации (-obf-key)"
+              label={t("profileForm.freeturn.obfKeyLabel")}
               value={ft.obfKey}
               onChange={(v) => setFt({ ...ft, obfKey: v })}
               onGenerate={() => api.keygenHex32().then(({ key }) => setFt((s) => ({ ...s, obfKey: key })))}
@@ -1332,17 +1340,15 @@ export function ProfileForm({
           {ft.obfProfile !== "none" && (
             <AdvancedFields>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="obf-timing">Межпакетная задержка (-obf-timing)</Label>
+                <Label htmlFor="obf-timing">{t("profileForm.freeturn.obfTimingLabel")}</Label>
                 <Input
                   id="obf-timing"
                   value={ft.obfTiming}
                   onChange={(e) => setFt({ ...ft, obfTiming: e.target.value })}
-                  placeholder="например, 10ms — пусто = выключено"
+                  placeholder={t("profileForm.freeturn.obfTimingPlaceholder")}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Добавляет задержку между пакетами, имитируя тайминг настоящего
-                  RTP/Opus-потока (кодеки шлют кадр раз в ~20мс) — усложняет
-                  обнаружение по паттерну таймингов. Не обязательно.
+                  {t("profileForm.freeturn.obfTimingNote")}
                 </p>
               </div>
             </AdvancedFields>
@@ -1353,7 +1359,7 @@ export function ProfileForm({
       {coreType === "webdav" && (
         <>
           <div className="flex flex-col gap-2">
-            <Label>Режим подключения</Label>
+            <Label>{t("profileForm.webdav.connModeLabel")}</Label>
             <div className="flex gap-2">
               <Button
                 type="button"
@@ -1369,34 +1375,34 @@ export function ProfileForm({
                 variant={wd.connMode === "server" ? "default" : "outline"}
                 onClick={() => setWd({ ...wd, connMode: "server" })}
               >
-                Server (внешний WebDAV)
+                {t("profileForm.webdav.connModeServer")}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
               {wd.connMode === "selfhosted"
-                ? "Панель поднимает собственный встроенный WebDAV — ничего дополнительно настраивать не нужно."
-                : "Ядро подключается к уже существующему WebDAV (Nextcloud, Яндекс.Диск и т.п.) — свой WebDAV не поднимается."}
+                ? t("profileForm.webdav.connModeSelfhostedNote")
+                : t("profileForm.webdav.connModeServerNote")}
             </p>
           </div>
 
           {wd.connMode === "selfhosted" && (
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="webdav-login">Логин</Label>
+                <Label htmlFor="webdav-login">{t("profileForm.webdav.loginLabel")}</Label>
                 <Input
                   id="webdav-login"
                   value={wd.login}
                   onChange={(e) => setWd({ ...wd, login: e.target.value })}
-                  placeholder="оставьте пустым — сгенерируется автоматически"
+                  placeholder={t("profileForm.webdav.autoGenPlaceholder")}
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="webdav-password">Пароль</Label>
+                <Label htmlFor="webdav-password">{t("profileForm.webdav.passwordLabel")}</Label>
                 <Input
                   id="webdav-password"
                   value={wd.password}
                   onChange={(e) => setWd({ ...wd, password: e.target.value })}
-                  placeholder="оставьте пустым — сгенерируется автоматически"
+                  placeholder={t("profileForm.webdav.autoGenPlaceholder")}
                   className="font-mono text-xs"
                 />
               </div>
@@ -1406,7 +1412,7 @@ export function ProfileForm({
           {wd.connMode === "server" && (
             <div className="rounded-md border p-3">
               <div className="mb-3 flex items-center justify-between">
-                <p className="text-sm font-medium">Внешние WebDAV-бэкенды</p>
+                <p className="text-sm font-medium">{t("profileForm.webdav.backendsTitle")}</p>
                 <Button
                   type="button"
                   size="sm"
@@ -1415,7 +1421,7 @@ export function ProfileForm({
                     setWd({ ...wd, backends: [...wd.backends, { url: "", login: "", password: "" }] })
                   }
                 >
-                  + Бэкенд
+                  {t("profileForm.webdav.addBackend")}
                 </Button>
               </div>
               <div className="flex flex-col gap-3">
@@ -1423,8 +1429,8 @@ export function ProfileForm({
                   <div key={i} className="flex flex-col gap-2 rounded-md border p-2">
                     <div className="flex items-center justify-between">
                       <Label>
-                        Бэкенд {i + 1}
-                        {i === 0 && " (основной)"}
+                        {t("profileForm.webdav.backendLabel")} {i + 1}
+                        {i === 0 && ` (${t("profileForm.webdav.backendPrimary")})`}
                       </Label>
                       {wd.backends.length > 1 && (
                         <Button
@@ -1433,7 +1439,7 @@ export function ProfileForm({
                           variant="ghost"
                           onClick={() => setWd({ ...wd, backends: wd.backends.filter((_, j) => j !== i) })}
                         >
-                          Удалить
+                          {t("common.delete")}
                         </Button>
                       )}
                     </div>
@@ -1456,7 +1462,7 @@ export function ProfileForm({
                             backends: wd.backends.map((x, j) => (j === i ? { ...x, login: e.target.value } : x)),
                           })
                         }
-                        placeholder="логин"
+                        placeholder={t("profileForm.webdav.loginPlaceholder")}
                       />
                       <Input
                         value={b.password}
@@ -1466,7 +1472,7 @@ export function ProfileForm({
                             backends: wd.backends.map((x, j) => (j === i ? { ...x, password: e.target.value } : x)),
                           })
                         }
-                        placeholder="пароль"
+                        placeholder={t("profileForm.webdav.passwordPlaceholder")}
                         className="font-mono text-xs"
                       />
                     </div>
@@ -1474,36 +1480,34 @@ export function ProfileForm({
                 ))}
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
-                Один бэкенд — обычное подключение к внешнему WebDAV. Несколько —
-                ротация: новые сессии распределяются по бэкендам по кругу, временно
-                недоступный пропускается.
+                {t("profileForm.webdav.backendsNote")}
               </p>
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="webdav-proxy">Исходящий SOCKS5-прокси (-proxy)</Label>
+              <Label htmlFor="webdav-proxy">{t("profileForm.webdav.proxyLabel")}</Label>
               <Input
                 id="webdav-proxy"
                 value={wd.proxyUpstream}
                 onChange={(e) => setWd({ ...wd, proxyUpstream: e.target.value })}
-                placeholder="socks5://[user:pass@]host:port — необязательно"
+                placeholder={t("profileForm.webdav.proxyPlaceholder")}
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="webdav-dns">DNS для WebDAV-бэкенда (-dns)</Label>
+              <Label htmlFor="webdav-dns">{t("profileForm.webdav.dnsLabel")}</Label>
               <Input
                 id="webdav-dns"
                 value={wd.dns}
                 onChange={(e) => setWd({ ...wd, dns: e.target.value })}
-                placeholder="1.1.1.1:53 — необязательно"
+                placeholder={t("profileForm.webdav.dnsPlaceholder")}
               />
             </div>
           </div>
 
           <div className="flex items-center justify-between rounded-md border p-3">
-            <Label htmlFor="webdav-enc">Шифрование чанков (AES-256-GCM, -enc)</Label>
+            <Label htmlFor="webdav-enc">{t("profileForm.webdav.encLabel")}</Label>
             <Switch
               id="webdav-enc"
               checked={wd.enc}
@@ -1513,30 +1517,28 @@ export function ProfileForm({
 
           {wd.connMode === "selfhosted" && (
             <div className="rounded-md border p-3">
-              <p className="mb-3 text-sm font-medium">TLS (встроенный, без реверс-прокси)</p>
+              <p className="mb-3 text-sm font-medium">{t("profileForm.webdav.tlsTitle")}</p>
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="webdav-tls-cert">Файл сертификата (-webdav-tls-cert)</Label>
+                  <Label htmlFor="webdav-tls-cert">{t("profileForm.webdav.tlsCertLabel")}</Label>
                   <Input
                     id="webdav-tls-cert"
                     value={wd.tlsCertFile}
                     onChange={(e) => setWd({ ...wd, tlsCertFile: e.target.value })}
-                    placeholder="/etc/ssl/cert.pem — необязательно"
+                    placeholder={t("profileForm.webdav.tlsCertPlaceholder")}
                   />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="webdav-tls-key">Файл ключа (-webdav-tls-key)</Label>
+                  <Label htmlFor="webdav-tls-key">{t("profileForm.webdav.tlsKeyLabel")}</Label>
                   <Input
                     id="webdav-tls-key"
                     value={wd.tlsKeyFile}
                     onChange={(e) => setWd({ ...wd, tlsKeyFile: e.target.value })}
-                    placeholder="/etc/ssl/key.pem — необязательно"
+                    placeholder={t("profileForm.webdav.tlsKeyPlaceholder")}
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Пути на этом сервере (там же, где запущена панель) — webdav-tunnel
-                  сам их читает, никакой nginx перед ним не нужен. Оба поля пустые
-                  → обычный webdav://; оба заполнены → webdavs://.
+                  {t("profileForm.webdav.tlsNote")}
                 </p>
               </div>
             </div>
@@ -1550,7 +1552,7 @@ export function ProfileForm({
                 variant="outline"
                 onClick={() => setWd({ ...wd, tuning: WEBDAV_TUNING_PRESETS.selfhosted })}
               >
-                Пресет: свой WebDAV (быстрый)
+                {t("profileForm.webdav.presetSelfhosted")}
               </Button>
               <Button
                 type="button"
@@ -1558,7 +1560,7 @@ export function ProfileForm({
                 variant="outline"
                 onClick={() => setWd({ ...wd, tuning: WEBDAV_TUNING_PRESETS.server })}
               >
-                Пресет: внешний бэкенд (стандартный)
+                {t("profileForm.webdav.presetServer")}
               </Button>
               <Button
                 type="button"
@@ -1566,7 +1568,7 @@ export function ProfileForm({
                 variant="ghost"
                 onClick={() => setWd({ ...wd, tuning: emptyWebdavTuning })}
               >
-                Сбросить (авто)
+                {t("profileForm.webdav.presetReset")}
               </Button>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -1576,7 +1578,7 @@ export function ProfileForm({
                   id="webdav-poll-min"
                   value={wd.tuning.pollMin}
                   onChange={(e) => setWd({ ...wd, tuning: { ...wd.tuning, pollMin: e.target.value } })}
-                  placeholder="авто"
+                  placeholder={t("profileForm.webdav.autoPlaceholder")}
                 />
               </div>
               <div className="flex flex-col gap-2">
@@ -1585,7 +1587,7 @@ export function ProfileForm({
                   id="webdav-poll-max"
                   value={wd.tuning.pollMax}
                   onChange={(e) => setWd({ ...wd, tuning: { ...wd.tuning, pollMax: e.target.value } })}
-                  placeholder="авто"
+                  placeholder={t("profileForm.webdav.autoPlaceholder")}
                 />
               </div>
               <div className="flex flex-col gap-2">
@@ -1594,7 +1596,7 @@ export function ProfileForm({
                   id="webdav-coalesce"
                   value={wd.tuning.coalesce}
                   onChange={(e) => setWd({ ...wd, tuning: { ...wd.tuning, coalesce: e.target.value } })}
-                  placeholder="авто"
+                  placeholder={t("profileForm.webdav.autoPlaceholder")}
                 />
               </div>
               <div className="flex flex-col gap-2">
@@ -1641,9 +1643,7 @@ export function ProfileForm({
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Пустое поле — автоматический дефолт (у своего WebDAV быстрее, у
-              внешнего бэкенда стандартный). Кнопки выше просто подставляют
-              значения в поля — дальше их можно поправить вручную.
+              {t("profileForm.webdav.tuningNote")}
             </p>
           </AdvancedFields>
         </>

@@ -1,5 +1,6 @@
 import * as React from "react"
 
+import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -42,6 +43,7 @@ export function ClientForm({
   submittingLabel: string
   onSubmit: (payload: ClientSubmitPayload) => Promise<void>
 }) {
+  const t = useT()
   const [name, setName] = React.useState(initialValues.name)
   const [description, setDescription] = React.useState(initialValues.description)
   const [trafficLimitGb, setTrafficLimitGb] = React.useState(initialValues.trafficLimitGb)
@@ -63,7 +65,7 @@ export function ClientForm({
         updateIntervalMinutes: Number(updateIntervalMinutes) || 60,
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось сохранить клиента")
+      setError(err instanceof Error ? err.message : t("clientForm.saveFailed"))
     } finally {
       setLoading(false)
     }
@@ -72,7 +74,7 @@ export function ClientForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <Label htmlFor="client-name">Имя</Label>
+        <Label htmlFor="client-name">{t("clientForm.name")}</Label>
         <Input
           id="client-name"
           value={name}
@@ -83,19 +85,19 @@ export function ClientForm({
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="client-description">Описание</Label>
+        <Label htmlFor="client-description">{t("clientForm.description")}</Label>
         <Textarea
           id="client-description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
-          placeholder="Необязательно — показывается клиенту в приложении"
+          placeholder={t("clientForm.descriptionPlaceholder")}
         />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="client-traffic">Лимит трафика, ГБ (0 = без лимита)</Label>
+          <Label htmlFor="client-traffic">{t("clientForm.trafficLimit")}</Label>
           <Input
             id="client-traffic"
             type="number"
@@ -105,7 +107,7 @@ export function ClientForm({
           />
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="client-refresh">Автообновление подписки, мин</Label>
+          <Label htmlFor="client-refresh">{t("clientForm.updateInterval")}</Label>
           <Input
             id="client-refresh"
             type="number"

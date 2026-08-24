@@ -14,21 +14,25 @@ import {
 
 import { api, clearToken } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { LanguageToggle } from "@/components/language-toggle"
+import type { TranslationKey } from "@/i18n"
 
-const NAV_ITEMS = [
-  { to: "/dashboard", label: "Дэшборд", icon: LayoutDashboard },
-  { to: "/clients", label: "Клиенты", icon: Users },
-  { to: "/xray", label: "Xray", icon: ShieldCheck },
-  { to: "/rooms", label: "Комнаты звонков", icon: Video },
-  { to: "/kernels", label: "Ядра", icon: Boxes },
-  { to: "/settings", label: "Настройки", icon: Settings },
+const NAV_ITEMS: { to: string; labelKey: TranslationKey; icon: typeof LayoutDashboard }[] = [
+  { to: "/dashboard", labelKey: "sidebar.nav.dashboard", icon: LayoutDashboard },
+  { to: "/clients", labelKey: "sidebar.nav.clients", icon: Users },
+  { to: "/xray", labelKey: "sidebar.nav.xray", icon: ShieldCheck },
+  { to: "/rooms", labelKey: "sidebar.nav.rooms", icon: Video },
+  { to: "/kernels", labelKey: "sidebar.nav.kernels", icon: Boxes },
+  { to: "/settings", labelKey: "sidebar.nav.settings", icon: Settings },
 ]
 
 const COLLAPSE_KEY = "wtpanel_sidebar_collapsed"
 
 export function AppSidebar() {
+  const t = useT()
   const navigate = useNavigate()
   const [collapsed, setCollapsed] = React.useState(() => {
     try {
@@ -77,14 +81,14 @@ export function AppSidebar() {
           size="icon"
           className="ml-auto size-8"
           onClick={toggleCollapsed}
-          title={collapsed ? "Развернуть" : "Свернуть"}
+          title={collapsed ? t("sidebar.expand") : t("sidebar.collapse")}
         >
           {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
         </Button>
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
-        {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+        {NAV_ITEMS.map(({ to, labelKey, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
@@ -96,10 +100,10 @@ export function AppSidebar() {
                   : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               )
             }
-            title={collapsed ? label : undefined}
+            title={collapsed ? t(labelKey) : undefined}
           >
             <Icon className="size-4 shrink-0" />
-            {!collapsed && <span className="truncate">{label}</span>}
+            {!collapsed && <span className="truncate">{t(labelKey)}</span>}
           </NavLink>
         ))}
       </nav>
@@ -109,16 +113,23 @@ export function AppSidebar() {
           showLabel={!collapsed}
           className={cn(collapsed && "w-full justify-center px-0")}
         />
+        <LanguageToggle
+          showLabel={!collapsed}
+          className={cn(collapsed && "w-full justify-center px-0")}
+        />
         <Button
           variant="ghost"
           className={cn("w-full justify-start gap-3", collapsed && "justify-center px-0")}
           onClick={handleLogout}
         >
           <LogOut className="size-4 shrink-0" />
-          {!collapsed && "Выйти"}
+          {!collapsed && t("sidebar.logout")}
         </Button>
         {version && !collapsed && (
-          <div className="truncate px-2.5 pt-1 text-xs text-sidebar-foreground/50" title={`Версия ${version}`}>
+          <div
+            className="truncate px-2.5 pt-1 text-xs text-sidebar-foreground/50"
+            title={`${t("sidebar.versionTitle")} ${version}`}
+          >
             v{version}
           </div>
         )}

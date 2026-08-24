@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { api } from "@/lib/api"
+import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -18,6 +19,7 @@ export function AddProfileDialog({
   clientId: number
   onCreated: () => void
 }) {
+  const t = useT()
   const [open, setOpen] = React.useState(false)
   // Remounting the form on every open (via key) is simpler than a manual
   // resetForm() — a fresh key means fresh initial state, no leftover
@@ -35,19 +37,19 @@ export function AddProfileDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
-          + Профиль
+          {t("profileDialogs.createTrigger")}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Новый профиль</DialogTitle>
+          <DialogTitle>{t("profileDialogs.createTitle")}</DialogTitle>
         </DialogHeader>
         <ProfileForm
           key={formKey}
           mode="create"
           initialValues={emptyProfileFormValues}
-          submitLabel="Создать"
-          submittingLabel="Создаём..."
+          submitLabel={t("common.create")}
+          submittingLabel={t("common.creating")}
           onSubmit={handleSubmit}
         />
       </DialogContent>

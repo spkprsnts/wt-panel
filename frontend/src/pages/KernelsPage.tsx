@@ -1,5 +1,6 @@
 import * as React from "react"
 
+import { useT } from "@/lib/i18n"
 import { api, type BuildJob, type Commit, type KernelStatus, type Release } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import {
@@ -27,15 +28,16 @@ function formatDate(iso?: string) {
 }
 
 function StatusLine({ status }: { status?: KernelStatus }) {
-  if (!status) return <p className="text-sm text-muted-foreground">Загрузка...</p>
+  const t = useT()
+  if (!status) return <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
   if (!status.installed) {
-    return <Badge variant="secondary">Не установлено</Badge>
+    return <Badge variant="secondary">{t("kernels.notInstalled")}</Badge>
   }
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">
       <Badge>{status.version}</Badge>
       <span className="text-muted-foreground">
-        {status.source === "build" ? "собрано" : "релиз"} · {formatDate(status.installedAt)}
+        {status.source === "build" ? t("kernels.sourceBuild") : t("kernels.sourceRelease")} · {formatDate(status.installedAt)}
       </span>
     </div>
   )
@@ -46,10 +48,11 @@ function StatusLine({ status }: { status?: KernelStatus }) {
 // four behave identically: on mount it asks the backend "what's the latest
 // job for this kernel" (see api.getKernelJob) instead of starting from a
 // blank slate, which is what lets an in-progress install/build keep
-// showing "выполняется" — and keep polling — across a full page reload,
-// rather than the button just silently going back to "Установить" while
+// showing "running" — and keep polling — across a full page reload,
+// rather than the button just silently going back to "Install" while
 // the download/build actually continues server-side regardless.
 function useKernelJob(kernelName: string, onInstalled: () => void) {
+  const t = useT()
   const [job, setJob] = React.useState<BuildJob | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const pollRef = React.useRef<number | null>(null)
@@ -96,7 +99,7 @@ function useKernelJob(kernelName: string, onInstalled: () => void) {
         poll(started.id)
       })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : "Не удалось запустить")
+        setError(err instanceof Error ? err.message : t("kernels.startFailed"))
       })
   }
 
@@ -110,6 +113,7 @@ function useKernelJob(kernelName: string, onInstalled: () => void) {
 // from cache — with this as the manual escape hatch — is what keeps the
 // panel usable once GitHub's rate limit has been hit.
 function RefreshButton({ refreshing, onClick }: { refreshing: boolean; onClick: () => void }) {
+  const t = useT()
   return (
     <Button
       type="button"
@@ -120,12 +124,13 @@ function RefreshButton({ refreshing, onClick }: { refreshing: boolean; onClick: 
       disabled={refreshing}
     >
       <RefreshCw className={`size-3.5 ${refreshing ? "animate-spin" : ""}`} />
-      Обновить список
+      {t("kernels.refreshList")}
     </Button>
   )
 }
 
 function JobLog({ job }: { job: BuildJob | null }) {
+  const t = useT()
   const logRef = React.useRef<HTMLPreElement | null>(null)
 
   React.useEffect(() => {
@@ -137,7 +142,7 @@ function JobLog({ job }: { job: BuildJob | null }) {
     <div className="flex flex-col gap-2">
       <Badge variant={job.status === "failed" ? "destructive" : "secondary"} className="w-fit gap-1">
         {job.status === "running" && <Loader2 className="size-3 animate-spin" />}
-        {job.status === "running" ? "выполняется" : "ошибка"}
+        {job.status === "running" ? t("kernels.jobRunning") : t("kernels.jobFailed")}
       </Badge>
       <pre
         ref={logRef}
@@ -166,6 +171,7 @@ function ReleaseKernelCard({
   install: (version?: string) => Promise<BuildJob>
   onInstalled: () => void
 }) {
+  const t = useT()
   const [releases, setReleases] = React.useState<Release[] | null>(null)
   const [selected, setSelected] = React.useState<string>("")
   const [refreshing, setRefreshing] = React.useState(false)
@@ -210,13 +216,13 @@ function ReleaseKernelCard({
 
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <Label>Версия релиза</Label>
+            <Label>{t("kernels.releaseVersionLabel")}</Label>
             <RefreshButton refreshing={refreshing} onClick={handleRefresh} />
           </div>
           {releases === null ? (
-            <p className="text-sm text-muted-foreground">Загружаем список релизов...</p>
+            <p className="text-sm text-muted-foreground">{t("kernels.loadingReleases")}</p>
           ) : releases.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Релизы не найдены</p>
+            <p className="text-sm text-muted-foreground">{t("kernels.noReleases")}</p>
           ) : (
             <Select value={selected} onValueChange={setSelected}>
               <SelectTrigger className="w-full">
@@ -238,7 +244,7 @@ function ReleaseKernelCard({
 
         <Button onClick={handleInstall} disabled={running || !selected}>
           {running && <Loader2 className="size-4 animate-spin" />}
-          {running ? "Устанавливаем..." : "Установить"}
+          {running ? t("kernels.installing") : t("kernels.install")}
         </Button>
 
         <JobLog job={job} />
@@ -248,6 +254,7 @@ function ReleaseKernelCard({
 }
 
 function OlcrtcKernelCard({ status, onInstalled }: { status?: KernelStatus; onInstalled: () => void }) {
+  const t = useT()
   const [commits, setCommits] = React.useState<Commit[] | null>(null)
   const [selected, setSelected] = React.useState<string>("")
   const [customRef, setCustomRef] = React.useState("")
@@ -289,8 +296,7 @@ function OlcrtcKernelCard({ status, onInstalled }: { status?: KernelStatus; onIn
       <CardHeader>
         <CardTitle>olcRTC</CardTitle>
         <CardDescription>
-          Релизов у проекта нет — собирается из исходников на выбранном коммите
-          (git clone + submodules + `mage build`). Может занять пару минут.
+          {t("kernels.olcrtc.description")}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -298,11 +304,11 @@ function OlcrtcKernelCard({ status, onInstalled }: { status?: KernelStatus; onIn
 
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <Label>Коммит из истории</Label>
+            <Label>{t("kernels.olcrtc.commitLabel")}</Label>
             <RefreshButton refreshing={refreshing} onClick={handleRefresh} />
           </div>
           {commits === null ? (
-            <p className="text-sm text-muted-foreground">Загружаем коммиты...</p>
+            <p className="text-sm text-muted-foreground">{t("kernels.olcrtc.loadingCommits")}</p>
           ) : (
             <Select value={selected} onValueChange={setSelected}>
               <SelectTrigger className="w-full">
@@ -320,12 +326,12 @@ function OlcrtcKernelCard({ status, onInstalled }: { status?: KernelStatus; onIn
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="custom-ref">Или указать SHA/ветку вручную</Label>
+          <Label htmlFor="custom-ref">{t("kernels.olcrtc.customRefLabel")}</Label>
           <Input
             id="custom-ref"
             value={customRef}
             onChange={(e) => setCustomRef(e.target.value)}
-            placeholder="master, или полный commit SHA"
+            placeholder={t("kernels.olcrtc.customRefPlaceholder")}
           />
         </div>
 
@@ -335,7 +341,7 @@ function OlcrtcKernelCard({ status, onInstalled }: { status?: KernelStatus; onIn
 
         <Button onClick={handleBuild} disabled={building}>
           {building && <Loader2 className="size-4 animate-spin" />}
-          {building ? "Собираем..." : "Собрать"}
+          {building ? t("kernels.olcrtc.building") : t("kernels.olcrtc.build")}
         </Button>
 
         <JobLog job={job} />
@@ -345,6 +351,7 @@ function OlcrtcKernelCard({ status, onInstalled }: { status?: KernelStatus; onIn
 }
 
 export function KernelsPage() {
+  const t = useT()
   const [kernels, setKernels] = React.useState<KernelStatus[]>([])
 
   const load = React.useCallback(() => {
@@ -364,13 +371,13 @@ export function KernelsPage() {
   return (
     <div className="mx-auto max-w-5xl p-6">
       <div className="mb-6">
-        <h1 className="text-xl font-semibold">Ядра</h1>
+        <h1 className="text-xl font-semibold">{t("sidebar.nav.kernels")}</h1>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         <ReleaseKernelCard
           title="Turnable"
-          description="TURN/SFU-туннель. Релизы GitHub, один бинарник на платформу."
+          description={t("kernels.turnable.description")}
           status={byType.get("turnable")}
           kernelName="turnable"
           listReleases={api.listTurnableReleases}
@@ -379,7 +386,7 @@ export function KernelsPage() {
         />
         <ReleaseKernelCard
           title="FreeTurn"
-          description="WebRTC/UDP-туннель. Релизы GitHub, качаем бинарник сервера."
+          description={t("kernels.freeturn.description")}
           status={byType.get("freeturn")}
           kernelName="freeturn"
           listReleases={api.listFreeTurnReleases}
@@ -388,7 +395,7 @@ export function KernelsPage() {
         />
         <ReleaseKernelCard
           title="Xray-core"
-          description="Оверлей VLESS/Trojan/Hysteria2/WireGuard. Релизы GitHub — архив, распаковываем только бинарник."
+          description={t("kernels.xray.description")}
           status={byType.get("xray")}
           kernelName="xray"
           listReleases={api.listXrayReleases}
@@ -397,7 +404,7 @@ export function KernelsPage() {
         />
         <ReleaseKernelCard
           title="WebDAV-tunnel"
-          description="SOCKS5-туннель через WebDAV. Релизы GitHub — архив .tar.gz, распаковываем только бинарник."
+          description={t("kernels.webdav.description")}
           status={byType.get("webdav")}
           kernelName="webdav"
           listReleases={api.listWebdavReleases}

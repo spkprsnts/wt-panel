@@ -1,0 +1,26 @@
+export const sidebar = {
+  ru: {
+    "sidebar.nav.dashboard": "Дэшборд",
+    "sidebar.nav.clients": "Клиенты",
+    "sidebar.nav.xray": "Xray",
+    "sidebar.nav.rooms": "Комнаты звонков",
+    "sidebar.nav.kernels": "Ядра",
+    "sidebar.nav.settings": "Настройки",
+    "sidebar.expand": "Развернуть",
+    "sidebar.collapse": "Свернуть",
+    "sidebar.logout": "Выйти",
+    "sidebar.versionTitle": "Версия",
+  },
+  en: {
+    "sidebar.nav.dashboard": "Dashboard",
+    "sidebar.nav.clients": "Clients",
+    "sidebar.nav.xray": "Xray",
+    "sidebar.nav.rooms": "Call rooms",
+    "sidebar.nav.kernels": "Kernels",
+    "sidebar.nav.settings": "Settings",
+    "sidebar.expand": "Expand",
+    "sidebar.collapse": "Collapse",
+    "sidebar.logout": "Log out",
+    "sidebar.versionTitle": "Version",
+  },
+}

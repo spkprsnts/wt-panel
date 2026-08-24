@@ -1,5 +1,6 @@
 import * as React from "react"
 
+import { useT } from "@/lib/i18n"
 import { api, type Client } from "@/lib/api"
 import { useDialogPrompt } from "@/components/dialog-prompt"
 import { Button } from "@/components/ui/button"
@@ -20,9 +21,8 @@ import { ProfileLogsDialog } from "@/components/profile-logs-dialog"
 import { QrDialog } from "@/components/qr-dialog"
 import { ChevronRight, Loader2, QrCode, RotateCw } from "lucide-react"
 
-function formatBytes(n: number): string {
+function formatBytes(n: number, units: string[]): string {
   if (n <= 0) return "0"
-  const units = ["Б", "КБ", "МБ", "ГБ", "ТБ"]
   let i = 0
   let v = n
   while (v >= 1024 && i < units.length - 1) {
@@ -33,6 +33,17 @@ function formatBytes(n: number): string {
 }
 
 export function ClientsPage() {
+  const t = useT()
+  const byteUnits = React.useMemo(
+    () => [
+      t("clientsPage.unitByte"),
+      t("clientsPage.unitKb"),
+      t("clientsPage.unitMb"),
+      t("clientsPage.unitGb"),
+      t("clientsPage.unitTb"),
+    ],
+    [t]
+  )
   const { confirm, alert } = useDialogPrompt()
   const [clients, setClients] = React.useState<Client[]>([])
   const [expanded, setExpanded] = React.useState<number | null>(null)
@@ -56,14 +67,14 @@ export function ClientsPage() {
   }, [load])
 
   async function handleDeleteClient(id: number) {
-    if (!(await confirm("Удалить клиента и все его профили?", { destructive: true, confirmLabel: "Удалить" })))
+    if (!(await confirm(t("clientsPage.deleteClientConfirm"), { destructive: true, confirmLabel: t("common.delete") })))
       return
     await api.deleteClient(id)
     load()
   }
 
   async function handleDeleteProfile(id: number) {
-    if (!(await confirm("Удалить профиль?", { destructive: true, confirmLabel: "Удалить" }))) return
+    if (!(await confirm(t("clientsPage.deleteProfileConfirm"), { destructive: true, confirmLabel: t("common.delete") }))) return
     await api.deleteProfile(id)
     load()
   }
@@ -74,7 +85,7 @@ export function ClientsPage() {
       await api.restartProfile(id)
       load()
     } catch (err) {
-      await alert(err instanceof Error ? err.message : "Не удалось перезапустить профиль", { title: "Ошибка" })
+      await alert(err instanceof Error ? err.message : t("clientsPage.restartFailed"), { title: t("common.error") })
     } finally {
       setRestartingId(null)
     }
@@ -83,7 +94,7 @@ export function ClientsPage() {
   return (
     <div className="mx-auto max-w-5xl p-6">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Клиенты</h1>
+        <h1 className="text-xl font-semibold">{t("sidebar.nav.clients")}</h1>
         <CreateClientDialog onCreated={load} />
       </div>
 
@@ -94,11 +105,11 @@ export function ClientsPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-8" />
-              <TableHead>Имя</TableHead>
-              <TableHead>Статус</TableHead>
-              <TableHead>Трафик</TableHead>
-              <TableHead>Профили</TableHead>
-              <TableHead className="text-right">Действия</TableHead>
+              <TableHead>{t("clientsPage.colName")}</TableHead>
+              <TableHead>{t("clientsPage.colStatus")}</TableHead>
+              <TableHead>{t("clientsPage.colTraffic")}</TableHead>
+              <TableHead>{t("clientsPage.colProfiles")}</TableHead>
+              <TableHead className="text-right">{t("clientsPage.colActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -106,7 +117,7 @@ export function ClientsPage() {
               <React.Fragment key={client.ID}>
                 <TableRow
                   className="cursor-pointer transition-colors hover:bg-muted/50"
-                  title="Нажмите, чтобы показать профили"
+                  title={t("clientsPage.clickToExpand")}
                   onClick={() =>
                     setExpanded(expanded === client.ID ? null : client.ID)
                   }
@@ -121,13 +132,13 @@ export function ClientsPage() {
                   <TableCell>{client.Name}</TableCell>
                   <TableCell>
                     <Badge variant={client.Enabled ? "default" : "secondary"}>
-                      {client.Enabled ? "активен" : "отключен"}
+                      {client.Enabled ? t("clientsPage.active") : t("clientsPage.inactive")}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {formatBytes(client.TrafficUsedByte)}
+                    {formatBytes(client.TrafficUsedByte, byteUnits)}
                     {client.TrafficLimitByte > 0 &&
-                      ` / ${formatBytes(client.TrafficLimitByte)}`}
+                      ` / ${formatBytes(client.TrafficLimitByte, byteUnits)}`}
                   </TableCell>
                   <TableCell>{client.Profiles?.length ?? 0}</TableCell>
                   <TableCell className="text-right">
@@ -136,9 +147,9 @@ export function ClientsPage() {
                       onClick={(e) => e.stopPropagation()}
                     >
                       <QrDialog
-                        title={`Подписка — ${client.Name}`}
+                        title={`${t("clientsPage.subscriptionTitle")} — ${client.Name}`}
                         trigger={
-                          <Button size="sm" variant="outline" title="QR-код подписки">
+                          <Button size="sm" variant="outline" title={t("clientsPage.subscriptionQrTitle")}>
                             <QrCode className="size-4" />
                           </Button>
                         }
@@ -155,7 +166,7 @@ export function ClientsPage() {
                               },
                               {
                                 key: "text",
-                                label: "Текстовый",
+                                label: t("clientsPage.textVariant"),
                                 content: domainUrl
                                   ? { ip: `${url}?format=text`, domain: `${domainUrl}?format=text` }
                                   : `${url}?format=text`,
@@ -163,7 +174,7 @@ export function ClientsPage() {
                             ])
                         }
                         onDownload={() => api.downloadClientExport(client.ID)}
-                        downloadLabel="Скачать все профили (.json)"
+                        downloadLabel={t("clientsPage.downloadAllProfiles")}
                       />
                       <EditClientDialog client={client} onUpdated={load} />
                       <Button
@@ -171,7 +182,7 @@ export function ClientsPage() {
                         variant="destructive"
                         onClick={() => handleDeleteClient(client.ID)}
                       >
-                        Удалить
+                        {t("common.delete")}
                       </Button>
                     </div>
                   </TableCell>
@@ -181,12 +192,12 @@ export function ClientsPage() {
                     <TableCell colSpan={6} className="bg-muted/30">
                       <div className="flex flex-col gap-3 p-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium">Профили</span>
+                          <span className="text-sm font-medium">{t("clientsPage.colProfiles")}</span>
                           <AddProfileDialog clientId={client.ID} onCreated={load} />
                         </div>
                         {(client.Profiles ?? []).length === 0 && (
                           <p className="text-sm text-muted-foreground">
-                            Профилей пока нет
+                            {t("clientsPage.noProfiles")}
                           </p>
                         )}
                         {(client.Profiles ?? []).map((profile) => (
@@ -199,7 +210,7 @@ export function ClientsPage() {
                                 className={`inline-block size-2 rounded-full ${
                                   profile.Running ? "bg-green-500" : "bg-muted-foreground/40"
                                 }`}
-                                title={profile.Running ? "работает" : "не работает"}
+                                title={profile.Running ? t("profileLogs.running") : t("profileLogs.notRunning")}
                               />
                               <Badge variant="outline">{profile.CoreType}</Badge>
                               <span>{profile.Name}</span>
@@ -211,27 +222,27 @@ export function ClientsPage() {
                             </div>
                             <div className="flex items-center gap-2">
                               <QrDialog
-                                title={`Профиль — ${profile.Name}`}
+                                title={`${t("clientsPage.profileTitle")} — ${profile.Name}`}
                                 trigger={
-                                  <Button size="sm" variant="ghost" title="QR-код профиля">
+                                  <Button size="sm" variant="ghost" title={t("clientsPage.profileQrTitle")}>
                                     <QrCode className="size-4" />
                                   </Button>
                                 }
                                 loadVariants={() =>
                                   api.getProfileLinks(profile.ID).then(({ kernelUri, wireturnLink }) => [
                                     { key: "wireturn", label: "WireTurn", content: wireturnLink },
-                                    { key: "kernel", label: "URI ядра", content: kernelUri },
+                                    { key: "kernel", label: t("clientsPage.kernelUri"), content: kernelUri },
                                   ])
                                 }
                                 onDownload={() => api.downloadProfileExport(profile.ID)}
-                                downloadLabel="Скачать профиль (.json)"
+                                downloadLabel={t("clientsPage.downloadProfile")}
                               />
                               <EditProfileDialog profile={profile} onUpdated={load} />
                               <ProfileLogsDialog profileId={profile.ID} profileName={profile.Name} />
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                title="Перезапустить процесс ядра для этого профиля"
+                                title={t("clientsPage.restartProfileTitle")}
                                 disabled={restartingId === profile.ID}
                                 onClick={() => handleRestartProfile(profile.ID)}
                               >
@@ -246,7 +257,7 @@ export function ClientsPage() {
                                 variant="destructive"
                                 onClick={() => handleDeleteProfile(profile.ID)}
                               >
-                                Удалить
+                                {t("common.delete")}
                               </Button>
                             </div>
                           </div>
@@ -260,7 +271,7 @@ export function ClientsPage() {
             {clients.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} className="text-center text-muted-foreground">
-                  Клиентов пока нет
+                  {t("clientsPage.empty")}
                 </TableCell>
               </TableRow>
             )}

@@ -31,6 +31,7 @@ function MultiSelect({
   placeholder,
   className,
   allowCustom = true,
+  customValuePlaceholder = "Custom value...",
 }: {
   options: MultiSelectOption[]
   value: string[]
@@ -38,6 +39,10 @@ function MultiSelect({
   placeholder?: string
   className?: string
   allowCustom?: boolean
+  // Same reasoning as Combobox's noMatchesText: a generic ui/ primitive
+  // doesn't import the app's own i18n hook, so this one bit of built-in
+  // copy is a plain prop instead.
+  customValuePlaceholder?: string
 }) {
   const [open, setOpen] = React.useState(false)
   const [customValue, setCustomValue] = React.useState("")
@@ -98,7 +103,7 @@ function MultiSelect({
                     addCustom()
                   }
                 }}
-                placeholder="Своё значение..."
+                placeholder={customValuePlaceholder}
                 className="h-8 text-sm"
               />
               <Button type="button" size="sm" className="h-8" onClick={addCustom}>

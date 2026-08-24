@@ -23,7 +23,7 @@
 #       kernel (Turnable/FreeTurn/Xray-core/webdav-tunnel from GitHub
 #       Releases, olcRTC built from source at OLCRTC_REF, default "master"),
 #       so a brand new box is immediately usable without a separate trip to
-#       the "Ядра" page. --no-kernels skips all of that; --skip-kernel=NAME
+#       the "Kernels" page. --no-kernels skips all of that; --skip-kernel=NAME
 #       (repeatable, NAME one of turnable/freeturn/xray/webdav/olcrtc) skips
 #       just that one.
 #       SSL is on by default. With no --ssl/--no-ssl flag at all and a real
@@ -103,7 +103,7 @@ green() { echo -e "\033[0;32m$1\033[0m"; }
 
 require_root() {
 	if [[ $EUID -ne 0 ]]; then
-		red "Запустите от root: sudo $0 $*"
+		red "Run as root: sudo $0 $*"
 		exit 1
 	fi
 }
@@ -128,7 +128,7 @@ ensure_apt_updated() {
 
 ensure_git() {
 	command -v git >/dev/null 2>&1 && return
-	echo "git не найден — устанавливаю..."
+	echo "git not found — installing..."
 	ensure_apt_updated
 	apt-get install -y -qq git
 }
@@ -144,7 +144,7 @@ ensure_go() {
 		export PATH="/usr/local/go/bin:$PATH"
 		return
 	fi
-	echo "go не найден — ставлю официальную сборку с go.dev..."
+	echo "go not found — installing the official build from go.dev..."
 	ensure_apt_updated
 	apt-get install -y -qq curl
 	local arch
@@ -152,7 +152,7 @@ ensure_go() {
 	x86_64) arch=amd64 ;;
 	aarch64) arch=arm64 ;;
 	*)
-		red "Неизвестная архитектура $(uname -m) — поставьте Go вручную с https://go.dev/dl/"
+		red "Unknown architecture $(uname -m) — install Go manually from https://go.dev/dl/"
 		exit 1
 		;;
 	esac
@@ -172,7 +172,7 @@ ensure_go() {
 # toolchain at all (missing node:util.styleText) — NodeSource's 22.x can.
 ensure_node() {
 	command -v npm >/dev/null 2>&1 && command -v node >/dev/null 2>&1 && return
-	echo "node/npm не найдены (или слишком старые) — ставлю Node.js 22.x через NodeSource..."
+	echo "node/npm not found (or too old) — installing Node.js 22.x via NodeSource..."
 	ensure_apt_updated
 	apt-get install -y -qq curl
 	curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null
@@ -189,8 +189,8 @@ ensure_node() {
 # confusing "no such file or directory" from cd.
 build_from_source() {
 	if [[ ! -f "$SCRIPT_DIR/backend/go.mod" ]]; then
-		red "Не могу собрать из исходников: $SCRIPT_DIR — не копия репозитория."
-		red "Склонируйте репозиторий (git clone https://github.com/${REPO}) и запустите install.sh оттуда, либо дождитесь релиза."
+		red "Can't build from source: $SCRIPT_DIR isn't a repository checkout."
+		red "Clone the repository (git clone https://github.com/${REPO}) and run install.sh from there, or wait for a release."
 		exit 1
 	fi
 
@@ -198,14 +198,14 @@ build_from_source() {
 	ensure_go
 	ensure_node
 
-	echo "Собираю фронтенд..."
+	echo "Building the frontend..."
 	(cd "$SCRIPT_DIR/frontend" && npm ci --silent && npm run build --silent)
 
 	rm -rf "$SCRIPT_DIR/backend/internal/webui/dist"
 	mkdir -p "$SCRIPT_DIR/backend/internal/webui/dist"
 	cp -r "$SCRIPT_DIR/frontend/dist/." "$SCRIPT_DIR/backend/internal/webui/dist/"
 
-	echo "Собираю бэкенд..."
+	echo "Building the backend..."
 	(cd "$SCRIPT_DIR/backend" && go build -o "${BIN_PATH}.new" ./cmd/server)
 }
 
@@ -234,7 +234,7 @@ download_release() {
 	apt-get install -y -qq curl >/dev/null 2>&1 || true
 	ensure_jq
 
-	echo "Проверяю релизы ${REPO}..."
+	echo "Checking releases for ${REPO}..."
 	local release_json
 	release_json=$(curl -fsSL --max-time 10 "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null) || return 1
 
@@ -245,11 +245,11 @@ download_release() {
 	asset_url=$(echo "$release_json" | jq -r --arg name "wt-panel-${version}-linux-${arch}.tar.gz" \
 		'.assets[]? | select(.name == $name) | .browser_download_url' 2>/dev/null)
 	if [[ -z "$asset_url" ]]; then
-		red "В релизе ${tag} нет сборки под linux-${arch}."
+		red "Release ${tag} has no build for linux-${arch}."
 		return 1
 	fi
 
-	echo "Скачиваю wt-panel ${tag} (linux-${arch})..."
+	echo "Downloading wt-panel ${tag} (linux-${arch})..."
 	local tmp_tar tmp_dir
 	tmp_tar=$(mktemp)
 	tmp_dir=$(mktemp -d)
@@ -264,7 +264,7 @@ download_release() {
 	mv "$tmp_dir/wt-panel" "${BIN_PATH}.new"
 	chmod +x "${BIN_PATH}.new"
 	rm -rf "$tmp_tar" "$tmp_dir"
-	green "Скачан релиз ${tag}."
+	green "Downloaded release ${tag}."
 }
 
 # get_binary is what cmd_install actually calls: prefer a real GitHub
@@ -282,7 +282,7 @@ get_binary() {
 	if download_release; then
 		return
 	fi
-	echo "Релиз недоступен — собираю из исходников..."
+	echo "No release available — building from source..."
 	build_from_source
 }
 
@@ -360,7 +360,7 @@ kernel_skipped() {
 
 # install_kernels auto-installs/builds every kernel right after a fresh
 # install, so a brand new box is immediately usable without a separate trip
-# to the "Ядра" page. Skippable in whole (--no-kernels) or in part
+# to the "Kernels" page. Skippable in whole (--no-kernels) or in part
 # (--skip-kernel=NAME, repeatable). Only ever called for a fresh install —
 # see cmd_install — so this never re-triggers a slow olcRTC rebuild on a
 # routine update.
@@ -368,7 +368,7 @@ install_kernels() {
 	local admin_password="$1" base="$2"
 
 	if ! wait_for_panel "$base"; then
-		red "Панель не отвечает — пропускаю автоустановку ядер (сделайте это вручную на странице «Ядра»)."
+		red "The panel isn't responding — skipping kernel auto-install (do it manually on the \"Kernels\" page)."
 		return
 	fi
 
@@ -376,12 +376,12 @@ install_kernels() {
 	login_resp=$(curl -fsS --max-time 10 -X POST "http://127.0.0.1:${LISTEN_PORT}${base}api/login" \
 		-H 'Content-Type: application/json' \
 		-d "{\"username\":\"admin\",\"password\":\"${admin_password}\"}") || {
-		red "Не удалось войти в панель для автоустановки ядер — сделайте это вручную на странице «Ядра»."
+		red "Failed to log in to the panel for kernel auto-install — do it manually on the \"Kernels\" page."
 		return
 	}
 	token=$(json_field "$login_resp" token)
 	if [[ -z "$token" ]]; then
-		red "Вход в панель не вернул токен — пропускаю автоустановку ядер."
+		red "Logging in to the panel returned no token — skipping kernel auto-install."
 		return
 	fi
 
@@ -389,35 +389,35 @@ install_kernels() {
 	auth_curl() { curl -fsS --max-time 120 -H "Authorization: Bearer ${token}" "$@"; }
 
 	if ! kernel_skipped turnable; then
-		echo "Устанавливаю Turnable..."
+		echo "Installing Turnable..."
 		auth_curl -X POST "${api}/kernels/turnable/install" -H 'Content-Type: application/json' -d '{}' >/dev/null \
-			&& green "  Turnable установлен." || red "  Не удалось установить Turnable (см. страницу «Ядра»)."
+			&& green "  Turnable installed." || red "  Failed to install Turnable (see the \"Kernels\" page)."
 	fi
 
 	if ! kernel_skipped freeturn; then
-		echo "Устанавливаю FreeTurn..."
+		echo "Installing FreeTurn..."
 		auth_curl -X POST "${api}/kernels/freeturn/install" -H 'Content-Type: application/json' -d '{}' >/dev/null \
-			&& green "  FreeTurn установлен." || red "  Не удалось установить FreeTurn (см. страницу «Ядра»)."
+			&& green "  FreeTurn installed." || red "  Failed to install FreeTurn (see the \"Kernels\" page)."
 	fi
 
 	if ! kernel_skipped xray; then
-		echo "Устанавливаю Xray-core..."
+		echo "Installing Xray-core..."
 		auth_curl -X POST "${api}/kernels/xray/install" -H 'Content-Type: application/json' -d '{}' >/dev/null \
-			&& green "  Xray-core установлен." || red "  Не удалось установить Xray-core (см. страницу «Ядра»)."
+			&& green "  Xray-core installed." || red "  Failed to install Xray-core (see the \"Kernels\" page)."
 	fi
 
 	if ! kernel_skipped webdav; then
-		echo "Устанавливаю webdav-tunnel..."
+		echo "Installing webdav-tunnel..."
 		auth_curl -X POST "${api}/kernels/webdav/install" -H 'Content-Type: application/json' -d '{}' >/dev/null \
-			&& green "  webdav-tunnel установлен." || red "  Не удалось установить webdav-tunnel (см. страницу «Ядра»)."
+			&& green "  webdav-tunnel installed." || red "  Failed to install webdav-tunnel (see the \"Kernels\" page)."
 	fi
 
 	if ! kernel_skipped olcrtc; then
-		echo "Собираю olcRTC из исходников (ref: ${OLCRTC_REF:-master})... это может занять несколько минут."
+		echo "Building olcRTC from source (ref: ${OLCRTC_REF:-master})... this can take a few minutes."
 		local build_resp job_id status i=0
 		build_resp=$(auth_curl -X POST "${api}/kernels/olcrtc/build" -H 'Content-Type: application/json' \
 			-d "{\"ref\":\"${OLCRTC_REF:-master}\"}") || {
-			red "  Не удалось запустить сборку olcRTC (см. страницу «Ядра»)."
+			red "  Failed to start the olcRTC build (see the \"Kernels\" page)."
 			build_resp=""
 		}
 		job_id=$(json_field "$build_resp" jobId)
@@ -430,9 +430,9 @@ install_kernels() {
 				i=$((i + 1))
 			done
 			case "$status" in
-			success) green "  olcRTC собран." ;;
-			failed) red "  Сборка olcRTC не удалась (см. страницу «Ядра» для лога)." ;;
-			*) red "  Сборка olcRTC не завершилась за отведённое время — проверьте страницу «Ядра»." ;;
+			success) green "  olcRTC built." ;;
+			failed) red "  The olcRTC build failed (see the \"Kernels\" page for the log)." ;;
+			*) red "  The olcRTC build didn't finish in the allotted time — check the \"Kernels\" page." ;;
 			esac
 		fi
 	fi
@@ -465,7 +465,7 @@ detect_public_ip() {
 # (see setup_ssl) for being unreliable in practice.
 ensure_acme_sh() {
 	if [[ ! -x ~/.acme.sh/acme.sh ]]; then
-		echo "acme.sh не найден — устанавливаю..."
+		echo "acme.sh not found — installing..."
 		ensure_apt_updated
 		apt-get install -y -qq curl socat cron
 		curl -fsSL https://get.acme.sh | sh >/dev/null
@@ -529,20 +529,20 @@ setup_ssl() {
 	# nothing else. Every status/error message here, and the acme.sh
 	# commands' own (quite verbose) stdout, must go to stderr instead, or
 	# they'd get captured as part of that return value: seen for real on a
-	# VPS, where the "Выпускаю..." line below ended up saved into the
+	# VPS, where the "Issuing..." line below ended up saved into the
 	# panel's own tlsCertFile setting, which then couldn't be opened as a
 	# file at all ("no such file or directory") and crash-looped the
 	# service on every restart.
 	local issue_args=(--issue -d "$target" --standalone --force --server letsencrypt)
 	if [[ "$target" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-		echo "Выпускаю краткосрочный (6 дней, автопродление) TLS-сертификат для IP ${target} через Let's Encrypt..." >&2
+		echo "Issuing a short-lived (6-day, auto-renewing) TLS certificate for IP ${target} via Let's Encrypt..." >&2
 		issue_args+=(--certificate-profile shortlived --days 6)
 	else
-		echo "Выпускаю TLS-сертификат для домена ${target} через Let's Encrypt..." >&2
+		echo "Issuing a TLS certificate for domain ${target} via Let's Encrypt..." >&2
 	fi
 
 	if ! ~/.acme.sh/acme.sh "${issue_args[@]}" >&2; then
-		red "Не удалось выпустить сертификат для ${target} — убедитесь, что порт 80 свободен и ${target} действительно указывает на этот сервер. Настройте SSL вручную позже на странице «Настройки»." >&2
+		red "Failed to issue a certificate for ${target} — make sure port 80 is free and ${target} actually points to this server. Set up SSL manually later on the \"Settings\" page." >&2
 		return 1
 	fi
 
@@ -550,7 +550,7 @@ setup_ssl() {
 		--key-file "$key_file" \
 		--fullchain-file "$cert_file" \
 		--reloadcmd "systemctl restart ${SERVICE_NAME} 2>/dev/null || true" >&2; then
-		red "Сертификат для ${target} выпущен, но не удалось установить его в ${DATA_DIR}/ssl — настройте SSL вручную на странице «Настройки»." >&2
+		red "The certificate for ${target} was issued, but installing it into ${DATA_DIR}/ssl failed — set up SSL manually on the \"Settings\" page." >&2
 		return 1
 	fi
 
@@ -559,7 +559,7 @@ setup_ssl() {
 
 # apply_ssl_settings pushes the issued cert's paths (and, for a domain, the
 # hostname) into the panel's own PanelSettings via its settings API — same
-# API the Settings page's "Сеть панели" card uses — then restarts the
+# API the Settings page's "Panel network" card uses — then restarts the
 # service so main.go's ListenAndServeTLS branch picks them up (it only reads
 # this row once at startup, see handlers_panel_settings.go). GETs the
 # current settings first and only overwrites TLS/domain fields: the PUT
@@ -581,19 +581,19 @@ apply_ssl_settings() {
 	login_resp=$(curl -k -fsS --max-time 10 -X POST "${PANEL_SCHEME:-http}://127.0.0.1:${LISTEN_PORT}${base}api/login" \
 		-H 'Content-Type: application/json' \
 		-d "{\"username\":\"admin\",\"password\":\"${admin_password}\"}") || {
-		red "Не удалось войти в панель, чтобы применить SSL-настройки. Сертификат уже выпущен — задайте пути вручную на странице «Настройки»: TLS-сертификат: ${cert_file}, TLS-ключ: ${key_file}"
+		red "Failed to log in to the panel to apply the SSL settings. The certificate was already issued — set the paths manually on the \"Settings\" page: TLS certificate: ${cert_file}, TLS key: ${key_file}"
 		return
 	}
 	token=$(json_field "$login_resp" token)
 	if [[ -z "$token" ]]; then
-		red "Вход в панель не вернул токен — не удалось применить SSL-настройки. Сертификат уже выпущен — задайте пути вручную на странице «Настройки»: TLS-сертификат: ${cert_file}, TLS-ключ: ${key_file}"
+		red "Logging in to the panel returned no token — failed to apply the SSL settings. The certificate was already issued — set the paths manually on the \"Settings\" page: TLS certificate: ${cert_file}, TLS key: ${key_file}"
 		return
 	fi
 
 	local current
 	current=$(curl -k -fsS --max-time 10 -H "Authorization: Bearer ${token}" \
 		"${PANEL_SCHEME:-http}://127.0.0.1:${LISTEN_PORT}${base}api/settings/panel") || {
-		red "Не удалось прочитать текущие настройки панели — не удалось применить SSL-настройки. Сертификат уже выпущен — задайте пути вручную на странице «Настройки»: TLS-сертификат: ${cert_file}, TLS-ключ: ${key_file}"
+		red "Failed to read the panel's current settings — failed to apply the SSL settings. The certificate was already issued — set the paths manually on the \"Settings\" page: TLS certificate: ${cert_file}, TLS key: ${key_file}"
 		return
 	}
 	local listen_ip listen_port base_path public_ip
@@ -609,24 +609,24 @@ apply_ssl_settings() {
 		-H "Authorization: Bearer ${token}" -H 'Content-Type: application/json' \
 		-d "{\"listenIp\":\"${listen_ip}\",\"listenDomain\":\"${listen_domain}\",\"listenPort\":${listen_port},\"basePath\":\"${base_path}\",\"tlsCertFile\":\"${cert_file}\",\"tlsKeyFile\":\"${key_file}\",\"publicIp\":\"${public_ip}\"}" \
 		>/dev/null || {
-		red "Не удалось сохранить SSL-настройки панели. Сертификат уже выпущен — задайте пути вручную на странице «Настройки»: TLS-сертификат: ${cert_file}, TLS-ключ: ${key_file}"
+		red "Failed to save the panel's SSL settings. The certificate was already issued — set the paths manually on the \"Settings\" page: TLS certificate: ${cert_file}, TLS key: ${key_file}"
 		return
 	}
 
 	systemctl restart "$SERVICE_NAME"
-	green "SSL настроен — панель теперь на https://${target}:${LISTEN_PORT}${base}"
+	green "SSL configured — the panel is now on https://${target}:${LISTEN_PORT}${base}"
 	if [[ -z "$listen_domain" ]]; then
 		# Let's Encrypt's short-lived IP-certificate profile (see setup_ssl)
 		# chains through its own new root (ISRG Root YE, not the
 		# universally-trusted ISRG Root X1 regular domain certs use) —
 		# confirmed for real against a live VPS: openssl validated the
-		# chain fine, but Chrome on a normal desktop still showed "Не
-		# безопасно", because that root hadn't reached its OS trust store
+		# chain fine, but Chrome on a normal desktop still showed "Not
+		# secure", because that root hadn't reached its OS trust store
 		# yet. The certificate itself is genuinely valid; this is
 		# Let's Encrypt's rollout catching up, not a setup problem — so
 		# it's worth flagging here instead of leaving the operator to
 		# wonder whether the install did something wrong.
-		echo "Примечание: сертификат на голый IP использует новый корень Let's Encrypt (ISRG Root YE) для их pilot-программы IP-сертификатов. Он ещё не везде добавлен в доверенные хранилища ОС/браузеров, поэтому браузер может показывать «Небезопасно», даже когда сертификат валиден. Если это важно прямо сейчас — используйте домен: sudo ./install.sh ssl --ssl=DOMAIN."
+		echo "Note: a bare-IP certificate uses Let's Encrypt's new root (ISRG Root YE) for their IP-certificate pilot program. It hasn't been added to every OS/browser trust store yet, so the browser may show \"Not secure\" even when the certificate is valid. If this matters right now, use a domain instead: sudo ./install.sh ssl --ssl=DOMAIN."
 	fi
 }
 
@@ -723,16 +723,16 @@ EOF
 # otherwise it would end up captured as part of the "target" instead of
 # shown to the operator.
 prompt_ssl_target() {
-	echo "Настройка SSL:" >&2
-	echo "  1) Автоопределить IP этого сервера — Let's Encrypt, краткосрочный (по умолчанию)" >&2
-	echo "  2) Указать домен — Let's Encrypt" >&2
-	echo "  3) Указать IP вручную — Let's Encrypt, краткосрочный" >&2
-	echo "  4) Пропустить" >&2
+	echo "SSL setup:" >&2
+	echo "  1) Auto-detect this server's IP — Let's Encrypt, short-lived (default)" >&2
+	echo "  2) Enter a domain — Let's Encrypt" >&2
+	echo "  3) Enter an IP manually — Let's Encrypt, short-lived" >&2
+	echo "  4) Skip" >&2
 	local choice="" target=""
-	read -r -p "Выбор [1-4, Enter=1]: " choice || true
+	read -r -p "Choice [1-4, Enter=1]: " choice || true
 	case "$choice" in
 	2)
-		read -r -p "Домен: " target || true
+		read -r -p "Domain: " target || true
 		;;
 	3)
 		read -r -p "IP: " target || true
@@ -741,10 +741,10 @@ prompt_ssl_target() {
 		target=""
 		;;
 	*)
-		echo "Определяю публичный IP..." >&2
+		echo "Detecting the public IP..." >&2
 		target=$(detect_public_ip) || true
 		if [[ -z "$target" ]]; then
-			red "Не удалось определить публичный IP — SSL будет пропущен. Настройте вручную: sudo ./install.sh --ssl=IP-ИЛИ-ДОМЕН, либо на странице «Настройки»." >&2
+			red "Failed to detect the public IP — skipping SSL. Set it up manually: sudo ./install.sh --ssl=IP-OR-DOMAIN, or on the \"Settings\" page." >&2
 		fi
 		;;
 	esac
@@ -796,7 +796,7 @@ cmd_install() {
 		--no-ssl) no_ssl=1 ;;
 		--from-source) from_source=1 ;;
 		*)
-			red "Неизвестный флаг: $arg"
+			red "Unknown flag: $arg"
 			exit 1
 			;;
 		esac
@@ -828,30 +828,30 @@ cmd_install() {
 
 	sleep 1
 	if [[ $fresh -eq 1 ]]; then
-		green "Установлено и запущено."
-		echo "  Логин:    admin"
-		echo "  Пароль:   ${admin_password}"
-		echo "  URI-путь: ${base_path}"
-		echo "  Панель:   http://<IP-сервера>:${LISTEN_PORT}${base_path}"
-		echo "Эти значения также сохранены в ${SERVICE_FILE} — посмотреть снова: systemctl cat ${SERVICE_NAME}"
-		echo "Управление панелью (путь, пароль, SSL, логи, обновление) — команда: sudo wtp"
+		green "Installed and started."
+		echo "  Login:    admin"
+		echo "  Password: ${admin_password}"
+		echo "  URI path: ${base_path}"
+		echo "  Panel:    http://<SERVER-IP>:${LISTEN_PORT}${base_path}"
+		echo "These values are also saved in ${SERVICE_FILE} — view them again with: systemctl cat ${SERVICE_NAME}"
+		echo "Manage the panel (path, password, SSL, logs, update) with: sudo wtp"
 
 		if [[ $no_kernels -eq 1 ]]; then
-			echo "Автоустановка ядер пропущена (--no-kernels)."
+			echo "Kernel auto-install skipped (--no-kernels)."
 		else
 			install_kernels "$admin_password" "$base_path"
 		fi
 
 		if [[ $no_ssl -eq 1 ]]; then
-			echo "SSL пропущен (--no-ssl)."
+			echo "SSL skipped (--no-ssl)."
 		else
 			if [[ $ssl_explicit -eq 0 && -t 0 ]]; then
 				ssl_target=$(prompt_ssl_target)
 			elif [[ $ssl_explicit -eq 0 ]]; then
-				echo "Определяю публичный IP для SSL (по умолчанию — краткосрочный сертификат Let's Encrypt на IP; свой домен: --ssl=DOMAIN, отключить: --no-ssl)..."
+				echo "Detecting the public IP for SSL (defaults to a short-lived Let's Encrypt certificate on the IP; use your own domain: --ssl=DOMAIN, disable: --no-ssl)..."
 				ssl_target=$(detect_public_ip) || true
 				if [[ -z "$ssl_target" ]]; then
-					red "Не удалось определить публичный IP — пропускаю SSL. Настройте вручную: sudo ./install.sh --ssl=IP-ИЛИ-ДОМЕН, либо на странице «Настройки»."
+					red "Failed to detect the public IP — skipping SSL. Set it up manually: sudo ./install.sh --ssl=IP-OR-DOMAIN, or on the \"Settings\" page."
 				fi
 			fi
 			if [[ -n "$ssl_target" ]]; then
@@ -859,7 +859,7 @@ cmd_install() {
 			fi
 		fi
 	else
-		green "Обновлено и перезапущено (данные в ${DATA_DIR} сохранены)."
+		green "Updated and restarted (data in ${DATA_DIR} preserved)."
 	fi
 }
 
@@ -874,11 +874,11 @@ cmd_uninstall() {
 
 	if [[ $purge -eq 1 ]]; then
 		rm -rf "$INSTALL_DIR"
-		green "Панель и все данные (${INSTALL_DIR}) удалены."
+		green "The panel and all data (${INSTALL_DIR}) have been removed."
 	else
 		rm -f "$BIN_PATH"
-		green "Панель удалена, данные сохранены в ${DATA_DIR}."
-		echo "Для полного удаления вместе с данными: $0 uninstall --purge"
+		green "The panel has been removed, data preserved in ${DATA_DIR}."
+		echo "To remove the data too: $0 uninstall --purge"
 	fi
 }
 
@@ -900,11 +900,11 @@ cmd_uninstall() {
 cmd_ssl() {
 	require_root
 	if [[ ! -x "$BIN_PATH" ]]; then
-		red "Панель не установлена — сначала: sudo ./install.sh"
+		red "The panel isn't installed — first run: sudo ./install.sh"
 		exit 1
 	fi
 	if ! systemctl is-active --quiet "$SERVICE_NAME"; then
-		red "Служба ${SERVICE_NAME} не запущена — sudo systemctl start ${SERVICE_NAME}"
+		red "The ${SERVICE_NAME} service isn't running — sudo systemctl start ${SERVICE_NAME}"
 		exit 1
 	fi
 
@@ -917,7 +917,7 @@ cmd_ssl() {
 			ssl_explicit=1
 			;;
 		*)
-			red "Неизвестный флаг: $arg"
+			red "Unknown flag: $arg"
 			exit 1
 			;;
 		esac
@@ -925,13 +925,13 @@ cmd_ssl() {
 
 	if [[ $ssl_explicit -eq 0 ]]; then
 		if [[ ! -t 0 ]]; then
-			red "Не в терминале — укажите цель явно: sudo ./install.sh ssl --ssl=DOMAIN-ИЛИ-IP"
+			red "Not in a terminal — specify the target explicitly: sudo ./install.sh ssl --ssl=DOMAIN-OR-IP"
 			exit 1
 		fi
 		ssl_target=$(prompt_ssl_target)
 	fi
 	if [[ -z "$ssl_target" ]]; then
-		echo "SSL пропущен."
+		echo "SSL skipped."
 		return
 	fi
 
@@ -943,9 +943,9 @@ cmd_ssl() {
 		admin_password="$admin_password_seed"
 	else
 		local input_base
-		read -r -p "URI-путь панели [${base_path_default}]: " input_base || true
+		read -r -p "Panel URI path [${base_path_default}]: " input_base || true
 		base_path="${input_base:-$base_path_default}"
-		read -r -s -p "Текущий пароль admin: " admin_password || true
+		read -r -s -p "Current admin password: " admin_password || true
 		echo
 	fi
 
@@ -982,7 +982,7 @@ run_setting_offline() {
 cmd_menu() {
 	require_root
 	if [[ ! -x "$BIN_PATH" ]]; then
-		red "Панель не установлена — сначала: sudo ./install.sh"
+		red "The panel isn't installed — first run: sudo ./install.sh"
 		exit 1
 	fi
 
@@ -990,38 +990,38 @@ cmd_menu() {
 	while true; do
 		echo
 		echo "=== wt-panel ==="
-		echo "1) Статус и текущие настройки"
-		echo "2) Сменить URI-путь"
-		echo "3) Сбросить пароль admin"
-		echo "4) Настроить SSL"
-		echo "5) Перезапустить панель"
-		echo "6) Показать логи"
-		echo "7) Обновить панель"
-		echo "8) Удалить панель"
-		echo "0) Выход"
-		read -r -p "Выбор: " choice || break
+		echo "1) Status and current settings"
+		echo "2) Change the URI path"
+		echo "3) Reset the admin password"
+		echo "4) Set up SSL"
+		echo "5) Restart the panel"
+		echo "6) Show logs"
+		echo "7) Update the panel"
+		echo "8) Remove the panel"
+		echo "0) Exit"
+		read -r -p "Choice: " choice || break
 		case "$choice" in
 		1)
 			if systemctl is-active --quiet "$SERVICE_NAME"; then
-				green "Служба: активна"
+				green "Service: active"
 			else
-				red "Служба: не запущена"
+				red "Service: not running"
 			fi
 			run_setting_offline -show || true
 			;;
 		2)
 			local new_path
-			read -r -p "Новый URI-путь (например /abc123/): " new_path
+			read -r -p "New URI path (e.g. /abc123/): " new_path
 			if run_setting_offline -webBasePath "$new_path"; then
-				green "Путь изменён. Панель теперь на: http://<IP-сервера>:${LISTEN_PORT}${new_path}"
+				green "Path changed. The panel is now at: http://<SERVER-IP>:${LISTEN_PORT}${new_path}"
 			fi
 			;;
 		3)
 			local new_password
-			read -r -p "Новый пароль (Enter — сгенерировать): " new_password
+			read -r -p "New password (Enter to generate one): " new_password
 			[[ -z "$new_password" ]] && new_password=$(random_hex 9)
 			if run_setting_offline -password "$new_password"; then
-				green "Пароль изменён: ${new_password}"
+				green "Password changed: ${new_password}"
 			fi
 			;;
 		4)
@@ -1029,7 +1029,7 @@ cmd_menu() {
 			;;
 		5)
 			systemctl restart "$SERVICE_NAME"
-			green "Перезапущено."
+			green "Restarted."
 			;;
 		6)
 			journalctl -u "$SERVICE_NAME" -n 100 --no-pager
@@ -1039,7 +1039,7 @@ cmd_menu() {
 			;;
 		8)
 			local confirm
-			read -r -p "Точно удалить панель? Данные останутся, если не указать --purge отдельно. [y/N]: " confirm
+			read -r -p "Really remove the panel? Data is kept unless you pass --purge separately. [y/N]: " confirm
 			if [[ "$confirm" =~ ^[Yy]$ ]]; then
 				cmd_uninstall
 				return
@@ -1049,7 +1049,7 @@ cmd_menu() {
 			return
 			;;
 		*)
-			red "Неверный выбор."
+			red "Invalid choice."
 			;;
 		esac
 	done
@@ -1073,7 +1073,7 @@ fi
 # own call to it. Without this, a bare `wtp`/one-liner run that resolves
 # straight to the menu above never touches install_wtp_command at all
 # (cmd_menu doesn't call cmd_install unless the operator explicitly picks
-# "Обновить панель"), so wtp can go stale forever while the panel binary
+# "Update the panel"), so wtp can go stale forever while the panel binary
 # itself keeps updating fine via GitHub Releases — confirmed on a real VPS:
 # wt-panel reached v0.6.1 while wtp stayed on a pre-menu build the whole
 # time, because every run had been landing in the menu, never in
@@ -1103,7 +1103,7 @@ menu)
 	cmd_install "$@"
 	;;
 *)
-	red "Использование: $0 [install [--no-kernels] [--skip-kernel=NAME ...] [--ssl=DOMAIN-OR-IP] [--no-ssl] [--from-source]] | ssl [--ssl=DOMAIN-OR-IP] | menu | uninstall [--purge]"
+	red "Usage: $0 [install [--no-kernels] [--skip-kernel=NAME ...] [--ssl=DOMAIN-OR-IP] [--no-ssl] [--from-source]] | ssl [--ssl=DOMAIN-OR-IP] | menu | uninstall [--purge]"
 	exit 1
 	;;
 esac

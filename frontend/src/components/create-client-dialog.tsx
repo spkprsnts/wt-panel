@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { api } from "@/lib/api"
+import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -12,6 +13,7 @@ import {
 import { ClientForm, emptyClientFormValues, type ClientSubmitPayload } from "@/components/client-form"
 
 export function CreateClientDialog({ onCreated }: { onCreated: () => void }) {
+  const t = useT()
   const [open, setOpen] = React.useState(false)
   const [formKey, setFormKey] = React.useState(0)
 
@@ -25,17 +27,17 @@ export function CreateClientDialog({ onCreated }: { onCreated: () => void }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>Добавить клиента</Button>
+        <Button>{t("clientDialogs.createTrigger")}</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Новый клиент</DialogTitle>
+          <DialogTitle>{t("clientDialogs.createTitle")}</DialogTitle>
         </DialogHeader>
         <ClientForm
           key={formKey}
           initialValues={emptyClientFormValues}
-          submitLabel="Создать"
-          submittingLabel="Создаём..."
+          submitLabel={t("common.create")}
+          submittingLabel={t("common.creating")}
           onSubmit={handleSubmit}
         />
       </DialogContent>

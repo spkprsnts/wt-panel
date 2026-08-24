@@ -23,6 +23,7 @@ function Combobox({
   id,
   className,
   required,
+  noMatchesText = "No matches",
 }: {
   options: ComboboxOption[]
   value: string
@@ -31,6 +32,11 @@ function Combobox({
   id?: string
   className?: string
   required?: boolean
+  // A generic ui/ primitive (like Button/Input) doesn't import the app's
+  // own i18n hook — same separation every other file in this directory
+  // already keeps — so the one bit of built-in copy here is a plain prop
+  // the caller passes translated text into instead.
+  noMatchesText?: string
 }) {
   const [open, setOpen] = React.useState(false)
   // Popover.Anchor (unlike Trigger) doesn't register as part of the
@@ -85,7 +91,7 @@ function Combobox({
           className="bg-popover text-popover-foreground z-50 max-h-64 w-(--radix-popover-trigger-width) overflow-y-auto rounded-md border p-1 shadow-md"
         >
           {filtered.length === 0 ? (
-            <p className="text-muted-foreground px-2 py-1.5 text-sm">Нет совпадений</p>
+            <p className="text-muted-foreground px-2 py-1.5 text-sm">{noMatchesText}</p>
           ) : (
             filtered.map((o) => (
               <button

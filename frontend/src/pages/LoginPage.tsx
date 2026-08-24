@@ -2,10 +2,12 @@ import * as React from "react"
 import { useNavigate } from "react-router-dom"
 
 import { api, setToken } from "@/lib/api"
+import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { LanguageToggle } from "@/components/language-toggle"
 import {
   Card,
   CardContent,
@@ -15,6 +17,7 @@ import {
 } from "@/components/ui/card"
 
 export function LoginPage() {
+  const t = useT()
   const navigate = useNavigate()
   const [username, setUsername] = React.useState("admin")
   const [password, setPassword] = React.useState("")
@@ -30,7 +33,7 @@ export function LoginPage() {
       setToken(token)
       navigate("/dashboard")
     } catch {
-      setError("Неверный логин или пароль")
+      setError(t("login.error"))
     } finally {
       setLoading(false)
     }
@@ -38,16 +41,19 @@ export function LoginPage() {
 
   return (
     <div className="relative flex min-h-svh items-center justify-center bg-muted/30 p-4">
-      <ThemeToggle className="absolute top-4 right-4" />
+      <div className="absolute top-4 right-4 flex items-center gap-1">
+        <LanguageToggle />
+        <ThemeToggle />
+      </div>
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>wt-panel</CardTitle>
-          <CardDescription>Вход для администратора панели</CardDescription>
+          <CardDescription>{t("login.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="username">Логин</Label>
+              <Label htmlFor="username">{t("login.username")}</Label>
               <Input
                 id="username"
                 value={username}
@@ -56,7 +62,7 @@ export function LoginPage() {
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="password">Пароль</Label>
+              <Label htmlFor="password">{t("login.password")}</Label>
               <Input
                 id="password"
                 type="password"
@@ -66,7 +72,7 @@ export function LoginPage() {
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" disabled={loading}>
-              {loading ? "Входим..." : "Войти"}
+              {loading ? t("login.submitting") : t("login.submit")}
             </Button>
           </form>
         </CardContent>

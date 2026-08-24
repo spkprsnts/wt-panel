@@ -3,6 +3,7 @@ import { Link } from "react-router-dom"
 
 import { api, type Client, type KernelStatus, type XrayClient, type XrayInbound, type XrayProtocol } from "@/lib/api"
 import { useDialogPrompt } from "@/components/dialog-prompt"
+import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -111,6 +112,7 @@ function KeyInput({
   onChange: (v: string) => void
   onGenerate: () => Promise<unknown>
 }) {
+  const t = useT()
   const [generating, setGenerating] = React.useState(false)
   async function handleGenerate() {
     setGenerating(true)
@@ -126,7 +128,7 @@ function KeyInput({
       <div className="flex gap-2">
         <Input id={id} value={value} onChange={(e) => onChange(e.target.value)} className="font-mono text-xs" />
         <Button type="button" variant="outline" size="sm" onClick={handleGenerate} disabled={generating}>
-          {generating ? "..." : "Сгенерировать"}
+          {generating ? "..." : t("common.generate")}
         </Button>
       </div>
     </div>
@@ -595,11 +597,12 @@ function TlsFields({
   setF: React.Dispatch<React.SetStateAction<InboundFormState>>
   alpnDefault: string[]
 }) {
+  const t = useT()
   const [panelCertError, setPanelCertError] = React.useState<string | null>(null)
 
   // Hysteria2 requires TLS outright (no plaintext fallback the way
   // vless/trojan have) — reusing whatever cert the panel's own HTTPS
-  // listener already has (Settings → «Сеть панели», normally a real
+  // listener already has (Settings → "Panel network", normally a real
   // Let's Encrypt cert from install.sh's SSL setup) means the operator
   // doesn't need to issue or paste in a second cert just for this inbound.
   // Only meaningfully different from typing the paths in by hand when the
@@ -610,7 +613,7 @@ function TlsFields({
     try {
       const ps = await api.getPanelSettings()
       if (!ps.TLSCertFile || !ps.TLSKeyFile) {
-        setPanelCertError("У панели ещё не настроен SSL — настройте его на странице «Настройки»")
+        setPanelCertError(t("xray.panelCertMissing"))
         return
       }
       setF({
@@ -621,15 +624,15 @@ function TlsFields({
         tlsServerName: ps.ListenDomain || f.tlsServerName,
       })
     } catch (err) {
-      setPanelCertError(err instanceof Error ? err.message : "Не удалось получить настройки панели")
+      setPanelCertError(err instanceof Error ? err.message : t("xray.panelSettingsFetchFailed"))
     }
   }
 
   return (
-    <AdvancedSection title="Настройки TLS">
+    <AdvancedSection title={t("xray.tlsSettingsTitle")}>
       <div className="flex flex-col gap-2">
         <Button type="button" variant="outline" size="sm" onClick={handleUsePanelCert}>
-          Использовать сертификат панели
+          {t("xray.usePanelCert")}
         </Button>
         {panelCertError && <p className="text-xs text-destructive">{panelCertError}</p>}
       </div>
@@ -675,7 +678,8 @@ function TlsFields({
           options={ALPN_OPTIONS}
           value={f.tlsAlpn}
           onChange={(v) => setF({ ...f, tlsAlpn: v })}
-          placeholder={`по умолчанию: ${alpnDefault.join(", ")}`}
+          placeholder={`${t("xray.alpnDefaultPrefix")}: ${alpnDefault.join(", ")}`}
+          customValuePlaceholder={t("common.customValue")}
         />
       </div>
       <div className="flex flex-col gap-2">
@@ -695,36 +699,36 @@ function TlsFields({
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label>Сертификат</Label>
+        <Label>{t("xray.certificateLabel")}</Label>
         <Select value={f.tlsCertMode} onValueChange={(v) => setF({ ...f, tlsCertMode: v as InboundFormState["tlsCertMode"] })}>
           <SelectTrigger className="w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="file">Путь к файлам на диске</SelectItem>
-            <SelectItem value="inline">Вставить содержимое</SelectItem>
+            <SelectItem value="file">{t("xray.certModeFile")}</SelectItem>
+            <SelectItem value="inline">{t("xray.certModeInline")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
       {f.tlsCertMode === "file" ? (
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="tls-cert-file">Файл сертификата (fullchain)</Label>
+            <Label htmlFor="tls-cert-file">{t("xray.certFileLabel")}</Label>
             <Input id="tls-cert-file" value={f.tlsCertFile} onChange={(e) => setF({ ...f, tlsCertFile: e.target.value })} placeholder="/etc/ssl/certs/example.crt" />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="tls-key-file">Файл приватного ключа</Label>
+            <Label htmlFor="tls-key-file">{t("xray.keyFileLabel")}</Label>
             <Input id="tls-key-file" value={f.tlsKeyFile} onChange={(e) => setF({ ...f, tlsKeyFile: e.target.value })} placeholder="/etc/ssl/private/example.key" />
           </div>
         </div>
       ) : (
         <>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="tls-cert-inline">Сертификат (PEM)</Label>
+            <Label htmlFor="tls-cert-inline">{t("xray.certInlineLabel")}</Label>
             <Textarea id="tls-cert-inline" value={f.tlsCertInline} onChange={(e) => setF({ ...f, tlsCertInline: e.target.value })} className="font-mono text-xs" rows={4} />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="tls-key-inline">Приватный ключ (PEM)</Label>
+            <Label htmlFor="tls-key-inline">{t("xray.keyInlineLabel")}</Label>
             <Textarea id="tls-key-inline" value={f.tlsKeyInline} onChange={(e) => setF({ ...f, tlsKeyInline: e.target.value })} className="font-mono text-xs" rows={4} />
           </div>
         </>
@@ -738,14 +742,15 @@ function TlsFields({
 }
 
 function RealityFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<React.SetStateAction<InboundFormState>> }) {
+  const t = useT()
   return (
-    <AdvancedSection title="Настройки Reality">
+    <AdvancedSection title={t("xray.reality.title")}>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="reality-target">Target (куда маскируемся)</Label>
+        <Label htmlFor="reality-target">{t("xray.reality.target")}</Label>
         <Input id="reality-target" value={f.realityTarget} onChange={(e) => setF({ ...f, realityTarget: e.target.value })} placeholder="example.com:443" />
       </div>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="reality-sni">Server names (через запятую)</Label>
+        <Label htmlFor="reality-sni">{t("xray.reality.serverNames")}</Label>
         <Input id="reality-sni" value={f.realityServerNames} onChange={(e) => setF({ ...f, realityServerNames: e.target.value })} />
       </div>
       <div className="flex flex-col gap-2">
@@ -765,7 +770,7 @@ function RealityFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
       </div>
       <KeyInput
         id="reality-priv"
-        label="Приватный ключ"
+        label={t("xray.reality.privateKey")}
         value={f.realityPrivateKey}
         onChange={(v) => setF({ ...f, realityPrivateKey: v })}
         onGenerate={() =>
@@ -775,11 +780,11 @@ function RealityFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
         }
       />
       <div className="flex flex-col gap-2">
-        <Label htmlFor="reality-pub">Публичный ключ (выдать клиентам)</Label>
+        <Label htmlFor="reality-pub">{t("xray.reality.publicKey")}</Label>
         <Input id="reality-pub" value={f.realityPublicKey} onChange={(e) => setF({ ...f, realityPublicKey: e.target.value })} className="font-mono text-xs" />
       </div>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="reality-shortids">Short IDs (через запятую)</Label>
+        <Label htmlFor="reality-shortids">{t("xray.reality.shortIds")}</Label>
         <div className="flex gap-2">
           <Input
             id="reality-shortids"
@@ -797,7 +802,7 @@ function RealityFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
               )
             }
           >
-            + Short ID
+            {t("xray.reality.addShortId")}
           </Button>
         </div>
       </div>
@@ -816,18 +821,16 @@ function RealityFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
         </div>
       </div>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="reality-maxtimediff">Max time diff, мс</Label>
+        <Label htmlFor="reality-maxtimediff">{t("xray.reality.maxTimediff")}</Label>
         <Input id="reality-maxtimediff" type="number" value={f.realityMaxTimediff} onChange={(e) => setF({ ...f, realityMaxTimediff: e.target.value })} />
       </div>
-      <p className="text-xs text-muted-foreground">
-        Продвинутые поля (лимит fallback-канала, post-quantum ML-DSA-65, ECH, master-key-log) сюда
-        сознательно не включены — редко нужны и раздули бы форму; их можно добавить позже, если понадобятся.
-      </p>
+      <p className="text-xs text-muted-foreground">{t("xray.reality.advancedNote")}</p>
     </AdvancedSection>
   )
 }
 
 function FallbacksEditor({ f, setF }: { f: InboundFormState; setF: React.Dispatch<React.SetStateAction<InboundFormState>> }) {
+  const t = useT()
   function update(i: number, patch: Partial<FallbackRow>) {
     setF({ ...f, fallbacks: f.fallbacks.map((fb, idx) => (idx === i ? { ...fb, ...patch } : fb)) })
   }
@@ -855,7 +858,7 @@ function FallbacksEditor({ f, setF }: { f: InboundFormState; setF: React.Dispatc
           </div>
           <div className="flex flex-col gap-1">
             <Label className="text-xs">dest</Label>
-            <Input value={fb.dest} onChange={(e) => update(i, { dest: e.target.value })} placeholder="80 или unix-сокет" />
+            <Input value={fb.dest} onChange={(e) => update(i, { dest: e.target.value })} placeholder={t("xray.fallbacks.destPlaceholder")} />
           </div>
           <Button type="button" variant="destructive" size="sm" onClick={() => remove(i)}>
             −
@@ -863,13 +866,14 @@ function FallbacksEditor({ f, setF }: { f: InboundFormState; setF: React.Dispatc
         </div>
       ))}
       <Button type="button" variant="outline" size="sm" onClick={add}>
-        + Fallback
+        {t("xray.fallbacks.add")}
       </Button>
     </AdvancedSection>
   )
 }
 
 function NetworkFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<React.SetStateAction<InboundFormState>> }) {
+  const t = useT()
   switch (f.network) {
     case "tcp":
       return (
@@ -903,7 +907,7 @@ function NetworkFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
             </div>
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="ws-heartbeat">Heartbeat period, сек (0 = выкл)</Label>
+            <Label htmlFor="ws-heartbeat">{t("xray.network.heartbeatPeriod")}</Label>
             <Input id="ws-heartbeat" type="number" value={f.wsHeartbeatPeriod} onChange={(e) => setF({ ...f, wsHeartbeatPeriod: e.target.value })} />
           </div>
           <SwitchField id="ws-proxy-proto" label="acceptProxyProtocol" checked={f.wsAcceptProxyProtocol} onChange={(v) => setF({ ...f, wsAcceptProxyProtocol: v })} />
@@ -996,7 +1000,7 @@ function NetworkFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
               </SelectContent>
             </Select>
           </div>
-          <SwitchField id="xhttp-xmux" label="Настроить XMUX (мультиплексирование соединений)" checked={f.xhttpEnableXmux} onChange={(v) => setF({ ...f, xhttpEnableXmux: v })} />
+          <SwitchField id="xhttp-xmux" label={t("xray.network.xhttpXmuxLabel")} checked={f.xhttpEnableXmux} onChange={(v) => setF({ ...f, xhttpEnableXmux: v })} />
           {f.xhttpEnableXmux && (
             <div className="grid grid-cols-2 gap-3 rounded border p-2">
               <div className="flex flex-col gap-1">
@@ -1009,11 +1013,7 @@ function NetworkFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
               </div>
             </div>
           )}
-          <p className="text-xs text-muted-foreground">
-            Anti-DPI padding/session-ID поля (xPadding*, sessionID*, seq*, uplinkData*) сознательно
-            не включены — узкоспециальные настройки для обхода конкретных блокировок; xray-core сам
-            использует разумные значения по умолчанию.
-          </p>
+          <p className="text-xs text-muted-foreground">{t("xray.network.antiDpiNote")}</p>
         </>
       )
   }
@@ -1026,11 +1026,12 @@ function NetworkSecurityFields({
   f: InboundFormState
   setF: React.Dispatch<React.SetStateAction<InboundFormState>>
 }) {
+  const t = useT()
   return (
     <>
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-2">
-          <Label>Транспорт (network)</Label>
+          <Label>{t("xray.networkSecurity.transport")}</Label>
           <Select value={f.network} onValueChange={(v) => setF({ ...f, network: v as Network })}>
             <SelectTrigger className="w-full">
               <SelectValue />
@@ -1045,7 +1046,7 @@ function NetworkSecurityFields({
           </Select>
         </div>
         <div className="flex flex-col gap-2">
-          <Label>Безопасность (security)</Label>
+          <Label>{t("xray.networkSecurity.security")}</Label>
           <Select value={f.security} onValueChange={(v) => setF({ ...f, security: v as InboundFormState["security"] })}>
             <SelectTrigger className="w-full">
               <SelectValue />
@@ -1076,6 +1077,7 @@ function InboundFormDialog({
   existing?: XrayInbound
   onSaved: () => void
 }) {
+  const t = useT()
   const [open, setOpen] = React.useState(false)
   const [protocol, setProtocol] = React.useState<XrayProtocol>(existing?.Protocol ?? "vless")
   const [f, setF] = React.useState<InboundFormState>(existing ? formFromInbound(existing) : emptyForm())
@@ -1104,7 +1106,7 @@ function InboundFormDialog({
       setOpen(false)
       onSaved()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось сохранить")
+      setError(err instanceof Error ? err.message : t("xray.inboundForm.saveFailed"))
     } finally {
       setLoading(false)
     }
@@ -1114,23 +1116,23 @@ function InboundFormDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant={existing ? "outline" : "default"} size={existing ? "sm" : "default"}>
-          {existing ? "Изменить" : "Добавить инбаунд"}
+          {existing ? t("xray.inboundForm.editTrigger") : t("xray.inboundForm.addTrigger")}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>{existing ? "Изменить инбаунд" : "Новый инбаунд"}</DialogTitle>
+          <DialogTitle>{existing ? t("xray.inboundForm.editTitle") : t("xray.inboundForm.createTitle")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <SwitchField id="inbound-enable" label="Инбаунд включён" checked={f.enable} onChange={(v) => setF({ ...f, enable: v })} />
+          <SwitchField id="inbound-enable" label={t("xray.inboundForm.enabled")} checked={f.enable} onChange={(v) => setF({ ...f, enable: v })} />
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="inbound-remark">Название (remark)</Label>
+            <Label htmlFor="inbound-remark">{t("xray.inboundForm.remark")}</Label>
             <Input id="inbound-remark" value={f.remark} onChange={(e) => setF({ ...f, remark: e.target.value })} required autoFocus />
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label>Протокол</Label>
+            <Label>{t("xray.inboundForm.protocol")}</Label>
             <Select value={protocol} onValueChange={(v) => setProtocol(v as XrayProtocol)} disabled={!!existing}>
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -1145,18 +1147,18 @@ function InboundFormDialog({
             </Select>
             {existing && (
               <p className="text-xs text-muted-foreground">
-                Протокол нельзя изменить — удалите инбаунд и создайте новый.
+                {t("xray.inboundForm.protocolLocked")}
               </p>
             )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="inbound-listen">Listen (пусто = все интерфейсы)</Label>
+              <Label htmlFor="inbound-listen">{t("xray.inboundForm.listen")}</Label>
               <Input id="inbound-listen" value={f.listen} onChange={(e) => setF({ ...f, listen: e.target.value })} placeholder="0.0.0.0" />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="inbound-port">Порт</Label>
+              <Label htmlFor="inbound-port">{t("xray.inboundForm.port")}</Label>
               <Input
                 id="inbound-port"
                 type="number"
@@ -1173,9 +1175,7 @@ function InboundFormDialog({
           {protocol === "hysteria2" && (
             <>
               <p className="text-xs text-muted-foreground">
-                Hysteria2 работает поверх QUIC — TLS здесь обязателен, отдельного переключателя
-                security/транспорта нет (как и в актуальной 3x-ui). Настройки obfs/bandwidth в
-                текущей схеме апстрима больше не экспонируются.
+                {t("xray.inboundForm.hysteria2Note")}
               </p>
               <TlsFields f={f} setF={setF} alpnDefault={["h3"]} />
             </>
@@ -1185,7 +1185,7 @@ function InboundFormDialog({
             <>
               <KeyInput
                 id="wg-secret"
-                label="Секретный ключ сервера"
+                label={t("xray.inboundForm.wgSecretKey")}
                 value={f.wgSecretKey}
                 onChange={(v) => setF({ ...f, wgSecretKey: v })}
                 onGenerate={() =>
@@ -1195,12 +1195,12 @@ function InboundFormDialog({
                 }
               />
               <div className="flex flex-col gap-2">
-                <Label htmlFor="wg-pub">Публичный ключ сервера</Label>
+                <Label htmlFor="wg-pub">{t("xray.inboundForm.wgPublicKey")}</Label>
                 <Input id="wg-pub" value={f.wgPublicKey} onChange={(e) => setF({ ...f, wgPublicKey: e.target.value })} className="font-mono text-xs" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="wg-address">Адрес интерфейса</Label>
+                  <Label htmlFor="wg-address">{t("xray.inboundForm.wgAddress")}</Label>
                   <Input id="wg-address" value={f.wgAddress} onChange={(e) => setF({ ...f, wgAddress: e.target.value })} />
                 </div>
                 <div className="flex flex-col gap-2">
@@ -1212,10 +1212,10 @@ function InboundFormDialog({
           )}
 
           <AdvancedSection title="Sniffing">
-            <SwitchField id="sniffing-enabled" label="Включить sniffing" checked={f.sniffingEnabled} onChange={(v) => setF({ ...f, sniffingEnabled: v })} />
+            <SwitchField id="sniffing-enabled" label={t("xray.inboundForm.sniffingEnable")} checked={f.sniffingEnabled} onChange={(v) => setF({ ...f, sniffingEnabled: v })} />
             {f.sniffingEnabled && (
               <div className="flex flex-col gap-2">
-                <Label htmlFor="sniffing-dest">destOverride (через запятую)</Label>
+                <Label htmlFor="sniffing-dest">{t("xray.inboundForm.sniffingDestOverride")}</Label>
                 <Input
                   id="sniffing-dest"
                   value={f.sniffingDestOverride}
@@ -1228,7 +1228,7 @@ function InboundFormDialog({
           {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
             <Button type="submit" disabled={loading}>
-              {loading ? "Сохраняем..." : existing ? "Сохранить" : "Создать"}
+              {loading ? t("xray.inboundForm.saving") : existing ? t("common.save") : t("common.create")}
             </Button>
           </DialogFooter>
         </form>
@@ -1238,6 +1238,7 @@ function InboundFormDialog({
 }
 
 function ClientIdentity({ config }: { config: string }) {
+  const t = useT()
   let parsed: Record<string, unknown> = {}
   try {
     parsed = JSON.parse(config)
@@ -1258,8 +1259,8 @@ function ClientIdentity({ config }: { config: string }) {
     <div className="flex flex-col">
       <span className="font-mono text-xs text-muted-foreground">{identity || "—"}</span>
       <span className="text-xs text-muted-foreground">
-        трафик: {totalGB} · IP-лимит: {typeof parsed.limitIp === "number" && parsed.limitIp > 0 ? parsed.limitIp : "∞"} · до: {expiry} ·{" "}
-        {parsed.enable === false ? "выключен" : "включён"}
+        {t("xray.clientIdentity.traffic")}: {totalGB} · {t("xray.clientIdentity.ipLimit")}: {typeof parsed.limitIp === "number" && parsed.limitIp > 0 ? parsed.limitIp : "∞"} · {t("xray.clientIdentity.until")}: {expiry} ·{" "}
+        {parsed.enable === false ? t("xray.clientIdentity.disabled") : t("xray.clientIdentity.enabled")}
       </span>
     </div>
   )
@@ -1270,6 +1271,7 @@ function ClientIdentity({ config }: { config: string }) {
 // Clients page — there is no way to create an "xray-only" client here,
 // matching the rule that Xray never has clients the Clients page doesn't.
 function InboundClientsDialog({ inbound, allClients, onChanged }: { inbound: XrayInbound; allClients: Client[]; onChanged: () => void }) {
+  const t = useT()
   const [open, setOpen] = React.useState(false)
   const [attached, setAttached] = React.useState<XrayClient[]>(inbound.Clients ?? [])
   const [pickClientId, setPickClientId] = React.useState<string>("")
@@ -1306,7 +1308,7 @@ function InboundClientsDialog({ inbound, allClients, onChanged }: { inbound: Xra
       setComment("")
       onChanged()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось привязать клиента")
+      setError(err instanceof Error ? err.message : t("xray.inboundClients.attachFailed"))
     } finally {
       setBusy(false)
     }
@@ -1331,16 +1333,16 @@ function InboundClientsDialog({ inbound, allClients, onChanged }: { inbound: Xra
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
-          Клиенты ({(inbound.Clients ?? []).length})
+          {t("xray.inboundClients.trigger")} ({(inbound.Clients ?? []).length})
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Клиенты инбаунда «{inbound.Remark}»</DialogTitle>
+          <DialogTitle>{t("xray.inboundClients.title")} «{inbound.Remark}»</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2 rounded-md border p-3">
-            {attached.length === 0 && <p className="text-sm text-muted-foreground">Клиенты пока не привязаны</p>}
+            {attached.length === 0 && <p className="text-sm text-muted-foreground">{t("xray.inboundClients.none")}</p>}
             {attached.map((xc) => (
               <div key={xc.ID} className="flex items-center justify-between gap-2 text-sm">
                 <div className="flex flex-col">
@@ -1348,7 +1350,7 @@ function InboundClientsDialog({ inbound, allClients, onChanged }: { inbound: Xra
                   <ClientIdentity config={xc.Config} />
                 </div>
                 <Button size="sm" variant="destructive" disabled={busy} onClick={() => handleDetach(xc.ID)}>
-                  Отвязать
+                  {t("xray.inboundClients.detach")}
                 </Button>
               </div>
             ))}
@@ -1357,10 +1359,10 @@ function InboundClientsDialog({ inbound, allClients, onChanged }: { inbound: Xra
           {available.length > 0 ? (
             <div className="flex flex-col gap-3 rounded-md border p-3">
               <div className="flex flex-col gap-2">
-                <Label>Клиент</Label>
+                <Label>{t("xray.inboundClients.clientLabel")}</Label>
                 <Select value={pickClientId} onValueChange={setPickClientId}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Выбрать клиента со страницы «Клиенты»..." />
+                    <SelectValue placeholder={t("xray.inboundClients.pickPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
                     {available.map((c) => (
@@ -1373,29 +1375,29 @@ function InboundClientsDialog({ inbound, allClients, onChanged }: { inbound: Xra
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="attach-traffic">Лимит трафика, GB (0 = ∞)</Label>
+                  <Label htmlFor="attach-traffic">{t("xray.inboundClients.trafficLimit")}</Label>
                   <Input id="attach-traffic" type="number" value={trafficGB} onChange={(e) => setTrafficGB(e.target.value)} />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="attach-ip">Лимит IP (0 = ∞)</Label>
+                  <Label htmlFor="attach-ip">{t("xray.inboundClients.ipLimit")}</Label>
                   <Input id="attach-ip" type="number" value={limitIp} onChange={(e) => setLimitIp(e.target.value)} />
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="attach-expiry">Истекает (пусто = никогда)</Label>
+                <Label htmlFor="attach-expiry">{t("xray.inboundClients.expiry")}</Label>
                 <Input id="attach-expiry" type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="attach-comment">Комментарий</Label>
+                <Label htmlFor="attach-comment">{t("xray.inboundClients.comment")}</Label>
                 <Input id="attach-comment" value={comment} onChange={(e) => setComment(e.target.value)} />
               </div>
               <Button type="button" disabled={!pickClientId || busy} onClick={handleAttach}>
-                Привязать
+                {t("xray.inboundClients.attach")}
               </Button>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Все существующие клиенты уже привязаны. Новых клиентов создавайте на странице «Клиенты».
+              {t("xray.inboundClients.allAttached")}
             </p>
           )}
           {error && <p className="text-sm text-destructive">{error}</p>}
@@ -1406,6 +1408,7 @@ function InboundClientsDialog({ inbound, allClients, onChanged }: { inbound: Xra
 }
 
 function XrayLogsDialog() {
+  const t = useT()
   const [open, setOpen] = React.useState(false)
   const [log, setLog] = React.useState("")
   const [running, setRunning] = React.useState(false)
@@ -1423,7 +1426,7 @@ function XrayLogsDialog() {
       setPid(status.pid)
       setLog(logs.log)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось загрузить логи")
+      setError(err instanceof Error ? err.message : t("profileLogs.loadFailed"))
     } finally {
       setLoading(false)
     }
@@ -1454,17 +1457,17 @@ function XrayLogsDialog() {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline">Логи xray-core</Button>
+        <Button variant="outline">{t("xray.logsDialog.trigger")}</Button>
       </DialogTrigger>
       <DialogContent className="max-h-[80vh] overflow-hidden sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Процесс xray-core</DialogTitle>
+          <DialogTitle>{t("xray.logsDialog.title")}</DialogTitle>
         </DialogHeader>
         <div className="flex items-center gap-2 text-sm">
-          <Badge variant={running ? "default" : "secondary"}>{running ? "работает" : "не работает"}</Badge>
+          <Badge variant={running ? "default" : "secondary"}>{running ? t("profileLogs.running") : t("profileLogs.notRunning")}</Badge>
           {running && pid > 0 && <span className="text-muted-foreground">PID {pid}</span>}
           <Button size="sm" variant="outline" className="ml-auto" onClick={fetchAll} disabled={loading}>
-            Обновить
+            {t("profileLogs.refresh")}
           </Button>
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}
@@ -1472,7 +1475,7 @@ function XrayLogsDialog() {
           ref={logRef}
           className="max-h-[55vh] overflow-auto rounded-md border bg-muted/30 p-3 text-xs whitespace-pre-wrap"
         >
-          {log || (loading ? "Загрузка..." : "Лог пуст")}
+          {log || (loading ? t("common.loading") : t("profileLogs.empty"))}
         </pre>
       </DialogContent>
     </Dialog>
@@ -1480,6 +1483,7 @@ function XrayLogsDialog() {
 }
 
 function XrayStatusBadge() {
+  const t = useT()
   const [status, setStatus] = React.useState<{ running: boolean; pid: number } | null>(null)
   const [kernel, setKernel] = React.useState<KernelStatus | null>(null)
 
@@ -1501,14 +1505,14 @@ function XrayStatusBadge() {
     <div className="flex items-center gap-2">
       {status && (
         <Badge variant={status.running ? "default" : "secondary"}>
-          {status.running ? `работает · PID ${status.pid}` : "не запущен"}
+          {status.running ? `${t("xray.statusBadge.running")} · PID ${status.pid}` : t("xray.statusBadge.notRunning")}
         </Badge>
       )}
       {kernel?.installed ? (
-        <Badge variant="outline">{kernel.version || "версия неизвестна"}</Badge>
+        <Badge variant="outline">{kernel.version || t("xray.statusBadge.versionUnknown")}</Badge>
       ) : (
         <Link to="/kernels" className="text-xs text-muted-foreground underline">
-          xray-core не установлен — поставить на странице «Ядра»
+          {t("xray.statusBadge.notInstalled")}
         </Link>
       )}
     </div>
@@ -1516,6 +1520,7 @@ function XrayStatusBadge() {
 }
 
 export function XrayPage() {
+  const t = useT()
   const { confirm } = useDialogPrompt()
   const [inbounds, setInbounds] = React.useState<XrayInbound[]>([])
   const [clients, setClients] = React.useState<Client[]>([])
@@ -1535,9 +1540,9 @@ export function XrayPage() {
 
   async function handleDelete(id: number) {
     if (
-      !(await confirm("Удалить инбаунд вместе со всеми привязанными клиентами?", {
+      !(await confirm(t("xray.page.deleteConfirm"), {
         destructive: true,
-        confirmLabel: "Удалить",
+        confirmLabel: t("common.delete"),
       }))
     )
       return
@@ -1554,11 +1559,7 @@ export function XrayPage() {
             <XrayStatusBadge />
           </div>
           <p className="text-sm text-muted-foreground">
-            Инбаунды VLESS / Trojan / Hysteria2 / WireGuard — настройки в объёме 3x-ui (TLS с
-            сертификатами и ALPN, Reality, fallbacks, TCP/WS/gRPC/mKCP/HTTPUpgrade/XHTTP). Клиенты
-            привязываются только из уже существующих на странице «Клиенты». Каждое изменение здесь
-            перегенерирует конфиг и перезапускает единственный общий процесс xray-core — если он ещё
-            не установлен, поставьте его на странице «Ядра».
+            {t("xray.page.description")}
           </p>
         </div>
         <div className="flex gap-2">
@@ -1573,12 +1574,12 @@ export function XrayPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Статус</TableHead>
-              <TableHead>Протокол</TableHead>
-              <TableHead>Название</TableHead>
-              <TableHead>Адрес</TableHead>
-              <TableHead>Клиенты</TableHead>
-              <TableHead className="text-right">Действия</TableHead>
+              <TableHead>{t("xray.page.colStatus")}</TableHead>
+              <TableHead>{t("xray.page.colProtocol")}</TableHead>
+              <TableHead>{t("xray.page.colName")}</TableHead>
+              <TableHead>{t("xray.page.colAddress")}</TableHead>
+              <TableHead>{t("xray.page.colClients")}</TableHead>
+              <TableHead className="text-right">{t("xray.page.colActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1587,7 +1588,7 @@ export function XrayPage() {
                 <TableCell>
                   <span
                     className={`inline-block size-2 rounded-full ${ib.Enable ? "bg-green-500" : "bg-muted-foreground/40"}`}
-                    title={ib.Enable ? "включён" : "выключен"}
+                    title={ib.Enable ? t("xray.clientIdentity.enabled") : t("xray.clientIdentity.disabled")}
                   />
                 </TableCell>
                 <TableCell>
@@ -1604,7 +1605,7 @@ export function XrayPage() {
                   <div className="flex justify-end gap-2">
                     <InboundFormDialog existing={ib} onSaved={load} />
                     <Button size="sm" variant="destructive" onClick={() => handleDelete(ib.ID)}>
-                      Удалить
+                      {t("common.delete")}
                     </Button>
                   </div>
                 </TableCell>
@@ -1613,7 +1614,7 @@ export function XrayPage() {
             {inbounds.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} className="text-center text-muted-foreground">
-                  Инбаундов пока нет
+                  {t("xray.page.empty")}
                 </TableCell>
               </TableRow>
             )}

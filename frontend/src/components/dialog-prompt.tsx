@@ -1,5 +1,6 @@
 import * as React from "react"
 
+import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -42,6 +43,7 @@ type Pending =
 // `if (!(await confirm(msg))) return` at each call site, everything else
 // about the calling code stays the same.
 export function DialogPromptProvider({ children }: { children: React.ReactNode }) {
+  const t = useT()
   const [pending, setPending] = React.useState<Pending | null>(null)
 
   const confirm = React.useCallback((message: string, options: ConfirmOptions = {}) => {
@@ -85,7 +87,7 @@ export function DialogPromptProvider({ children }: { children: React.ReactNode }
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>
-              {pending?.options.title ?? (pending?.kind === "confirm" ? "Подтверждение" : "Уведомление")}
+              {pending?.options.title ?? (pending?.kind === "confirm" ? t("common.confirmTitle") : t("common.notice"))}
             </DialogTitle>
             <DialogDescription className="whitespace-pre-line">{pending?.message}</DialogDescription>
           </DialogHeader>
@@ -93,17 +95,17 @@ export function DialogPromptProvider({ children }: { children: React.ReactNode }
             {pending?.kind === "confirm" ? (
               <>
                 <Button variant="outline" onClick={() => resolveConfirm(false)}>
-                  {pending.options.cancelLabel ?? "Отмена"}
+                  {pending.options.cancelLabel ?? t("common.cancel")}
                 </Button>
                 <Button
                   variant={pending.options.destructive ? "destructive" : "default"}
                   onClick={() => resolveConfirm(true)}
                 >
-                  {pending.options.confirmLabel ?? "Подтвердить"}
+                  {pending.options.confirmLabel ?? t("common.confirm")}
                 </Button>
               </>
             ) : (
-              <Button onClick={resolveAlert}>{pending?.options.okLabel ?? "ОК"}</Button>
+              <Button onClick={resolveAlert}>{pending?.options.okLabel ?? t("common.ok")}</Button>
             )}
           </DialogFooter>
         </DialogContent>

@@ -2,6 +2,7 @@ import * as React from "react"
 import { Pencil } from "lucide-react"
 
 import { api, type Profile } from "@/lib/api"
+import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -19,6 +20,7 @@ export function EditProfileDialog({
   profile: Profile
   onUpdated: () => void
 }) {
+  const t = useT()
   const [open, setOpen] = React.useState(false)
   // Bumped only when the dialog actually opens — used in ProfileForm's key
   // below so it remounts with fresh state each time (no stale in-progress
@@ -60,20 +62,20 @@ export function EditProfileDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="ghost" title="Редактировать профиль">
+        <Button size="sm" variant="ghost" title={t("profileDialogs.editTooltip")}>
           <Pencil className="size-4" />
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Редактирование профиля</DialogTitle>
+          <DialogTitle>{t("profileDialogs.editTitle")}</DialogTitle>
         </DialogHeader>
         <ProfileForm
           key={`${profile.ID}-${openCount}`}
           mode="edit"
           initialValues={initialValues}
-          submitLabel="Сохранить"
-          submittingLabel="Сохраняем..."
+          submitLabel={t("common.save")}
+          submittingLabel={t("common.saving")}
           onSubmit={handleSubmit}
         />
       </DialogContent>

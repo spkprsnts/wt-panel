@@ -1,6 +1,7 @@
 import * as React from "react"
 import { Link } from "react-router-dom"
 
+import { useT } from "@/lib/i18n"
 import { api, type Client, type CoreType, type KernelStatus, type SystemStats } from "@/lib/api"
 import {
   Card,
@@ -25,9 +26,8 @@ const CORE_LABELS: Record<CoreType | "xray", string> = {
 // below iterates this list, not every CORE_LABELS key.
 const PROFILE_CORE_TYPES: CoreType[] = ["turnable", "olcrtc", "webdav", "freeturn"]
 
-function formatBytes(bytes: number): string {
-  if (!bytes) return "0 Б"
-  const units = ["Б", "КБ", "МБ", "ГБ", "ТБ"]
+function formatBytes(bytes: number, units: string[]): string {
+  if (!bytes) return `0 ${units[0]}`
   let v = bytes
   let i = 0
   while (v >= 1024 && i < units.length - 1) {
@@ -90,6 +90,17 @@ function StatCard({
 }
 
 export function DashboardPage() {
+  const t = useT()
+  const byteUnits = React.useMemo(
+    () => [
+      t("clientsPage.unitByte"),
+      t("clientsPage.unitKb"),
+      t("clientsPage.unitMb"),
+      t("clientsPage.unitGb"),
+      t("clientsPage.unitTb"),
+    ],
+    [t]
+  )
   const [clients, setClients] = React.useState<Client[] | null>(null)
   const [kernels, setKernels] = React.useState<KernelStatus[] | null>(null)
   const [stats, setStats] = React.useState<SystemStats | null>(null)
@@ -128,51 +139,51 @@ export function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-5xl p-6">
-      <h1 className="mb-6 text-xl font-semibold">Дэшборд</h1>
+      <h1 className="mb-6 text-xl font-semibold">{t("dashboard.title")}</h1>
 
       {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         <StatCard
-          label="Клиенты"
+          label={t("sidebar.nav.clients")}
           value={clients ? clients.length : "—"}
-          hint={clients ? `${activeClients} активных` : undefined}
+          hint={clients ? `${activeClients} ${t("dashboard.activeCount")}` : undefined}
         />
-        <StatCard label="Профили" value={clients ? allProfiles.length : "—"} />
+        <StatCard label={t("clientsPage.colProfiles")} value={clients ? allProfiles.length : "—"} />
         <StatCard
-          label="Работают"
+          label={t("dashboard.running")}
           value={clients ? runningCount : "—"}
-          hint={clients ? `из ${allProfiles.length}` : undefined}
+          hint={clients ? `${t("dashboard.ofTotal")} ${allProfiles.length}` : undefined}
         />
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-3">
         <UsageStatCard
-          label="Процессор"
+          label={t("dashboard.cpu")}
           percent={stats ? stats.cpuPercent : null}
-          hint={stats ? `${stats.cpuCores} ядер` : null}
+          hint={stats ? `${stats.cpuCores} ${t("dashboard.cores")}` : null}
         />
         <UsageStatCard
-          label="Память"
+          label={t("dashboard.memory")}
           percent={memPercent}
-          hint={stats ? `${formatBytes(stats.memUsedBytes)} из ${formatBytes(stats.memTotalBytes)}` : null}
+          hint={stats ? `${formatBytes(stats.memUsedBytes, byteUnits)} ${t("dashboard.ofSize")} ${formatBytes(stats.memTotalBytes, byteUnits)}` : null}
         />
         <UsageStatCard
-          label="Хранилище"
+          label={t("dashboard.storage")}
           percent={diskPercent}
-          hint={stats ? `${formatBytes(stats.diskUsedBytes)} из ${formatBytes(stats.diskTotalBytes)}` : null}
+          hint={stats ? `${formatBytes(stats.diskUsedBytes, byteUnits)} ${t("dashboard.ofSize")} ${formatBytes(stats.diskTotalBytes, byteUnits)}` : null}
         />
       </div>
 
       <div className="mt-6 grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Профили по ядрам</CardTitle>
-            <CardDescription>Сколько профилей приходится на каждое ядро</CardDescription>
+            <CardTitle>{t("dashboard.profilesByCore")}</CardTitle>
+            <CardDescription>{t("dashboard.profilesByCoreDescription")}</CardDescription>
           </CardHeader>
           <CardContent>
             {allProfiles.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Профилей пока нет</p>
+              <p className="text-sm text-muted-foreground">{t("clientsPage.noProfiles")}</p>
             ) : (
               <div className="flex flex-col gap-2">
                 {PROFILE_CORE_TYPES.map((ct) => {
@@ -200,17 +211,17 @@ export function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Ядра</CardTitle>
+            <CardTitle>{t("sidebar.nav.kernels")}</CardTitle>
             <CardDescription>
-              Установленные версии — подробнее на странице{" "}
+              {t("dashboard.installedVersions")}{" "}
               <Link to="/kernels" className="underline">
-                «Ядра»
+                «{t("sidebar.nav.kernels")}»
               </Link>
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             {kernels === null ? (
-              <p className="text-sm text-muted-foreground">Загрузка...</p>
+              <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
             ) : (
               kernels.map((k) => (
                 <div key={k.coreType} className="flex items-center justify-between text-sm">
@@ -218,7 +229,7 @@ export function DashboardPage() {
                   {k.installed ? (
                     <Badge>{k.version}</Badge>
                   ) : (
-                    <Badge variant="secondary">не установлено</Badge>
+                    <Badge variant="secondary">{t("kernels.notInstalled")}</Badge>
                   )}
                 </div>
               ))
