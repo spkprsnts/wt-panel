@@ -7,14 +7,14 @@ export const xray = {
     "xray.alpnDefaultPrefix": "По умолчанию",
     "xray.certificateLabel": "Сертификат",
     "xray.certModeFile": "Файлы",
-    "xray.certModeInline": "Встроенный (inline)",
+    "xray.certModeInline": "Встроенный",
     "xray.certFileLabel": "Файл сертификата",
     "xray.keyFileLabel": "Файл приватного ключа",
     "xray.certInlineLabel": "Сертификат (текст)",
     "xray.keyInlineLabel": "Приватный ключ (текст)",
 
     "xray.reality.title": "Reality",
-    "xray.reality.target": "Target (dest)",
+    "xray.reality.target": "Цель",
     "xray.reality.serverNames": "Server names (через запятую)",
     "xray.reality.privateKey": "Приватный ключ",
     "xray.reality.publicKey": "Публичный ключ",
@@ -32,8 +32,8 @@ export const xray = {
     "xray.network.antiDpiNote":
       "Anti-DPI padding/session-ID поля (xPadding*, sessionID*, seq*, uplinkData*) сознательно не включены — узкоспециальные настройки для обхода конкретных блокировок; xray-core сам использует разумные значения по умолчанию.",
 
-    "xray.networkSecurity.transport": "Транспорт (network)",
-    "xray.networkSecurity.security": "Безопасность (security)",
+    "xray.networkSecurity.transport": "Транспорт",
+    "xray.networkSecurity.security": "Безопасность",
 
     "xray.inboundForm.saveFailed": "Не удалось сохранить",
     "xray.inboundForm.editTrigger": "Изменить",
@@ -41,7 +41,8 @@ export const xray = {
     "xray.inboundForm.editTitle": "Изменить инбаунд",
     "xray.inboundForm.createTitle": "Новый инбаунд",
     "xray.inboundForm.enabled": "Инбаунд включён",
-    "xray.inboundForm.remark": "Название (remark)",
+    "xray.inboundForm.remark": "Название",
+    "xray.inboundForm.defaultNamePrefix": "Инбаунд",
     "xray.inboundForm.protocol": "Протокол",
     "xray.inboundForm.protocolLocked": "Протокол нельзя изменить — удалите инбаунд и создайте новый.",
     "xray.inboundForm.listen": "Listen (пусто = все интерфейсы)",
@@ -110,7 +111,7 @@ export const xray = {
     "xray.keyInlineLabel": "Private key (inline)",
 
     "xray.reality.title": "Reality",
-    "xray.reality.target": "Target (dest)",
+    "xray.reality.target": "Target",
     "xray.reality.serverNames": "Server names (comma-separated)",
     "xray.reality.privateKey": "Private key",
     "xray.reality.publicKey": "Public key",
@@ -128,7 +129,7 @@ export const xray = {
     "xray.network.antiDpiNote":
       "Anti-DPI padding/session-ID fields (xPadding*, sessionID*, seq*, uplinkData*) are deliberately not exposed — highly specialized settings for evading specific blocking methods; xray-core's own defaults are sensible.",
 
-    "xray.networkSecurity.transport": "Transport (network)",
+    "xray.networkSecurity.transport": "Transport",
     "xray.networkSecurity.security": "Security",
 
     "xray.inboundForm.saveFailed": "Failed to save",
@@ -137,7 +138,8 @@ export const xray = {
     "xray.inboundForm.editTitle": "Edit inbound",
     "xray.inboundForm.createTitle": "New inbound",
     "xray.inboundForm.enabled": "Inbound enabled",
-    "xray.inboundForm.remark": "Name (remark)",
+    "xray.inboundForm.remark": "Name",
+    "xray.inboundForm.defaultNamePrefix": "Inbound",
     "xray.inboundForm.protocol": "Protocol",
     "xray.inboundForm.protocolLocked": "The protocol can't be changed — delete this inbound and create a new one.",
     "xray.inboundForm.listen": "Listen (empty = all interfaces)",

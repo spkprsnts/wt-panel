@@ -218,11 +218,19 @@ interface InboundFormState {
   sniffingDestOverride: string
 }
 
-function emptyForm(): InboundFormState {
+// randomPort suggests a starting point for a brand-new inbound's listen
+// port — picked from the high, rarely-reserved range so it's unlikely to
+// collide with anything else already running on the box; the operator can
+// always type over it before saving.
+function randomPort(): number {
+  return 10000 + Math.floor(Math.random() * 55536)
+}
+
+function emptyForm(defaultRemark = ""): InboundFormState {
   return {
-    remark: "",
+    remark: defaultRemark,
     listen: "",
-    port: "",
+    port: String(randomPort()),
     enable: true,
     network: "tcp",
     security: "none",
@@ -253,7 +261,7 @@ function emptyForm(): InboundFormState {
     tlsServerName: "",
     tlsMinVersion: "1.2",
     tlsMaxVersion: "1.3",
-    tlsAlpn: ["h2", "http/1.1"],
+    tlsAlpn: ["h3"],
     tlsFingerprint: "chrome",
     tlsRejectUnknownSni: false,
     tlsDisableSystemRoot: false,
@@ -1072,24 +1080,30 @@ function NetworkSecurityFields({
 
 function InboundFormDialog({
   existing,
+  nextNumber,
   onSaved,
 }: {
   existing?: XrayInbound
+  // Only meaningful for a brand-new inbound (existing is unset) — see
+  // XrayPage's own call site, which passes inbounds.length + 1.
+  nextNumber?: number
   onSaved: () => void
 }) {
   const t = useT()
+  const defaultRemark = nextNumber ? `${t("xray.inboundForm.defaultNamePrefix")} #${nextNumber}` : ""
   const [open, setOpen] = React.useState(false)
   const [protocol, setProtocol] = React.useState<XrayProtocol>(existing?.Protocol ?? "vless")
-  const [f, setF] = React.useState<InboundFormState>(existing ? formFromInbound(existing) : emptyForm())
+  const [f, setF] = React.useState<InboundFormState>(existing ? formFromInbound(existing) : emptyForm(defaultRemark))
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     if (open) {
       setProtocol(existing?.Protocol ?? "vless")
-      setF(existing ? formFromInbound(existing) : emptyForm())
+      setF(existing ? formFromInbound(existing) : emptyForm(defaultRemark))
       setError(null)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, existing])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -1564,7 +1578,7 @@ export function XrayPage() {
         </div>
         <div className="flex gap-2">
           <XrayLogsDialog />
-          <InboundFormDialog onSaved={load} />
+          <InboundFormDialog nextNumber={inbounds.length + 1} onSaved={load} />
         </div>
       </div>
 

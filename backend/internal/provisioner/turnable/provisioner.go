@@ -56,11 +56,13 @@ func (p *Provisioner) AddProfile(ctx context.Context, profile *models.Profile) (
 		return "", err
 	}
 
-	port, err := common.FreePort()
-	if err != nil {
-		return "", fmt.Errorf("allocate turnable port: %w", err)
+	if cc.Port == 0 {
+		port, err := common.FreePort()
+		if err != nil {
+			return "", fmt.Errorf("allocate turnable port: %w", err)
+		}
+		cc.Port = port
 	}
-	cc.Port = port
 
 	if cc.PubKey == "" || cc.PrivKey == "" {
 		pub, priv, err := Keygen(ctx, p.cfg.TurnableBinPath)

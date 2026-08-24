@@ -32,6 +32,7 @@ export const profileForm = {
     "profileForm.xray.muxLabel": "Mux (потоков)",
 
     "profileForm.name": "Имя профиля",
+    "profileForm.defaultNamePrefix": "Профиль",
     "profileForm.coreLabel": "Ядро",
     "profileForm.coreLockedNote": "Нельзя сменить ядро существующего профиля — удалите и создайте заново.",
 
@@ -48,6 +49,8 @@ export const profileForm = {
     "profileForm.turnable.routeTitle": "Маршрут до инбаунда",
     "profileForm.hostLabel": "Хост",
     "profileForm.portLabel": "Порт",
+    "profileForm.listenPortLabel": "Порт прослушивания",
+    "profileForm.listenPortPlaceholder": "пусто = автоматически",
     "profileForm.turnable.socketType": "Тип сокета",
     "profileForm.turnable.routeTransportLabel": "Транспорт",
     "profileForm.turnable.transportNoneUdp": "None (для UDP)",
@@ -146,6 +149,7 @@ export const profileForm = {
     "profileForm.xray.muxLabel": "Mux (streams)",
 
     "profileForm.name": "Profile name",
+    "profileForm.defaultNamePrefix": "Profile",
     "profileForm.coreLabel": "Core",
     "profileForm.coreLockedNote": "The core of an existing profile can't be changed — delete it and create a new one.",
 
@@ -162,6 +166,8 @@ export const profileForm = {
     "profileForm.turnable.routeTitle": "Route to the inbound",
     "profileForm.hostLabel": "Host",
     "profileForm.portLabel": "Port",
+    "profileForm.listenPortLabel": "Listen port",
+    "profileForm.listenPortPlaceholder": "empty = automatic",
     "profileForm.turnable.socketType": "Socket type",
     "profileForm.turnable.routeTransportLabel": "Transport",
     "profileForm.turnable.transportNoneUdp": "None (for UDP)",

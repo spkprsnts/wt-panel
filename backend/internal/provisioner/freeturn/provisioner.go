@@ -52,11 +52,13 @@ func (p *Provisioner) AddProfile(ctx context.Context, profile *models.Profile) (
 		return "", err
 	}
 
-	port, err := common.FreePort()
-	if err != nil {
-		return "", fmt.Errorf("allocate freeturn port: %w", err)
+	if cc.Port == 0 {
+		port, err := common.FreePort()
+		if err != nil {
+			return "", fmt.Errorf("allocate freeturn port: %w", err)
+		}
+		cc.Port = port
 	}
-	cc.Port = port
 
 	if cc.ObfProfile != "none" && cc.ObfKey == "" {
 		key, err := common.RandomHexKey(32)

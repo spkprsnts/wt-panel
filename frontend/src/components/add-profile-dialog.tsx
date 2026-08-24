@@ -14,9 +14,13 @@ import { ProfileForm, emptyProfileFormValues, type ProfileSubmitPayload } from "
 
 export function AddProfileDialog({
   clientId,
+  existingProfileCount,
   onCreated,
 }: {
   clientId: number
+  // Only used to seed the new profile's default name ("Profile #N") — see
+  // ClientsPage's own call site, which passes (client.Profiles ?? []).length.
+  existingProfileCount: number
   onCreated: () => void
 }) {
   const t = useT()
@@ -33,6 +37,11 @@ export function AddProfileDialog({
     onCreated()
   }
 
+  const initialValues = {
+    ...emptyProfileFormValues,
+    name: `${t("profileForm.defaultNamePrefix")} #${existingProfileCount + 1}`,
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -47,7 +56,7 @@ export function AddProfileDialog({
         <ProfileForm
           key={formKey}
           mode="create"
-          initialValues={emptyProfileFormValues}
+          initialValues={initialValues}
           submitLabel={t("common.create")}
           submittingLabel={t("common.creating")}
           onSubmit={handleSubmit}

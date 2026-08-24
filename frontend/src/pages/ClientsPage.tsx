@@ -193,7 +193,11 @@ export function ClientsPage() {
                       <div className="flex flex-col gap-3 p-2">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium">{t("clientsPage.colProfiles")}</span>
-                          <AddProfileDialog clientId={client.ID} onCreated={load} />
+                          <AddProfileDialog
+                            clientId={client.ID}
+                            existingProfileCount={(client.Profiles ?? []).length}
+                            onCreated={load}
+                          />
                         </div>
                         {(client.Profiles ?? []).length === 0 && (
                           <p className="text-sm text-muted-foreground">

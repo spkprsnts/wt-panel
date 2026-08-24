@@ -3,9 +3,10 @@ package freeturn
 // profileCoreConfig is what we store (as JSON) in models.Profile.CoreConfig
 // for CoreFreeTurn profiles.
 //
-// Port is infra: allocated once in AddProfile/Restore and never re-minted
-// by UpdateProfile, since the client's freeturn:// URI already has it baked
-// in as "peer". ObfKey is also infra by the same logic as olcRTC's
+// Port is infra: filled in on first AddProfile call if left empty (operator
+// can supply a fixed one instead) and never re-minted by UpdateProfile,
+// since the client's freeturn:// URI already has it baked in as "peer".
+// ObfKey is also infra by the same logic as olcRTC's
 // crypto.key — generated once (or supplied by the operator) and kept
 // stable, since rotating it would break every client using this profile.
 //

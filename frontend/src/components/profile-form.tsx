@@ -26,6 +26,16 @@ const CORE_LABELS: Record<CoreType, TranslationKey> = {
   webdav: "profileForm.core.webdav",
 }
 
+// Turnable/FreeTurn have no transport of their own that survives on the
+// public internet without help (raw TURN/relay traffic is trivially
+// fingerprinted) — the Xray overlay is how a profile actually gets real
+// protocol camouflage, so a brand-new profile of either core defaults to
+// having it on. olcRTC/WebDAV are SOCKS5-native and only use the overlay
+// for the optional Dual Route fallback, so they default to off.
+function defaultXrayEnabledForCore(ct: CoreType): boolean {
+  return ct === "turnable" || ct === "freeturn"
+}
+
 // olcRTC's room id/URL hints reuse the same rooms.hint.* copy the Call
 // Rooms journal already shows per provider — same field, same providers
 // (minus "vk", which olcRTC never uses), so no reason to duplicate the text.
@@ -134,6 +144,7 @@ interface TurnableState {
   privKey: string
   proto: "srtp" | "dtls" | "none"
   encryption: "handshake" | "full"
+  port: string
   routeHost: string
   routePort: string
   routeSocket: "udp" | "tcp"
@@ -149,6 +160,7 @@ const initialTurnable: TurnableState = {
   privKey: "",
   proto: "srtp",
   encryption: "handshake",
+  port: "",
   routeHost: "127.0.0.1",
   routePort: "",
   routeSocket: "udp",
@@ -203,6 +215,7 @@ const initialOlcrtc: OlcrtcState = {
 interface FreeturnState {
   links: string[]
   transport: "tcp" | "udp"
+  port: string
   connectHost: string
   connectPort: string
   obfProfile: "rtpopus" | "rtpopus2" | "rtpopus3" | "none"
@@ -213,6 +226,7 @@ interface FreeturnState {
 const initialFreeturn: FreeturnState = {
   links: [],
   transport: "tcp",
+  port: "",
   connectHost: "127.0.0.1",
   connectPort: "",
   obfProfile: "rtpopus",
@@ -272,6 +286,7 @@ interface WebdavState {
   connMode: "selfhosted" | "server"
   login: string
   password: string
+  port: string
   proxyUpstream: string
   enc: boolean
   tlsCertFile: string
@@ -285,6 +300,7 @@ const initialWebdav: WebdavState = {
   connMode: "selfhosted",
   login: "",
   password: "",
+  port: "",
   proxyUpstream: "",
   enc: false,
   tlsCertFile: "",
@@ -323,6 +339,7 @@ function parseCoreConfig(
         privKey: str(cfg.priv_key, initialTurnable.privKey),
         proto: (str(cfg.proto, initialTurnable.proto) as TurnableState["proto"]),
         encryption: (str(cfg.encryption, initialTurnable.encryption) as TurnableState["encryption"]),
+        port: num(cfg.port, initialTurnable.port),
         routeHost: str(cfg.route_addr, initialTurnable.routeHost),
         routePort: num(cfg.route_port, initialTurnable.routePort),
         routeSocket: (str(cfg.route_socket, initialTurnable.routeSocket) as TurnableState["routeSocket"]),
@@ -382,6 +399,7 @@ function parseCoreConfig(
         connMode: (str(cfg.conn_mode, initialWebdav.connMode) as WebdavState["connMode"]),
         login: str(cfg.login, initialWebdav.login),
         password: str(cfg.password, initialWebdav.password),
+        port: num(cfg.port, initialWebdav.port),
         proxyUpstream: str(cfg.proxy_upstream, initialWebdav.proxyUpstream),
         enc: typeof cfg.enc === "boolean" ? cfg.enc : initialWebdav.enc,
         tlsCertFile: str(cfg.tls_cert_file, initialWebdav.tlsCertFile),
@@ -408,6 +426,7 @@ function parseCoreConfig(
     ft: {
       links,
       transport: (str(cfg.transport, initialFreeturn.transport) as FreeturnState["transport"]),
+      port: num(cfg.port, initialFreeturn.port),
       connectHost: str(cfg.connect_host, initialFreeturn.connectHost),
       connectPort: num(cfg.connect_port, initialFreeturn.connectPort),
       obfProfile: (str(cfg.obf_profile, initialFreeturn.obfProfile) as FreeturnState["obfProfile"]),
@@ -434,6 +453,7 @@ function buildCoreConfig(
       priv_key: tn.privKey,
       proto: tn.proto,
       encryption: tn.encryption,
+      ...(Number(tn.port) > 0 && { port: Number(tn.port) }),
       route_addr: tn.routeHost,
       route_port: Number(tn.routePort),
       route_socket: tn.routeSocket,
@@ -502,6 +522,7 @@ function buildCoreConfig(
       conn_mode: "selfhosted",
       login: wd.login,
       password: wd.password,
+      ...(Number(wd.port) > 0 && { port: Number(wd.port) }),
       ...(wd.proxyUpstream && { proxy_upstream: wd.proxyUpstream }),
       enc: wd.enc,
       ...(wd.tlsCertFile && { tls_cert_file: wd.tlsCertFile }),
@@ -515,6 +536,7 @@ function buildCoreConfig(
     provider: "vk",
     links: ft.links,
     transport: ft.transport,
+    ...(Number(ft.port) > 0 && { port: Number(ft.port) }),
     connect_host: ft.connectHost,
     connect_port: Number(ft.connectPort),
     obf_profile: ft.obfProfile,
@@ -617,7 +639,9 @@ export function ProfileForm({
   const [ft, setFt] = React.useState<FreeturnState>(parsed.ft)
   const [wd, setWd] = React.useState<WebdavState>(parsed.wd)
 
-  const [xrayEnabled, setXrayEnabled] = React.useState(initialValues.xrayEnabled)
+  const [xrayEnabled, setXrayEnabled] = React.useState(
+    mode === "create" ? defaultXrayEnabledForCore(initialValues.coreType) : initialValues.xrayEnabled
+  )
   const [inbounds, setInbounds] = React.useState<XrayInbound[]>([])
   const [xrayInboundId, setXrayInboundId] = React.useState(
     initialValues.xrayInboundId ? String(initialValues.xrayInboundId) : ""
@@ -889,7 +913,11 @@ export function ProfileForm({
         <Label>{t("profileForm.coreLabel")}</Label>
         <Select
           value={coreType}
-          onValueChange={(v) => setCoreType(v as CoreType)}
+          onValueChange={(v) => {
+            const ct = v as CoreType
+            setCoreType(ct)
+            if (mode === "create") setXrayEnabled(defaultXrayEnabledForCore(ct))
+          }}
           disabled={mode === "edit"}
         >
           <SelectTrigger className="w-full">
@@ -962,6 +990,17 @@ export function ProfileForm({
               min={1}
               value={tn.peers}
               onChange={(e) => setTn({ ...tn, peers: e.target.value })}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="tn-listen-port">{t("profileForm.listenPortLabel")}</Label>
+            <Input
+              id="tn-listen-port"
+              type="number"
+              value={tn.port}
+              onChange={(e) => setTn({ ...tn, port: e.target.value })}
+              placeholder={t("profileForm.listenPortPlaceholder")}
             />
           </div>
 
@@ -1282,6 +1321,17 @@ export function ProfileForm({
             </Select>
           </div>
 
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="ft-listen-port">{t("profileForm.listenPortLabel")}</Label>
+            <Input
+              id="ft-listen-port"
+              type="number"
+              value={ft.port}
+              onChange={(e) => setFt({ ...ft, port: e.target.value })}
+              placeholder={t("profileForm.listenPortPlaceholder")}
+            />
+          </div>
+
           {xrayBlock}
 
           <div className="rounded-md border p-3">
@@ -1406,6 +1456,19 @@ export function ProfileForm({
                   className="font-mono text-xs"
                 />
               </div>
+            </div>
+          )}
+
+          {wd.connMode === "selfhosted" && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="webdav-listen-port">{t("profileForm.listenPortLabel")}</Label>
+              <Input
+                id="webdav-listen-port"
+                type="number"
+                value={wd.port}
+                onChange={(e) => setWd({ ...wd, port: e.target.value })}
+                placeholder={t("profileForm.listenPortPlaceholder")}
+              />
             </div>
           )}
 
