@@ -107,6 +107,10 @@ export const profileForm = {
     "profileForm.webdav.tlsCertPlaceholder": "/etc/ssl/cert.pem",
     "profileForm.webdav.tlsKeyLabel": "Файл ключа",
     "profileForm.webdav.tlsKeyPlaceholder": "/etc/ssl/key.pem",
+    "profileForm.webdav.certDomainPrefix": "Сертификат панели выпущен для домена",
+    "profileForm.webdav.certHostSuffix": "а клиентам этот WebDAV будет объявлен по адресу",
+    "profileForm.webdav.certHostMismatchNote":
+      "Проверка имени сертификата не пройдёт, пока не задан «Публичный хост для WebDAV» на странице «Настройки» (вкладка «Сеть панели»).",
     "profileForm.webdav.tlsNote":
       "Пути на этом сервере (там же, где запущена панель) — webdav-tunnel сам их читает. Оба поля пустые → обычный webdav://; оба заполнены → webdavs://.",
     "profileForm.webdav.presetSelfhosted": "Пресет: свой WebDAV (быстрый)",
@@ -224,6 +228,10 @@ export const profileForm = {
     "profileForm.webdav.tlsCertPlaceholder": "/etc/ssl/cert.pem",
     "profileForm.webdav.tlsKeyLabel": "Key file",
     "profileForm.webdav.tlsKeyPlaceholder": "/etc/ssl/key.pem",
+    "profileForm.webdav.certDomainPrefix": "The panel's certificate was issued for domain",
+    "profileForm.webdav.certHostSuffix": "but this WebDAV will be advertised to clients at",
+    "profileForm.webdav.certHostMismatchNote":
+      "Certificate hostname verification will fail until \"Public host for WebDAV\" is set on the Settings page (\"Panel network\" tab).",
     "profileForm.webdav.tlsNote":
       "Paths on this server (same machine the panel runs on) — webdav-tunnel reads them itself. Both fields empty → plain webdav://; both filled in → webdavs://.",
     "profileForm.webdav.presetSelfhosted": "Preset: own WebDAV (fast)",

@@ -101,7 +101,12 @@ func seedPanelSettings(db *gorm.DB) error {
 	if publicIP == "" {
 		publicIP = detectPublicIP()
 	}
-	return db.Create(&models.PanelSettings{BasePath: basePath, PublicIP: publicIP}).Error
+	webdavPublicHost := os.Getenv("WTP_WEBDAV_PUBLIC_HOST")
+	return db.Create(&models.PanelSettings{
+		BasePath:         basePath,
+		PublicIP:         publicIP,
+		WebDAVPublicHost: webdavPublicHost,
+	}).Error
 }
 
 // detectPublicIP asks a couple of plain-text "what's my IP" endpoints,

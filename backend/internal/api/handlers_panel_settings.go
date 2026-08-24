@@ -27,13 +27,14 @@ func (s *Server) getPanelSettings(c *gin.Context) {
 }
 
 type panelSettingsRequest struct {
-	ListenIP     string `json:"listenIp"`
-	ListenDomain string `json:"listenDomain"`
-	ListenPort   int    `json:"listenPort"`
-	BasePath     string `json:"basePath" binding:"required"`
-	TLSCertFile  string `json:"tlsCertFile"`
-	TLSKeyFile   string `json:"tlsKeyFile"`
-	PublicIP     string `json:"publicIp"`
+	ListenIP         string `json:"listenIp"`
+	ListenDomain     string `json:"listenDomain"`
+	ListenPort       int    `json:"listenPort"`
+	BasePath         string `json:"basePath" binding:"required"`
+	TLSCertFile      string `json:"tlsCertFile"`
+	TLSKeyFile       string `json:"tlsKeyFile"`
+	PublicIP         string `json:"publicIp"`
+	WebDAVPublicHost string `json:"webdavPublicHost"`
 }
 
 // updatePanelSettings persists the new network/TLS settings but — same as
@@ -63,6 +64,7 @@ func (s *Server) updatePanelSettings(c *gin.Context) {
 	ps.TLSCertFile = req.TLSCertFile
 	ps.TLSKeyFile = req.TLSKeyFile
 	ps.PublicIP = req.PublicIP
+	ps.WebDAVPublicHost = req.WebDAVPublicHost
 	if err := s.db.Save(&ps).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

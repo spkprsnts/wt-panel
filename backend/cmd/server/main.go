@@ -74,6 +74,12 @@ func main() {
 	if panelSettings.PublicIP != "" {
 		cfg.PublicIP = panelSettings.PublicIP
 	}
+	// Same authoritative-once-set pattern as PublicIP above — see
+	// config.Config.ResolvedWebDAVPublicHost, which otherwise falls back to
+	// cfg.PublicIP unchanged.
+	if panelSettings.WebDAVPublicHost != "" {
+		cfg.WebDAVPublicHost = panelSettings.WebDAVPublicHost
+	}
 
 	authSvc := auth.NewService(cfg.JWTSecret)
 

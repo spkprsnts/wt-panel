@@ -208,6 +208,7 @@ export interface PanelSettings {
   TLSCertFile: string
   TLSKeyFile: string
   PublicIP: string
+  WebDAVPublicHost: string
 }
 
 export interface PanelSettingsInput {
@@ -218,6 +219,7 @@ export interface PanelSettingsInput {
   tlsCertFile: string
   tlsKeyFile: string
   publicIp: string
+  webdavPublicHost: string
 }
 
 export interface XrayInbound {

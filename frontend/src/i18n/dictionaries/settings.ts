@@ -27,6 +27,10 @@ export const settings = {
     "settings.network.publicIpPlaceholder": "Автоматически определяется при первом запуске",
     "settings.network.publicIpHelp":
       "Зашивается в конфиг клиентов Turnable/FreeTurn — определяется автоматически при первой установке панели, но может ошибиться (несколько сетевых интерфейсов, NAT, IPv6-only). Пустое значение — причина ошибки Turnable \"public_ip is required\".",
+    "settings.network.webdavPublicHostLabel": "Публичный хост для WebDAV",
+    "settings.network.webdavPublicHostPlaceholder": "Пусто — использовать публичный IP выше",
+    "settings.network.webdavPublicHostHelp":
+      "Хост, который получают клиенты WebDAV-профилей. Задайте, если для WebDAV нужен домен, а не голый IP — например, если сертификат панели выпущен на домен.",
     "settings.network.listenIpLabel": "IP-адрес для управления панелью",
     "settings.network.listenIpPlaceholder": "Оставьте пустым для подключения с любого IP",
     "settings.network.listenDomainLabel": "Домен панели",
@@ -108,6 +112,10 @@ export const settings = {
     "settings.network.publicIpPlaceholder": "Auto-detected on first start",
     "settings.network.publicIpHelp":
       "Baked into Turnable/FreeTurn client configs — auto-detected on first install, but can get it wrong (multiple network interfaces, NAT, IPv6-only). An empty value is why Turnable fails with \"public_ip is required\".",
+    "settings.network.webdavPublicHostLabel": "Public host for WebDAV",
+    "settings.network.webdavPublicHostPlaceholder": "Empty — use the public IP above",
+    "settings.network.webdavPublicHostHelp":
+      "The host WebDAV profile clients are given. Set this if WebDAV needs a domain rather than a bare IP — e.g. if the panel's certificate was issued for a domain.",
     "settings.network.listenIpLabel": "IP address to manage the panel on",
     "settings.network.listenIpPlaceholder": "Leave empty to allow any IP",
     "settings.network.listenDomainLabel": "Panel domain",

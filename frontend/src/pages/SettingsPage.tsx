@@ -158,6 +158,7 @@ function PanelNetworkCard() {
   const [tlsCertFile, setTlsCertFile] = React.useState("")
   const [tlsKeyFile, setTlsKeyFile] = React.useState("")
   const [publicIp, setPublicIp] = React.useState("")
+  const [webdavPublicHost, setWebdavPublicHost] = React.useState("")
   const [loaded, setLoaded] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -177,6 +178,7 @@ function PanelNetworkCard() {
         setTlsCertFile(s.TLSCertFile)
         setTlsKeyFile(s.TLSKeyFile)
         setPublicIp(s.PublicIP)
+        setWebdavPublicHost(s.WebDAVPublicHost)
       })
       .finally(() => setLoaded(true))
   }, [])
@@ -195,6 +197,7 @@ function PanelNetworkCard() {
         tlsCertFile,
         tlsKeyFile,
         publicIp,
+        webdavPublicHost,
       })
       setSaved(true)
     } catch (err) {
@@ -260,6 +263,16 @@ function PanelNetworkCard() {
                 placeholder={t("settings.network.publicIpPlaceholder")}
               />
               <p className="text-xs text-muted-foreground">{t("settings.network.publicIpHelp")}</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="panel-webdav-public-host">{t("settings.network.webdavPublicHostLabel")}</Label>
+              <Input
+                id="panel-webdav-public-host"
+                value={webdavPublicHost}
+                onChange={(e) => setWebdavPublicHost(e.target.value)}
+                placeholder={t("settings.network.webdavPublicHostPlaceholder")}
+              />
+              <p className="text-xs text-muted-foreground">{t("settings.network.webdavPublicHostHelp")}</p>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="panel-listen-ip">{t("settings.network.listenIpLabel")}</Label>

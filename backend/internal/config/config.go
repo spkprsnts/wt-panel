@@ -62,11 +62,16 @@ type Config struct {
 
 	// WebDAVPublicHost overrides the host address baked into a selfhosted
 	// WebDAV profile's client URI when it should differ from PublicIP (a
-	// custom domain, say) — see ResolvedWebDAVPublicHost. The scheme
-	// (webdav/webdavs) has no panel-wide equivalent: each profile derives
-	// it from whether it has its own TLS cert/key configured (see
-	// provisioner/webdav's buildSelfhostedURI) — there's no reverse-proxy
-	// TLS-termination deployment model here to have a global default for.
+	// custom domain, say) — see ResolvedWebDAVPublicHost. Same two-tier
+	// pattern as PublicIP itself: WTP_WEBDAV_PUBLIC_HOST only seeds
+	// PanelSettings.WebDAVPublicHost on first run (db.seedPanelSettings);
+	// once that DB row has a value, main.go's own override of this field at
+	// startup makes it authoritative, and it's editable from then on via the
+	// Settings page like PublicIP is. The scheme (webdav/webdavs) has no
+	// panel-wide equivalent: each profile derives it from whether it has its
+	// own TLS cert/key configured (see provisioner/webdav's
+	// buildSelfhostedURI) — there's no reverse-proxy TLS-termination
+	// deployment model here to have a global default for.
 	WebDAVPublicHost string
 }
 

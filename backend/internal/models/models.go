@@ -218,6 +218,13 @@ type PanelSettings struct {
 	// NAT/CDN in front, IPv6-only egress), so it's a plain editable field
 	// here, same restart-required semantics as the rest of this struct.
 	PublicIP string
+	// WebDAVPublicHost overrides the host baked into a selfhosted WebDAV
+	// profile's client URI when it should differ from PublicIP — e.g. the
+	// panel's own TLS cert is issued for a domain (ListenDomain) rather than
+	// the bare IP, and that domain should be advertised to WebDAV clients
+	// too, or a separate DNS record is used just for WebDAV. Empty means
+	// "same as PublicIP" — see config.Config.ResolvedWebDAVPublicHost.
+	WebDAVPublicHost string
 }
 
 // KernelInstall records the currently installed binary for one kernel —

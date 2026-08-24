@@ -629,6 +629,7 @@ export function ProfileForm({
   const [coreType, setCoreType] = React.useState<CoreType>(initialValues.coreType)
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [webdavPanelCertError, setWebdavPanelCertError] = React.useState<string | null>(null)
 
   const parsed = React.useMemo(
     () => parseCoreConfig(initialValues.coreType, initialValues.coreConfigRaw),
@@ -674,6 +675,45 @@ export function ProfileForm({
   React.useEffect(() => {
     api.listXrayInbounds().then(setInbounds).catch(() => setInbounds([]))
   }, [])
+
+  // WebDAV selfhosted's own TLS is a plain Go tls.LoadX509KeyPair — the same
+  // PEM cert+key format the panel's own http.ListenAndServeTLS needs — so
+  // whatever cert the panel already has (Settings → "Panel network",
+  // normally a real Let's Encrypt cert from install.sh's SSL setup) works
+  // here unmodified, same reasoning as XrayPage's TlsFields.handleUsePanelCert
+  // for Hysteria2. Unlike that Hysteria2 case, though, the host WebDAV
+  // clients are actually told to connect to (webdav(s)://host:port) is NOT
+  // the panel's own ListenDomain — it comes from a wholly separate,
+  // env-var-only setting (WTP_WEBDAV_PUBLIC_HOST, resolved via
+  // cfg.ResolvedWebDAVPublicHost, falling back to the bare PublicIP — see
+  // config.go). If the panel's cert was issued for a domain but that env
+  // var isn't ALSO pointed at the same domain, this copies over a cert that
+  // will fail hostname verification the moment a real client connects,
+  // since it'll be doing so against the (uncertified) IP instead — worth
+  // surfacing rather than silently handing over a cert that looks right but
+  // doesn't actually validate.
+  async function handleUseWebdavPanelCert() {
+    setWebdavPanelCertError(null)
+    try {
+      const ps = await api.getPanelSettings()
+      if (!ps.TLSCertFile || !ps.TLSKeyFile) {
+        setWebdavPanelCertError(t("xray.panelCertMissing"))
+        return
+      }
+      setWd((s) => ({ ...s, tlsCertFile: ps.TLSCertFile, tlsKeyFile: ps.TLSKeyFile }))
+      if (ps.ListenDomain) {
+        const settings = await api.getSettings().catch(() => null)
+        const resolvedHost = settings?.webdavPublicHost ?? ""
+        if (resolvedHost && resolvedHost !== ps.ListenDomain) {
+          setWebdavPanelCertError(
+            `${t("profileForm.webdav.certDomainPrefix")} «${ps.ListenDomain}», ${t("profileForm.webdav.certHostSuffix")} «${resolvedHost}». ${t("profileForm.webdav.certHostMismatchNote")}`
+          )
+        }
+      }
+    } catch (err) {
+      setWebdavPanelCertError(err instanceof Error ? err.message : t("xray.panelSettingsFetchFailed"))
+    }
+  }
 
   function handlePickInbound(id: string) {
     setXrayInboundId(id)
@@ -1582,6 +1622,12 @@ export function ProfileForm({
             <div className="rounded-md border p-3">
               <p className="mb-3 text-sm font-medium">{t("profileForm.webdav.tlsTitle")}</p>
               <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={handleUseWebdavPanelCert}>
+                    {t("xray.usePanelCert")}
+                  </Button>
+                  {webdavPanelCertError && <p className="text-xs text-destructive">{webdavPanelCertError}</p>}
+                </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="webdav-tls-cert">{t("profileForm.webdav.tlsCertLabel")}</Label>
                   <Input
