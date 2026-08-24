@@ -361,6 +361,15 @@ function PanelNetworkCard() {
 // Server.bootID), so any actual process restart changes it, update or not.
 const restartPollIntervalMs = 2000
 const restartPollMaxAttempts = 60 // ~2 minutes
+// restartPollTimeoutMs bounds each individual poll request — a self-restart
+// (syscall.Exec swapping the process image) can leave whichever request
+// happens to be in flight at that exact moment neither resolving nor
+// rejecting on its own; without a hard per-request timeout, that single
+// hung request wedges the whole recursive poll chain forever (scheduleNext
+// only ever runs from this promise's own .then()/.catch()) — confirmed for
+// real: an update got stuck on an infinite spinner with a pile of pending
+// /api/settings requests in devtools, never timing out and never reloading.
+const restartPollTimeoutMs = 5000
 
 function PanelRestartDialog({
   open,
@@ -409,19 +418,23 @@ function PanelRestartDialog({
 
     const poll = () => {
       if (crossOrigin) {
-        fetch(targetUrl!, { mode: "no-cors", cache: "no-store" })
+        const controller = new AbortController()
+        const abortTimer = window.setTimeout(() => controller.abort(), restartPollTimeoutMs)
+        fetch(targetUrl!, { mode: "no-cors", cache: "no-store", signal: controller.signal })
           .then(() => {
+            window.clearTimeout(abortTimer)
             if (cancelled) return
             window.location.href = targetUrl!
           })
           .catch(() => {
+            window.clearTimeout(abortTimer)
             if (cancelled) return
             scheduleNext()
           })
         return
       }
       api
-        .getSettings()
+        .getSettings(restartPollTimeoutMs)
         .then((s) => {
           if (cancelled) return
           if (beforeBootId !== null && s.bootId !== beforeBootId) {

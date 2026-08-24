@@ -35,13 +35,31 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+// timeoutMs is deliberately not part of RequestInit — fetch() has no
+// built-in timeout, and most callers here are fine waiting on whatever the
+// browser's own TCP/TLS timeouts eventually decide. It exists for callers
+// that poll in a loop where a single hung request must not be able to wedge
+// that loop forever — see SettingsPage's PanelRestartDialog for why.
+async function request<T>(path: string, options: RequestInit = {}, timeoutMs?: number): Promise<T> {
   const token = getToken()
   const headers = new Headers(options.headers)
   headers.set("Content-Type", "application/json")
   if (token) headers.set("Authorization", `Bearer ${token}`)
 
-  const res = await fetch(BASE_PATH + path, { ...options, headers })
+  let signal = options.signal
+  let timer: number | undefined
+  if (timeoutMs) {
+    const controller = new AbortController()
+    timer = window.setTimeout(() => controller.abort(), timeoutMs)
+    signal = controller.signal
+  }
+
+  let res: Response
+  try {
+    res = await fetch(BASE_PATH + path, { ...options, headers, signal })
+  } finally {
+    if (timer !== undefined) window.clearTimeout(timer)
+  }
   if (res.status === 401) {
     clearToken()
     window.location.href = BASE_PATH + "/login"
@@ -531,5 +549,5 @@ export const api = {
       body: JSON.stringify({ currentPassword, newPassword }),
     }),
 
-  getSettings: () => request<Record<string, string>>("/api/settings"),
+  getSettings: (timeoutMs?: number) => request<Record<string, string>>("/api/settings", {}, timeoutMs),
 }
