@@ -11,13 +11,14 @@ import {
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
+  X,
 } from "lucide-react"
 
 import { api, clearToken } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogClose, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
 import type { TranslationKey } from "@/i18n"
@@ -71,17 +72,9 @@ function SidebarBody({
   )
 }
 
-function SidebarFooter({ collapsed }: { collapsed: boolean }) {
+function SidebarFooter({ collapsed, version }: { collapsed: boolean; version: string | null }) {
   const t = useT()
   const navigate = useNavigate()
-  const [version, setVersion] = React.useState<string | null>(null)
-
-  React.useEffect(() => {
-    api
-      .getSettings()
-      .then((s) => setVersion(s.version))
-      .catch(() => {})
-  }, [])
 
   function handleLogout() {
     clearToken()
@@ -142,6 +135,17 @@ export function AppSidebar({
       return false
     }
   })
+  // Fetched once here rather than inside SidebarFooter: that component is
+  // rendered twice (desktop aside + mobile drawer), and a fetch inside it
+  // would fire once for the desktop instance (mounted but display:none
+  // below md) and again every time the mobile drawer opens.
+  const [version, setVersion] = React.useState<string | null>(null)
+  React.useEffect(() => {
+    api
+      .getSettings()
+      .then((s) => setVersion(s.version))
+      .catch(() => {})
+  }, [])
 
   function toggleCollapsed() {
     setCollapsed((c) => {
@@ -176,7 +180,7 @@ export function AppSidebar({
           </Button>
         </div>
         <SidebarBody collapsed={collapsed} />
-        <SidebarFooter collapsed={collapsed} />
+        <SidebarFooter collapsed={collapsed} version={version} />
       </aside>
 
       <Dialog open={mobileOpen} onOpenChange={onMobileOpenChange}>
@@ -186,11 +190,16 @@ export function AppSidebar({
             className="fixed inset-y-0 left-0 z-50 flex h-svh w-72 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground duration-200 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left"
           >
             <DialogTitle className="sr-only">wt-panel</DialogTitle>
-            <div className="flex h-14 items-center border-b border-sidebar-border px-3">
+            <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-3">
               <span className="truncate font-semibold">wt-panel</span>
+              <DialogClose asChild>
+                <Button variant="ghost" size="icon" className="size-8" title={t("common.close")}>
+                  <X className="size-4" />
+                </Button>
+              </DialogClose>
             </div>
             <SidebarBody collapsed={false} onNavigate={() => onMobileOpenChange(false)} />
-            <SidebarFooter collapsed={false} />
+            <SidebarFooter collapsed={false} version={version} />
           </DialogPrimitive.Content>
         </DialogPortal>
       </Dialog>
