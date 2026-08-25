@@ -352,7 +352,9 @@ export function ClientsPage() {
                                 }`}
                                 title={profile.Running ? t("profileLogs.running") : t("profileLogs.notRunning")}
                               />
-                              <Badge variant="outline">{profile.CoreType}</Badge>
+                              <div className="min-w-16">
+                                <Badge variant="outline">{profile.CoreType}</Badge>
+                              </div>
                               <span>{profile.Name}</span>
                               {!profile.Enabled && (
                                 <Badge variant="secondary">{t("clientsPage.profileDisabled")}</Badge>
