@@ -173,7 +173,7 @@ export function CallRoomsPage() {
   return (
     <div className="mx-auto max-w-5xl p-6">
       <div className="mb-6 flex items-center justify-between">
-        <div>
+        <div className="flex flex-col gap-2">
           <h1 className="text-xl font-semibold">{t("sidebar.nav.rooms")}</h1>
           <p className="text-sm text-muted-foreground">
             {t("rooms.pageDescription")}

@@ -1597,7 +1597,7 @@ export function XrayPage() {
   return (
     <div className="mx-auto max-w-5xl p-6">
       <div className="mb-6 flex items-center justify-between">
-        <div>
+        <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-semibold">Xray</h1>
             <XrayStatusBadge />
