@@ -38,8 +38,14 @@ type AdminUser struct {
 // Client is an end user of the VPN service.
 type Client struct {
 	gorm.Model
-	Name             string `gorm:"not null"`
-	Enabled          bool   `gorm:"default:true"`
+	Name string `gorm:"not null"`
+	// No gorm "default:true" tag: GORM can't distinguish an explicit false
+	// from "unset" for a plain bool (false is also its Go zero value), so a
+	// default tag makes it silently omit Enabled from the INSERT whenever a
+	// caller sets it to false, letting the DB's DEFAULT overwrite it back to
+	// true — the application layer already fully controls this default (see
+	// createClient), so the DB-level one only caused data loss.
+	Enabled          bool
 	ExpiresAt        *time.Time
 	TrafficLimitByte int64 // 0 = unlimited
 	TrafficUsedByte  int64
@@ -86,7 +92,15 @@ type Profile struct {
 	// (port, keys) or deleting the row, mirroring XrayInbound.Enable.
 	// Unlike XrayInbound.Enable, this has a real live effect: see
 	// Provisioner.Stop and RestoreAll's own Enabled check.
-	Enabled bool `gorm:"default:true"`
+	//
+	// No gorm "default:true" tag: GORM can't distinguish an explicit false
+	// from "unset" for a plain bool (false is also its Go zero value), so a
+	// default tag makes it silently omit Enabled from the INSERT whenever a
+	// caller sets it to false, letting the DB's DEFAULT overwrite it back to
+	// true right after — confirmed live: creating a profile disabled came
+	// back Enabled:true and running. createProfile already fully controls
+	// this default in Go, so the DB-level one only caused data loss.
+	Enabled bool
 
 	XrayEnabled bool
 	// XrayInboundID is the picked, already-configured inbound this profile's
@@ -171,7 +185,9 @@ type XrayInbound struct {
 	Remark   string `gorm:"not null"` // display name (3x-ui calls this "Remark")
 	Listen   string // empty = all interfaces
 	Port     int    `gorm:"not null"`
-	Enable   bool   `gorm:"default:true"`
+	// No gorm "default:true" tag — see Profile.Enabled's doc comment for why
+	// that silently reverts an explicit false back to true on Create.
+	Enable bool
 
 	// Settings holds the protocol-specific, inbound-level fields that
 	// aren't per-client (vless: decryption/fallbacks; trojan: fallbacks;
@@ -205,7 +221,9 @@ type XrayClient struct {
 	InboundID uint   `gorm:"index;not null;uniqueIndex:idx_xray_inbound_client"`
 	ClientID  uint   `gorm:"index;not null;uniqueIndex:idx_xray_inbound_client"`
 	Config    string `gorm:"type:text"` // JSON, shape depends on the inbound's Protocol
-	Enable    bool   `gorm:"default:true"`
+	// No gorm "default:true" tag — see Profile.Enabled's doc comment for why
+	// that silently reverts an explicit false back to true on Create.
+	Enable bool
 }
 
 // PanelSettings is the panel's own network/TLS configuration — editable at

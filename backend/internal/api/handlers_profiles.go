@@ -21,7 +21,6 @@ func (s *Server) createProfile(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
 	coreType := models.CoreType(req.CoreType)
 	prov, err := s.registry.For(coreType)
 	if err != nil {
