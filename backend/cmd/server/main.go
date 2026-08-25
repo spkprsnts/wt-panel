@@ -105,14 +105,14 @@ func main() {
 	// way registry.RestoreAll just did for the four kernels; every later
 	// mutation to an inbound/client calls Reload again (see
 	// api/handlers_xray.go's reloadXray). Best-effort: xray-core may not be
-	// installed yet (see the "Ядра" page), which shouldn't block the panel
+	// installed yet (see the "Kernels" page), which shouldn't block the panel
 	// itself from starting.
 	xrayMgr := xray.NewManager(cfg, database)
 	if err := xrayMgr.Reload(); err != nil {
 		log.Printf("xray-core startup reload: %v", err)
 	}
 
-	// restartCh is how the Settings page's "Перезапустить панель" button
+	// restartCh is how the Settings page's "Restart panel" button
 	// reaches the select loop below — see api.restartPanel. BasePath is
 	// passed in so the served index.html can tell the SPA what prefix it's
 	// actually running under — see server.serveWebUI's doc comment.
@@ -225,7 +225,7 @@ func main() {
 // systemd just marks the unit "inactive (dead)" while the new child runs
 // completely unsupervised outside it, unable to be tracked, restarted, or
 // stopped normally again. Confirmed on a real VPS: every click of
-// "Перезапустить панель" left the unit dead. syscall.Exec instead replaces
+// "Restart panel" left the unit dead. syscall.Exec instead replaces
 // this process's own image without changing its pid at all, so systemd
 // never sees anything happen — from its point of view the exact same
 // process just keeps running, now executing the fresh binary.

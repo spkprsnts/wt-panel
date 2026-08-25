@@ -99,14 +99,14 @@ func printCurrentSettings(database *gorm.DB) {
 		log.Fatalf("load panel settings: %v", err)
 	}
 
-	fmt.Printf("Логин:      %s\n", admin.Username)
-	fmt.Printf("URI-путь:   %s\n", ps.BasePath)
+	fmt.Printf("Login:      %s\n", admin.Username)
+	fmt.Printf("URI path:   %s\n", ps.BasePath)
 	if ps.ListenDomain != "" {
-		fmt.Printf("Домен:      %s\n", ps.ListenDomain)
+		fmt.Printf("Domain:     %s\n", ps.ListenDomain)
 	}
 	if ps.TLSCertFile != "" && ps.TLSKeyFile != "" {
-		fmt.Printf("TLS:        включён (%s)\n", ps.TLSCertFile)
+		fmt.Printf("TLS:        on (%s)\n", ps.TLSCertFile)
 	} else {
-		fmt.Println("TLS:        выключен (обычный HTTP)")
+		fmt.Println("TLS:        off (plain HTTP)")
 	}
 }

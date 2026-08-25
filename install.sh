@@ -1,12 +1,19 @@
 #!/bin/bash
 # wt-panel installer/updater/uninstaller — mirrors 3x-ui's one-line-install
-# shape (systemd unit, enable --now) but scoped down and prompt-free by
-# default: fresh installs get a random admin password and a random URI base
-# path printed at the end instead of asked up front, since there's nothing
-# sensible to default them to. The one exception is SSL target selection
-# (see prompt_ssl_target below) — safe to ask interactively because the
-# documented one-line install form (`bash -c "$(curl ...)"`) never consumes
-# stdin, unlike `curl | bash`; non-interactive runs (no tty) just skip it.
+# shape (systemd unit, enable --now). A fresh install run from a real
+# terminal asks up front which kernels to install (prompt_kernel_selection)
+# and where SSL should point (prompt_ssl_target) — both answered before any
+# actual work starts, so the rest of the run (binary fetch, kernel installs,
+# acme.sh) proceeds unattended instead of stopping mid-way to wait on an
+# answer. Safe to ask interactively even under the documented one-line
+# install form (`bash -c "$(curl ...)"`): that form never consumes stdin,
+# unlike `curl | bash`. Piped/non-interactive runs (no tty) skip both
+# prompts and fall back to sensible silent defaults (install everything,
+# auto-detect the public IP for SSL) — same for either question answered
+# via an explicit flag already. The admin password and URI base path are
+# always random-generated, never prompted for — printed in a summary box at
+# the very end of the run (print_install_summary) rather than up front,
+# since there's nothing sensible to default them to and nothing to ask.
 #
 # Gets the wt-panel binary itself from the newest GitHub Release
 # (.github/workflows/release.yml + .goreleaser.yaml — auto-versioned from
@@ -23,9 +30,13 @@
 #       kernel (Turnable/FreeTurn/Xray-core/webdav-tunnel from GitHub
 #       Releases, olcRTC built from source at OLCRTC_REF, default "master"),
 #       so a brand new box is immediately usable without a separate trip to
-#       the "Kernels" page. --no-kernels skips all of that; --skip-kernel=NAME
-#       (repeatable, NAME one of turnable/freeturn/xray/webdav/olcrtc) skips
-#       just that one.
+#       the "Kernels" page. With a real terminal attached and neither
+#       --no-kernels nor --skip-kernel= given, prompt_kernel_selection asks
+#       which ones interactively (Enter = all); piped/non-interactive runs
+#       just install everything. --no-kernels skips all of that outright;
+#       --skip-kernel=NAME (repeatable, NAME one of
+#       turnable/freeturn/xray/webdav/olcrtc) skips just that one and also
+#       answers the prompt non-interactively.
 #       SSL is on by default. With no --ssl/--no-ssl flag at all and a real
 #       terminal attached (true for the one-line curl install too — see
 #       prompt_ssl_target), it asks interactively: auto-detect this host's
@@ -98,8 +109,49 @@ else
 	SCRIPT_DIR="$PWD"
 fi
 
+# Color helpers — every user-facing message in this script goes through one
+# of these instead of a bare echo, so success/failure/hints/headers stay
+# visually distinct even with a lot of kernel-install/acme.sh noise printed
+# in between.
 red() { echo -e "\033[0;31m$1\033[0m"; }
 green() { echo -e "\033[0;32m$1\033[0m"; }
+yellow() { echo -e "\033[0;33m$1\033[0m"; }
+cyan() { echo -e "\033[0;36m$1\033[0m"; }
+bold() { echo -e "\033[1m$1\033[0m"; }
+
+# section marks the start of a distinct install phase (fetching the binary,
+# installing kernels, SSL setup) — each of those can print dozens of lines
+# of its own (apt-get, curl, acme.sh...), so this is what makes it obvious
+# where one phase ended and the next began when scrolling back.
+section() {
+	echo
+	cyan "▸ $1"
+}
+
+# banner prints the wt-panel ASCII logo — shown once at the very start of
+# cmd_install (fresh install or update) and once at the top of the
+# interactive menu session (not on every redraw of its loop).
+banner() {
+	cyan "$(cat <<'EOF'
+	
+                     █████████████████     
+                     █████████████████     
+                     █████████████████     
+                     █████████████████     
+                        ██████████████     
+                       ███████████████     
+                     █████████████████     
+                   ███████████ ███████     
+                 ███████████   ███████     
+      █████    ███████████                 
+      ██████████████████                   
+     █████████████████                     
+     ████████████████                      
+         █████████                         
+EOF
+)"
+	echo
+}
 
 require_root() {
 	if [[ $EUID -ne 0 ]]; then
@@ -358,6 +410,35 @@ kernel_skipped() {
 	return 1
 }
 
+# prompt_kernel_selection only runs on a fresh, interactive install where
+# neither --no-kernels nor --skip-kernel= was already passed — same "ask
+# only when nobody already decided and someone's there to answer" rule
+# prompt_ssl_target follows. Prints a space-separated skip-list on stdout
+# (empty = install everything) via command substitution, so — same as
+# prompt_ssl_target — every other message here has to go to stderr.
+prompt_kernel_selection() {
+	cyan "Which kernels should be installed?" >&2
+	echo "  1. Turnable" >&2
+	echo "  2. FreeTurn" >&2
+	echo "  3. Xray-core" >&2
+	echo "  4. WebDAV-tunnel" >&2
+	echo "  5. olcRTC (built from source, can take a few minutes)" >&2
+	echo >&2
+	local choice=""
+	read -r -p "Numbers separated by commas [Enter = all, 0 = none]: " choice || true
+	choice="${choice// /}"
+	[[ -z "$choice" ]] && return
+	if [[ "$choice" == "0" ]]; then
+		echo "turnable freeturn xray webdav olcrtc"
+		return
+	fi
+	local names=(turnable freeturn xray webdav olcrtc) skip="" i picked=",${choice},"
+	for i in 1 2 3 4 5; do
+		[[ "$picked" != *",${i},"* ]] && skip+=" ${names[$((i - 1))]}"
+	done
+	echo "$skip"
+}
+
 # install_kernels auto-installs/builds every kernel right after a fresh
 # install, so a brand new box is immediately usable without a separate trip
 # to the "Kernels" page. Skippable in whole (--no-kernels) or in part
@@ -582,19 +663,19 @@ apply_ssl_settings() {
 		-H 'Content-Type: application/json' \
 		-d "{\"username\":\"admin\",\"password\":\"${admin_password}\"}") || {
 		red "Failed to log in to the panel to apply the SSL settings. The certificate was already issued — set the paths manually on the \"Settings\" page: TLS certificate: ${cert_file}, TLS key: ${key_file}"
-		return
+		return 1
 	}
 	token=$(json_field "$login_resp" token)
 	if [[ -z "$token" ]]; then
 		red "Logging in to the panel returned no token — failed to apply the SSL settings. The certificate was already issued — set the paths manually on the \"Settings\" page: TLS certificate: ${cert_file}, TLS key: ${key_file}"
-		return
+		return 1
 	fi
 
 	local current
 	current=$(curl -k -fsS --max-time 10 -H "Authorization: Bearer ${token}" \
 		"${PANEL_SCHEME:-http}://127.0.0.1:${LISTEN_PORT}${base}api/settings/panel") || {
 		red "Failed to read the panel's current settings — failed to apply the SSL settings. The certificate was already issued — set the paths manually on the \"Settings\" page: TLS certificate: ${cert_file}, TLS key: ${key_file}"
-		return
+		return 1
 	}
 	local listen_ip listen_port base_path public_ip
 	listen_ip=$(json_field "$current" ListenIP)
@@ -610,7 +691,7 @@ apply_ssl_settings() {
 		-d "{\"listenIp\":\"${listen_ip}\",\"listenDomain\":\"${listen_domain}\",\"listenPort\":${listen_port},\"basePath\":\"${base_path}\",\"tlsCertFile\":\"${cert_file}\",\"tlsKeyFile\":\"${key_file}\",\"publicIp\":\"${public_ip}\"}" \
 		>/dev/null || {
 		red "Failed to save the panel's SSL settings. The certificate was already issued — set the paths manually on the \"Settings\" page: TLS certificate: ${cert_file}, TLS key: ${key_file}"
-		return
+		return 1
 	}
 
 	systemctl restart "$SERVICE_NAME"
@@ -626,14 +707,17 @@ apply_ssl_settings() {
 		# Let's Encrypt's rollout catching up, not a setup problem — so
 		# it's worth flagging here instead of leaving the operator to
 		# wonder whether the install did something wrong.
-		echo "Note: a bare-IP certificate uses Let's Encrypt's new root (ISRG Root YE) for their IP-certificate pilot program. It hasn't been added to every OS/browser trust store yet, so the browser may show \"Not secure\" even when the certificate is valid. If this matters right now, use a domain instead: sudo ./install.sh ssl --ssl=DOMAIN."
+		yellow "Note: a bare-IP certificate uses Let's Encrypt's new root (ISRG Root YE) for their IP-certificate pilot program. It hasn't been added to every OS/browser trust store yet, so the browser may show \"Not secure\" even when the certificate is valid. If this matters right now, use a domain instead: sudo ./install.sh ssl --ssl=DOMAIN."
 	fi
+	return 0
 }
 
 # issue_and_apply_ssl is the setup_ssl + apply_ssl_settings pair cmd_install
 # (fresh installs) and cmd_ssl (an already-installed panel, run later) both
 # need — kept as one function so a change to that sequence doesn't have to
-# be made twice.
+# be made twice. Returns apply_ssl_settings' own exit code (0 only on a
+# genuinely applied cert) so cmd_install can tell whether to report the new
+# https:// URL in its final summary or fall back to the plain http:// one.
 issue_and_apply_ssl() {
 	local target="$1" base="$2" admin_password="$3"
 	local ssl_files
@@ -739,11 +823,13 @@ EOF
 # otherwise it would end up captured as part of the "target" instead of
 # shown to the operator.
 prompt_ssl_target() {
-	echo "SSL setup:" >&2
-	echo "  1) Auto-detect this server's IP — Let's Encrypt, short-lived (default)" >&2
-	echo "  2) Enter a domain — Let's Encrypt" >&2
-	echo "  3) Enter an IP manually — Let's Encrypt, short-lived" >&2
-	echo "  4) Skip" >&2
+	echo >&2
+	cyan "SSL setup:" >&2
+	echo "  1. Auto-detect this server's IP — Let's Encrypt, short-lived (default)" >&2
+	echo "  2. Enter a domain — Let's Encrypt" >&2
+	echo "  3. Enter an IP manually — Let's Encrypt, short-lived" >&2
+	echo "  4. Skip" >&2
+	echo >&2
 	local choice="" target=""
 	read -r -p "Choice [1-4, Enter=1]: " choice || true
 	case "$choice" in
@@ -788,23 +874,65 @@ WTP_COMMAND_PATH="/usr/local/bin/wtp"
 # one-liner — would otherwise get silently copied over wtp instead of a
 # fresh download.
 install_wtp_command() {
+	# Writes to a temp file and mv's it into place rather than writing
+	# WTP_COMMAND_PATH directly — when this runs as part of `sudo wtp`
+	# itself, that path IS the very script currently executing. cp/curl -o
+	# both truncate-and-rewrite the destination's existing inode in place,
+	# which can corrupt bash's own read of the script mid-execution (seen
+	# for real: a `sudo wtp` run that silently did nothing at all). mv is an
+	# atomic rename — the running process keeps reading the OLD inode's
+	# content just fine (same reasoning as updatePanel's own binary swap,
+	# see handlers_panel_settings.go), and only the NEXT invocation sees the
+	# new file.
+	local tmp
+	tmp=$(mktemp) || return 1
 	if [[ -f "$SCRIPT_DIR/install.sh" && -f "$SCRIPT_DIR/backend/go.mod" ]]; then
-		cp "$SCRIPT_DIR/install.sh" "$WTP_COMMAND_PATH"
-	else
-		curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/install.sh" -o "$WTP_COMMAND_PATH" || return
+		cp "$SCRIPT_DIR/install.sh" "$tmp"
+	elif ! curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/install.sh" -o "$tmp"; then
+		rm -f "$tmp"
+		return 1
 	fi
-	chmod +x "$WTP_COMMAND_PATH"
+	chmod +x "$tmp"
+	mv "$tmp" "$WTP_COMMAND_PATH"
+}
+
+# print_install_summary is the LAST thing a fresh install prints, on
+# purpose: kernel installs and acme.sh's own output can run to dozens of
+# lines, and printing the credentials before all that just meant they'd
+# already scrolled off-screen by the time the operator could copy them.
+# panel_url reflects whatever's actually true by the time this runs (still
+# http://, or https:// if SSL succeeded) rather than the initial guess.
+print_install_summary() {
+	local admin_password="$1" base_path="$2" panel_url="$3"
+	echo
+	cyan "════════════════════════════════════════════════════════════"
+	bold "  wt-panel is installed and running"
+	cyan "════════════════════════════════════════════════════════════"
+	echo -e "  Login:    $(bold admin)"
+	echo -e "  Password: $(bold "$admin_password")"
+	echo -e "  URI path: $(bold "$base_path")"
+	echo -e "  Panel:    $(bold "$panel_url")"
+	cyan "════════════════════════════════════════════════════════════"
+	echo "These values are also saved in ${SERVICE_FILE} — view them again with: systemctl cat ${SERVICE_NAME}"
+	echo "Manage the panel (path, password, SSL, logs, update) with: sudo wtp"
 }
 
 cmd_install() {
 	require_root
+	banner
 
-	local no_kernels=0 skip_kernels="" ssl_target="" ssl_explicit=0 no_ssl=0 from_source=0
+	local no_kernels=0 skip_kernels="" kernels_explicit=0 ssl_target="" ssl_explicit=0 no_ssl=0 from_source=0
 	local arg
 	for arg in "$@"; do
 		case "$arg" in
-		--no-kernels) no_kernels=1 ;;
-		--skip-kernel=*) skip_kernels="${skip_kernels} ${arg#--skip-kernel=}" ;;
+		--no-kernels)
+			no_kernels=1
+			kernels_explicit=1
+			;;
+		--skip-kernel=*)
+			skip_kernels="${skip_kernels} ${arg#--skip-kernel=}"
+			kernels_explicit=1
+			;;
 		--ssl=*)
 			ssl_target="${arg#--ssl=}"
 			ssl_explicit=1
@@ -823,6 +951,28 @@ cmd_install() {
 	local fresh=1
 	[[ -f "$DB_PATH" ]] && fresh=0
 
+	# Ask everything up front on a fresh, interactive install — so the rest
+	# of the run (binary fetch, kernel installs, acme.sh) proceeds
+	# unattended instead of stopping mid-way to wait on an answer. Piped/
+	# non-interactive runs and updates never hit this at all; explicit flags
+	# for either question skip asking that one.
+	if [[ $fresh -eq 1 && -t 0 ]]; then
+		if [[ $kernels_explicit -eq 0 ]]; then
+			skip_kernels=$(prompt_kernel_selection)
+			# All five picked "none" — skip install_kernels' whole
+			# login/wait-for-panel dance instead of running it just to
+			# find every single kernel individually skipped.
+			local skipped_count=0 k
+			for k in $skip_kernels; do skipped_count=$((skipped_count + 1)); done
+			[[ $skipped_count -ge 5 ]] && no_kernels=1
+		fi
+		if [[ $no_ssl -eq 0 && $ssl_explicit -eq 0 ]]; then
+			ssl_target=$(prompt_ssl_target)
+			ssl_explicit=1
+		fi
+	fi
+
+	section "Fetching wt-panel"
 	get_binary "$from_source"
 
 	systemctl stop "$SERVICE_NAME" 2>/dev/null || true
@@ -858,25 +1008,22 @@ cmd_install() {
 	sleep 1
 	if [[ $fresh -eq 1 ]]; then
 		green "Installed and started."
-		echo "  Login:    admin"
-		echo "  Password: ${admin_password}"
-		echo "  URI path: ${base_path}"
-		echo "  Panel:    http://<SERVER-IP>:${LISTEN_PORT}${base_path}"
-		echo "These values are also saved in ${SERVICE_FILE} — view them again with: systemctl cat ${SERVICE_NAME}"
-		echo "Manage the panel (path, password, SSL, logs, update) with: sudo wtp"
+		local panel_url="http://<SERVER-IP>:${LISTEN_PORT}${base_path}"
 
 		if [[ $no_kernels -eq 1 ]]; then
-			echo "Kernel auto-install skipped (--no-kernels)."
+			yellow "Kernel auto-install skipped."
 		else
+			section "Installing kernels"
 			install_kernels "$admin_password" "$base_path"
 		fi
 
 		if [[ $no_ssl -eq 1 ]]; then
-			echo "SSL skipped (--no-ssl)."
+			yellow "SSL skipped (--no-ssl)."
 		else
-			if [[ $ssl_explicit -eq 0 && -t 0 ]]; then
-				ssl_target=$(prompt_ssl_target)
-			elif [[ $ssl_explicit -eq 0 ]]; then
+			if [[ $ssl_explicit -eq 0 ]]; then
+				# Non-interactive run (no tty) and no --ssl= given — keep
+				# the old silent auto-detect-IP default; nobody's there to
+				# answer prompt_ssl_target.
 				echo "Detecting the public IP for SSL (defaults to a short-lived Let's Encrypt certificate on the IP; use your own domain: --ssl=DOMAIN, disable: --no-ssl)..."
 				ssl_target=$(detect_public_ip) || true
 				if [[ -z "$ssl_target" ]]; then
@@ -884,9 +1031,14 @@ cmd_install() {
 				fi
 			fi
 			if [[ -n "$ssl_target" ]]; then
-				issue_and_apply_ssl "$ssl_target" "$base_path" "$admin_password"
+				section "SSL setup"
+				if issue_and_apply_ssl "$ssl_target" "$base_path" "$admin_password"; then
+					panel_url="https://${ssl_target}:${LISTEN_PORT}${base_path}"
+				fi
 			fi
 		fi
+
+		print_install_summary "$admin_password" "$base_path" "$panel_url"
 	else
 		green "Updated and restarted (data in ${DATA_DIR} preserved)."
 	fi
@@ -1008,27 +1160,40 @@ run_setting_offline() {
 # situation a "reset my password" or "clear a bad TLS config" request
 # usually comes from. SSL/restart/update/uninstall just call the existing
 # cmd_ssl/cmd_install/cmd_uninstall — no separate logic to keep in sync.
+# pause_for_key waits for a single keypress before the menu loop redraws —
+# used after screens that are pure information (status, logs) rather than a
+# short one-line action result, so the operator has a chance to actually
+# read it before it scrolls away under the next menu redraw.
+pause_for_key() {
+	echo
+	read -n 1 -r -s -p "Press any key to return to the menu..." || true
+	echo
+}
+
 cmd_menu() {
 	require_root
 	if [[ ! -x "$BIN_PATH" ]]; then
 		red "The panel isn't installed — first run: sudo ./install.sh"
 		exit 1
 	fi
+	banner
 
 	local choice
 	while true; do
 		echo
-		echo "=== wt-panel ==="
-		echo "1) Status and current settings"
-		echo "2) Change the URI path"
-		echo "3) Reset the admin password"
-		echo "4) Set up SSL"
-		echo "5) Restart the panel"
-		echo "6) Show logs"
-		echo "7) Update the panel"
-		echo "8) Remove the panel"
-		echo "0) Exit"
+		cyan "════════ wt-panel ════════"
+		echo "1. Status and current settings"
+		echo "2. Change the URI path"
+		echo "3. Reset the admin password"
+		echo "4. Set up SSL"
+		echo "5. Restart the panel"
+		echo "6. Show logs"
+		echo "7. Update the panel"
+		echo "8. Remove the panel"
+		echo "0. Exit"
+		echo
 		read -r -p "Choice: " choice || break
+		echo
 		case "$choice" in
 		1)
 			if systemctl is-active --quiet "$SERVICE_NAME"; then
@@ -1037,6 +1202,7 @@ cmd_menu() {
 				red "Service: not running"
 			fi
 			run_setting_offline -show || true
+			pause_for_key
 			;;
 		2)
 			local new_path
@@ -1062,6 +1228,7 @@ cmd_menu() {
 			;;
 		6)
 			journalctl -u "$SERVICE_NAME" -n 100 --no-pager
+			pause_for_key
 			;;
 		7)
 			cmd_install
@@ -1109,8 +1276,16 @@ fi
 # cmd_install. Silently skipped when not root, matching every cmd_*
 # below (each calls require_root as its own first action anyway) rather
 # than erroring here before one of them gets a chance to print a clearer
-# message.
-[[ $EUID -eq 0 ]] && install_wtp_command
+# message. `|| true` matters here specifically: a bare `[[ ... ]] &&
+# install_wtp_command` at this top level would, under this script's own
+# `set -e`, kill the ENTIRE script the instant install_wtp_command returns
+# non-zero (e.g. a network hiccup fetching from GitHub) — silently, before
+# ever reaching the case dispatcher below. Keeping wtp in sync is a nice-to-
+# have on every run, not something that should ever be able to abort an
+# otherwise-successful install/menu/ssl/uninstall invocation.
+if [[ $EUID -eq 0 ]]; then
+	install_wtp_command || true
+fi
 
 case "${1:-$default_cmd}" in
 install)
