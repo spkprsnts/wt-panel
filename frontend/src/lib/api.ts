@@ -51,7 +51,10 @@ async function request<T>(path: string, options: RequestInit = {}, timeoutMs?: n
   if (timeoutMs) {
     const controller = new AbortController()
     timer = window.setTimeout(() => controller.abort(), timeoutMs)
-    signal = controller.signal
+    // Merge rather than replace: a caller-supplied signal (e.g. an
+    // unmount-triggered abort) must keep working even when timeoutMs is
+    // also set, instead of being silently overridden by the timeout one.
+    signal = options.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal
   }
 
   let res: Response
