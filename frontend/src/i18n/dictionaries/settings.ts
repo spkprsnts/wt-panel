@@ -83,6 +83,26 @@ export const settings = {
     "settings.update.checking": "Проверяем...",
     "settings.update.check": "Проверить обновления",
 
+    "settings.backup.title": "Бэкап",
+    "settings.backup.description":
+      "Полный снимок панели (настройки, все клиенты и профили, xray-инбаунды, аккаунт админа) в один файл — для восстановления после переустановки/переезда на другой VPS",
+    "settings.backup.downloadButton": "Скачать бэкап (.db)",
+    "settings.backup.downloadFailed": "Не удалось скачать бэкап",
+    "settings.backup.restoreButton": "Восстановить из бэкапа",
+    "settings.backup.restoreNetworkSettingsLabel": "Восстановить и сетевые настройки из бэкапа",
+    "settings.backup.restoreNetworkSettingsOffHint":
+      "Выключено (рекомендуется при переезде на другой VPS) — IP, домен, порт и пути к TLS-сертификату останутся текущими, а не из бэкапа.",
+    "settings.backup.restoreNetworkSettingsOnHint":
+      "Включено — IP, домен, порт и пути к TLS-сертификату тоже будут заменены значениями из бэкапа. Имеет смысл только при восстановлении на той же машине, где бэкап был сделан.",
+    "settings.backup.restoreConfirm":
+      "Восстановить панель из этого файла? Все текущие клиенты, профили, инбаунды и аккаунт администратора (включая пароль и 2FA) будут безвозвратно заменены содержимым бэкапа. Сетевые настройки (IP/домен/SSL) этой машины останутся прежними. Панель перезапустится.",
+    "settings.backup.restoreConfirmWithNetwork":
+      "Восстановить панель из этого файла? Все текущие клиенты, профили, инбаунды, аккаунт администратора (включая пароль и 2FA) И сетевые настройки (IP/домен/пути к SSL-сертификату) будут безвозвратно заменены содержимым бэкапа. Панель перезапустится.",
+    "settings.backup.restoreFailed": "Не удалось восстановить из бэкапа",
+    "settings.backup.restoreDialogTitle": "Восстановление из бэкапа",
+    "settings.backup.restoreDialogMessage":
+      "Заменяем базу данных панели и перезапускаемся — эта страница обновится сама, как только панель снова будет доступна.",
+
     "settings.config.title": "Конфигурация панели",
     "settings.config.description":
       "Только для чтения — задаётся через переменные окружения (см. README), для изменения нужно перезапустить панель",
@@ -185,6 +205,26 @@ export const settings = {
     "settings.update.upToDate": "Already on the latest version",
     "settings.update.checking": "Checking...",
     "settings.update.check": "Check for updates",
+
+    "settings.backup.title": "Backup",
+    "settings.backup.description":
+      "A full snapshot of the panel (settings, every client and profile, xray inbounds, the admin account) as a single file — for recovering after reinstalling or moving to a different VPS",
+    "settings.backup.downloadButton": "Download backup (.db)",
+    "settings.backup.downloadFailed": "Failed to download the backup",
+    "settings.backup.restoreButton": "Restore from backup",
+    "settings.backup.restoreNetworkSettingsLabel": "Also restore network settings from the backup",
+    "settings.backup.restoreNetworkSettingsOffHint":
+      "Off (recommended when moving to a different VPS) — IP, domain, port, and TLS certificate paths stay as they are now, not the backup's.",
+    "settings.backup.restoreNetworkSettingsOnHint":
+      "On — IP, domain, port, and TLS certificate paths will also be replaced with the backup's values. Only makes sense when restoring onto the same machine the backup was taken on.",
+    "settings.backup.restoreConfirm":
+      "Restore the panel from this file? Every current client, profile, inbound, and the admin account (including its password and 2FA) will be permanently replaced with the backup's contents. This machine's network settings (IP/domain/SSL) will stay as they are. The panel will restart.",
+    "settings.backup.restoreConfirmWithNetwork":
+      "Restore the panel from this file? Every current client, profile, inbound, the admin account (including its password and 2FA), AND network settings (IP/domain/TLS certificate paths) will be permanently replaced with the backup's contents. The panel will restart.",
+    "settings.backup.restoreFailed": "Failed to restore from the backup",
+    "settings.backup.restoreDialogTitle": "Restoring from backup",
+    "settings.backup.restoreDialogMessage":
+      "Replacing the panel's database and restarting — this page will refresh itself once the panel is back.",
 
     "settings.config.title": "Panel configuration",
     "settings.config.description":

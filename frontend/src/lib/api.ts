@@ -116,6 +116,40 @@ async function downloadFile(path: string): Promise<void> {
   URL.revokeObjectURL(url)
 }
 
+// uploadFile POSTs a File as multipart/form-data to an authenticated
+// endpoint — can't go through request(), which always sets
+// Content-Type: application/json; the browser has to set its own
+// multipart boundary header for FormData instead.
+async function uploadFile<T>(
+  path: string,
+  fieldName: string,
+  file: File,
+  extraFields?: Record<string, string>
+): Promise<T> {
+  const token = getToken()
+  const headers = new Headers()
+  if (token) headers.set("Authorization", `Bearer ${token}`)
+
+  const form = new FormData()
+  form.append(fieldName, file)
+  for (const [key, value] of Object.entries(extraFields ?? {})) {
+    form.append(key, value)
+  }
+
+  const res = await fetch(BASE_PATH + path, { method: "POST", headers, body: form })
+  if (res.status === 401) {
+    clearToken()
+    window.location.href = BASE_PATH + "/login"
+    throw new ApiError(401, "unauthorized")
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }))
+    throw new ApiError(res.status, body.error ?? res.statusText)
+  }
+  if (res.status === 204) return undefined as T
+  return res.json() as Promise<T>
+}
+
 export type CoreType = "turnable" | "olcrtc" | "webdav" | "freeturn"
 
 export interface Profile {
@@ -554,6 +588,11 @@ export const api = {
     ),
   updatePanel: () =>
     request<{ updating: boolean; version: string }>("/api/settings/panel/update", { method: "POST" }),
+  downloadPanelBackup: () => downloadFile("/api/settings/panel/backup"),
+  restorePanelBackup: (file: File, restoreNetworkSettings: boolean) =>
+    uploadFile<{ restoring: boolean }>("/api/settings/panel/restore", "backup", file, {
+      restoreNetworkSettings: String(restoreNetworkSettings),
+    }),
 
   getAccount: () => request<{ username: string; totpEnabled: boolean }>("/api/account"),
   changePassword: (currentPassword: string, newPassword: string) =>

@@ -8,6 +8,7 @@ import type { TranslationKey } from "@/i18n"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import {
   Card,
   CardContent,
@@ -809,6 +810,124 @@ function PanelUpdateCard() {
   )
 }
 
+// PanelBackupCard is the "download everything / restore everything"
+// counterpart to the per-client profile exports elsewhere in the app —
+// mirrors 3x-ui's own Backup section. Restore is maximally destructive (the
+// entire live database, admin account included, gets replaced — see
+// restorePanelBackup's own doc comment), so it goes through confirm() with
+// destructive:true and names exactly what's about to happen, same
+// confirmation weight as PanelUpdateCard's own update button.
+function PanelBackupCard() {
+  const t = useT()
+  const { confirm } = useDialogPrompt()
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const [downloading, setDownloading] = React.useState(false)
+  const [restoring, setRestoring] = React.useState(false)
+  const [beforeBootId, setBeforeBootId] = React.useState<string | null>(null)
+  const [error, setError] = React.useState<string | null>(null)
+  // Off by default: the realistic case is restoring a backup taken on a
+  // DIFFERENT VPS onto one install.sh already set up with its own correct
+  // IP/domain/SSL — applying the backup's network settings on top would
+  // just replace that with the old, now-wrong machine's identity. Turning
+  // it on is for the same-machine case (undoing a mistake, rolling back).
+  const [restoreNetworkSettings, setRestoreNetworkSettings] = React.useState(false)
+
+  async function handleDownload() {
+    setError(null)
+    setDownloading(true)
+    try {
+      await api.downloadPanelBackup()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("settings.backup.downloadFailed"))
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  function handlePickFile() {
+    fileInputRef.current?.click()
+  }
+
+  async function handleFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = "" // so picking the exact same file again still fires onChange
+    if (!file) return
+
+    if (
+      !(await confirm(
+        restoreNetworkSettings
+          ? t("settings.backup.restoreConfirmWithNetwork")
+          : t("settings.backup.restoreConfirm"),
+        {
+          destructive: true,
+          confirmLabel: t("settings.backup.restoreButton"),
+        }
+      ))
+    ) {
+      return
+    }
+    setError(null)
+    try {
+      const before = await api.getSettings()
+      await api.restorePanelBackup(file, restoreNetworkSettings)
+      setBeforeBootId(before.bootId)
+      setRestoring(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("settings.backup.restoreFailed"))
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("settings.backup.title")}</CardTitle>
+        <CardDescription>{t("settings.backup.description")}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <PanelRestartDialog
+          open={restoring}
+          beforeBootId={beforeBootId}
+          title={t("settings.backup.restoreDialogTitle")}
+          message={t("settings.backup.restoreDialogMessage")}
+        />
+        <div className="flex flex-col gap-3">
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <div className="flex items-center gap-2">
+            <Switch
+              id="restore-network-settings"
+              checked={restoreNetworkSettings}
+              onCheckedChange={setRestoreNetworkSettings}
+            />
+            <Label htmlFor="restore-network-settings" className="text-sm font-normal">
+              {t("settings.backup.restoreNetworkSettingsLabel")}
+            </Label>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {restoreNetworkSettings
+              ? t("settings.backup.restoreNetworkSettingsOnHint")
+              : t("settings.backup.restoreNetworkSettingsOffHint")}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={handleDownload} disabled={downloading}>
+              {downloading ? t("common.downloading") : t("settings.backup.downloadButton")}
+            </Button>
+            <Button type="button" variant="destructive" onClick={handlePickFile}>
+              {t("settings.backup.restoreButton")}
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".db"
+              className="hidden"
+              onChange={handleFileChosen}
+            />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 function ConfigCard() {
   const t = useT()
   const [settings, setSettings] = React.useState<Record<string, string> | null>(null)
@@ -855,6 +974,7 @@ export function SettingsPage() {
           <TabsTrigger value="account">{t("settings.account.title")}</TabsTrigger>
           <TabsTrigger value="network">{t("settings.network.title")}</TabsTrigger>
           <TabsTrigger value="update">{t("settings.update.title")}</TabsTrigger>
+          <TabsTrigger value="backup">{t("settings.backup.title")}</TabsTrigger>
           <TabsTrigger value="config">{t("settings.config.title")}</TabsTrigger>
         </TabsList>
         <TabsContent value="account">
@@ -865,6 +985,9 @@ export function SettingsPage() {
         </TabsContent>
         <TabsContent value="update">
           <PanelUpdateCard />
+        </TabsContent>
+        <TabsContent value="backup">
+          <PanelBackupCard />
         </TabsContent>
         <TabsContent value="config">
           <ConfigCard />

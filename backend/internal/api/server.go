@@ -157,6 +157,8 @@ func New(db *gorm.DB, cfg *config.Config, authSvc *auth.Service, registry *provi
 		authorized.POST("/settings/panel/restart", s.restartPanel)
 		authorized.GET("/settings/panel/update-check", s.checkPanelUpdate)
 		authorized.POST("/settings/panel/update", s.updatePanel)
+		authorized.GET("/settings/panel/backup", s.downloadPanelBackup)
+		authorized.POST("/settings/panel/restore", s.restorePanelBackup)
 	}
 
 	serveWebUI(r, basePath)
