@@ -360,7 +360,10 @@ function PanelNetworkCard() {
 // exists: a fresh random value generated once per process (see
 // Server.bootID), so any actual process restart changes it, update or not.
 const restartPollIntervalMs = 2000
-const restartPollMaxAttempts = 60 // ~2 minutes
+// ~7 minutes worst case, not ~2: each attempt can take up to
+// restartPollTimeoutMs (5s) before the interval delay even starts, so the
+// true bound is maxAttempts * (intervalMs + timeoutMs) = 60 * 7s.
+const restartPollMaxAttempts = 60
 // restartPollTimeoutMs bounds each individual poll request — a self-restart
 // (syscall.Exec swapping the process image) can leave whichever request
 // happens to be in flight at that exact moment neither resolving nor

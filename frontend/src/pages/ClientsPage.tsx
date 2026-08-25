@@ -71,6 +71,29 @@ function profileSummaryBadges(profile: Profile): string[] {
   return fields.filter((v): v is string => v !== null)
 }
 
+// ProfileSummaryBadges wraps profileSummaryBadges in a useMemo keyed on the
+// two string fields it actually reads (CoreConfig/CoreType), not on
+// `profile` itself — ClientsPage's 10s poll (see `load`) replaces the whole
+// `clients` array on every tick even when nothing changed, which would
+// otherwise re-run JSON.parse on every profile's config on every tick
+// forever for no reason, since a plain call inside the parent's .map()
+// has nothing to memoize against.
+function ProfileSummaryBadges({ profile }: { profile: Profile }) {
+  const badges = React.useMemo(
+    () => profileSummaryBadges(profile),
+    [profile.CoreConfig, profile.CoreType]
+  )
+  return (
+    <>
+      {badges.map((label, i) => (
+        <Badge key={i} variant="outline">
+          {label}
+        </Badge>
+      ))}
+    </>
+  )
+}
+
 function formatBytes(n: number, units: string[]): string {
   if (n <= 0) return "0"
   let i = 0
@@ -269,11 +292,7 @@ export function ClientsPage() {
                               />
                               <Badge variant="outline">{profile.CoreType}</Badge>
                               <span>{profile.Name}</span>
-                              {profileSummaryBadges(profile).map((label, i) => (
-                                <Badge key={i} variant="outline">
-                                  {label}
-                                </Badge>
-                              ))}
+                              <ProfileSummaryBadges profile={profile} />
                               {profile.XrayEnabled && (
                                 <Badge variant="secondary">
                                   {profile.XrayInbound?.Protocol ?? "xray (URI)"}
