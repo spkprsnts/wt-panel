@@ -63,6 +63,17 @@ func (r *Registry) Restart(profile *models.Profile) error {
 	return prov.Restart(profile)
 }
 
+// Stop halts a single profile's process while leaving its persisted state
+// (port, keys, config file) untouched — the live-effect half of
+// Profile.Enabled; see Provisioner.Stop.
+func (r *Registry) Stop(profile *models.Profile) error {
+	prov, err := r.For(profile.CoreType)
+	if err != nil {
+		return err
+	}
+	return prov.Stop(profile)
+}
+
 // RestoreAll re-attaches a supervised process for every profile already in
 // the database. Every kernel here runs one OS process per profile, and
 // those processes obviously don't survive the panel itself restarting, so
@@ -76,6 +87,14 @@ func (r *Registry) RestoreAll(ctx context.Context, db *gorm.DB) {
 		return
 	}
 	for _, profile := range profiles {
+		if !profile.Enabled {
+			// Deliberately not restored: the operator's last action was to
+			// turn this profile off, and that intent has to survive a panel
+			// restart same as an enabled profile's "should be running"
+			// intent does — otherwise every disabled profile would silently
+			// come back to life the next time the panel restarts.
+			continue
+		}
 		prov, err := r.For(profile.CoreType)
 		if err != nil {
 			log.Printf("restore: profile %s: %v", profile.ExternalID, err)

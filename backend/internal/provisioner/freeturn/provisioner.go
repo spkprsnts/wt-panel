@@ -164,6 +164,16 @@ func (p *Provisioner) Restart(profile *models.Profile) error {
 	return sup.Restart()
 }
 
+func (p *Provisioner) Stop(profile *models.Profile) error {
+	p.mu.Lock()
+	sup, ok := p.supervisors[profile.ID]
+	p.mu.Unlock()
+	if !ok {
+		return nil
+	}
+	return sup.Stop()
+}
+
 func (p *Provisioner) Shutdown() {
 	p.mu.Lock()
 	sups := make([]*common.ProcessSupervisor, 0, len(p.supervisors))

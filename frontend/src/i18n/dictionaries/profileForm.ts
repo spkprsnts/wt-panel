@@ -36,6 +36,9 @@ export const profileForm = {
     "profileForm.coreLabel": "Ядро",
     "profileForm.coreLockedNote": "Нельзя сменить ядро существующего профиля — удалите и создайте заново.",
 
+    "profileForm.enabledLabel": "Включить профиль",
+    "profileForm.enabledHint": "Выключенный профиль сохраняется, но его процесс не запускается — включите его позже, когда будет нужно.",
+
     "profileForm.turnable.connectionType": "Тип подключения",
     "profileForm.turnable.connectionTypeRelay": "Relay (рекомендуется)",
     "profileForm.turnable.connectionTypeDirect": "Direct (не рекомендуется, небезопасно)",
@@ -156,6 +159,9 @@ export const profileForm = {
     "profileForm.defaultNamePrefix": "Profile",
     "profileForm.coreLabel": "Core",
     "profileForm.coreLockedNote": "The core of an existing profile can't be changed — delete it and create a new one.",
+
+    "profileForm.enabledLabel": "Enable profile",
+    "profileForm.enabledHint": "A disabled profile is saved but its process isn't started — enable it later when you need it.",
 
     "profileForm.turnable.connectionType": "Connection type",
     "profileForm.turnable.connectionTypeRelay": "Relay (recommended)",

@@ -83,6 +83,11 @@ type ProfileRequest struct {
 	Name       string          `json:"name" binding:"required"`
 	CoreType   string          `json:"coreType" binding:"required"`
 	CoreConfig json.RawMessage `json:"coreConfig"`
+	// Enabled mirrors ClientRequest.Enabled's *bool-default-true pattern:
+	// nil (an older client, or a request that just doesn't care) means
+	// "leave it on", same as omitting the field on create defaults to
+	// running like every profile did before this field existed.
+	Enabled *bool `json:"enabled"`
 
 	XrayEnabled bool `json:"xrayEnabled"`
 	// XrayInboundID is the primary path: pick an already-configured

@@ -43,6 +43,7 @@ export function EditProfileDialog({
     name: profile.Name,
     coreType: profile.CoreType,
     coreConfigRaw: profile.CoreConfig,
+    enabled: profile.Enabled,
     xrayEnabled: profile.XrayEnabled,
     xrayInboundId: profile.XrayInboundID,
     xrayManualUri: profile.XrayManualURI,

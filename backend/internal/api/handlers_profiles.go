@@ -35,6 +35,7 @@ func (s *Server) createProfile(c *gin.Context) {
 		Name:                req.Name,
 		CoreType:            coreType,
 		CoreConfig:          string(req.CoreConfig),
+		Enabled:             true,
 		XrayEnabled:         req.XrayEnabled,
 		XrayInboundID:       req.XrayInboundID,
 		XrayManualURI:       req.XrayManualURI,
@@ -43,6 +44,9 @@ func (s *Server) createProfile(c *gin.Context) {
 		XrayDirectAddress:   req.XrayDirectAddress,
 		XrayHcInterval:      req.XrayHcInterval,
 		XrayMux:             req.XrayMux,
+	}
+	if req.Enabled != nil {
+		profile.Enabled = *req.Enabled
 	}
 
 	// Insert first so profile.ID is the real, permanent database id before
@@ -78,6 +82,18 @@ func (s *Server) createProfile(c *gin.Context) {
 	if err := s.db.Save(&profile).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	// AddProfile always fully provisions AND starts the process (port/keys
+	// have to be allocated regardless of Enabled, so the profile has real
+	// state to restore later) — a profile created disabled just gets
+	// stopped again immediately after, rather than teaching every
+	// provisioner a separate "provision but don't start" mode. Best-effort:
+	// a failure here shouldn't fail profile creation, matching
+	// teardownProfile's own error-collection convention.
+	if !profile.Enabled {
+		if err := s.registry.Stop(&profile); err != nil {
+			c.Error(err)
+		}
 	}
 	s.registry.FillStatus(&profile)
 	c.JSON(http.StatusCreated, profile)
@@ -124,6 +140,9 @@ func (s *Server) updateProfile(c *gin.Context) {
 	}
 
 	profile.Name = req.Name
+	if req.Enabled != nil {
+		profile.Enabled = *req.Enabled
+	}
 	profile.XrayEnabled = req.XrayEnabled
 	profile.XrayInboundID = req.XrayInboundID
 	profile.XrayManualURI = req.XrayManualURI
@@ -153,6 +172,16 @@ func (s *Server) updateProfile(c *gin.Context) {
 	if err := s.db.Save(&profile).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	// UpdateProfile above always (re)starts the process to apply whatever
+	// infra-relevant fields changed — same "start it, then immediately stop
+	// it back" compromise as createProfile for a profile that should end up
+	// disabled, rather than adding a second "update but don't start"
+	// codepath to every provisioner.
+	if !profile.Enabled {
+		if err := s.registry.Stop(&profile); err != nil {
+			c.Error(err)
+		}
 	}
 	s.registry.FillStatus(&profile)
 	c.JSON(http.StatusOK, profile)
@@ -206,6 +235,14 @@ func (s *Server) restartProfile(c *gin.Context) {
 	var profile models.Profile
 	if err := s.db.First(&profile, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "profile not found"})
+		return
+	}
+	if !profile.Enabled {
+		// Restart always leaves the process running, which would silently
+		// bring a disabled profile back to life without the DB's Enabled
+		// column agreeing — turn it on via the profile form instead, which
+		// keeps the two in sync.
+		c.JSON(http.StatusBadRequest, gin.H{"error": "profile is disabled — enable it first"})
 		return
 	}
 	if err := s.registry.Restart(&profile); err != nil {

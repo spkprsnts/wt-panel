@@ -567,6 +567,7 @@ export interface ProfileFormInitialValues {
   name: string
   coreType: CoreType
   coreConfigRaw: string // "" for a brand new profile
+  enabled: boolean
   xrayEnabled: boolean
   xrayInboundId: number | null
   xrayManualUri: string
@@ -581,6 +582,7 @@ export interface ProfileSubmitPayload {
   name: string
   coreType: CoreType
   coreConfig: unknown
+  enabled: boolean
   xrayEnabled: boolean
   xrayInboundId: number | null
   xrayManualUri: string
@@ -595,6 +597,7 @@ export const emptyProfileFormValues: ProfileFormInitialValues = {
   name: "",
   coreType: "turnable",
   coreConfigRaw: "",
+  enabled: true,
   xrayEnabled: false,
   xrayInboundId: null,
   xrayManualUri: "",
@@ -626,6 +629,7 @@ export function ProfileForm({
 }) {
   const t = useT()
   const [name, setName] = React.useState(initialValues.name)
+  const [enabled, setEnabled] = React.useState(initialValues.enabled)
   const [coreType, setCoreType] = React.useState<CoreType>(initialValues.coreType)
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -783,6 +787,7 @@ export function ProfileForm({
         name,
         coreType,
         coreConfig: buildCoreConfig(coreType, tn, oc, ft, wd),
+        enabled,
         xrayEnabled,
         xrayInboundId: xrayEnabled && xrayInboundId ? Number(xrayInboundId) : null,
         xrayManualUri: manualUri,
@@ -947,6 +952,14 @@ export function ProfileForm({
           required
           autoFocus
         />
+      </div>
+
+      <div className="flex flex-col gap-2 rounded-md border p-3">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="profile-enabled">{t("profileForm.enabledLabel")}</Label>
+          <Switch id="profile-enabled" checked={enabled} onCheckedChange={setEnabled} />
+        </div>
+        <p className="text-xs text-muted-foreground">{t("profileForm.enabledHint")}</p>
       </div>
 
       <div className="flex flex-col gap-2">

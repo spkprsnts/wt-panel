@@ -292,6 +292,9 @@ export function ClientsPage() {
                               />
                               <Badge variant="outline">{profile.CoreType}</Badge>
                               <span>{profile.Name}</span>
+                              {!profile.Enabled && (
+                                <Badge variant="secondary">{t("clientsPage.profileDisabled")}</Badge>
+                              )}
                               <ProfileSummaryBadges profile={profile} />
                               {profile.XrayEnabled && (
                                 <Badge variant="secondary">
@@ -321,8 +324,12 @@ export function ClientsPage() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                title={t("clientsPage.restartProfileTitle")}
-                                disabled={restartingId === profile.ID}
+                                title={
+                                  profile.Enabled
+                                    ? t("clientsPage.restartProfileTitle")
+                                    : t("clientsPage.profileDisabled")
+                                }
+                                disabled={restartingId === profile.ID || !profile.Enabled}
                                 onClick={() => handleRestartProfile(profile.ID)}
                               >
                                 {restartingId === profile.ID ? (

@@ -176,6 +176,17 @@ func (s *Server) handleSubscription(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "client not found"})
 		return
 	}
+	// A disabled profile has no process running (see Profile.Enabled) — its
+	// KernelURI would just be dead, so it's dropped here, before any of the
+	// json/text/base64/html branches below ever see client.Profiles, rather
+	// than teaching each format its own copy of this filter.
+	enabledProfiles := make([]models.Profile, 0, len(client.Profiles))
+	for _, p := range client.Profiles {
+		if p.Enabled {
+			enabledProfiles = append(enabledProfiles, p)
+		}
+	}
+	client.Profiles = enabledProfiles
 
 	now := time.Now()
 	_ = s.db.Model(&token).Update("last_accessed_at", &now)

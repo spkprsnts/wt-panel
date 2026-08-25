@@ -18,6 +18,7 @@ export const clientsPage = {
     "clientsPage.clickToExpand": "Нажмите, чтобы показать профили",
     "clientsPage.active": "активен",
     "clientsPage.inactive": "отключен",
+    "clientsPage.profileDisabled": "выключен",
 
     "clientsPage.subscriptionTitle": "Подписка",
     "clientsPage.subscriptionQrTitle": "QR-код подписки",
@@ -52,6 +53,7 @@ export const clientsPage = {
     "clientsPage.clickToExpand": "Click to show profiles",
     "clientsPage.active": "active",
     "clientsPage.inactive": "disabled",
+    "clientsPage.profileDisabled": "disabled",
 
     "clientsPage.subscriptionTitle": "Subscription",
     "clientsPage.subscriptionQrTitle": "Subscription QR code",

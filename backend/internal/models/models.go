@@ -72,6 +72,15 @@ type Profile struct {
 	// so the subscription endpoint doesn't need to re-provision on every read.
 	KernelURI string `gorm:"type:text"`
 
+	// Enabled controls whether this profile's kernel process should be
+	// running at all — lets an operator create/edit a profile without its
+	// process ever actually coming up (e.g. staging it ahead of time), and
+	// take an existing one offline without losing its provisioned state
+	// (port, keys) or deleting the row, mirroring XrayInbound.Enable.
+	// Unlike XrayInbound.Enable, this has a real live effect: see
+	// Provisioner.Stop and RestoreAll's own Enabled check.
+	Enabled bool `gorm:"default:true"`
+
 	XrayEnabled bool
 	// XrayInboundID is the picked, already-configured inbound this profile's
 	// overlay tunnels through — the primary path in the UI. Nil while

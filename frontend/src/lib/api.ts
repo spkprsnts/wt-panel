@@ -117,6 +117,7 @@ export interface Profile {
   Name: string
   CoreType: CoreType
   CoreConfig: string
+  Enabled: boolean
   XrayEnabled: boolean
   XrayInboundID: number | null
   XrayInbound: XrayInbound | null
@@ -316,6 +317,7 @@ export const api = {
       name: string
       coreType: CoreType
       coreConfig?: unknown
+      enabled?: boolean
       xrayEnabled?: boolean
       xrayInboundId?: number | null
       xrayManualUri?: string
@@ -332,6 +334,7 @@ export const api = {
         name: input.name,
         coreType: input.coreType,
         coreConfig: input.coreConfig ?? {},
+        enabled: input.enabled ?? true,
         xrayEnabled: input.xrayEnabled ?? false,
         xrayInboundId: input.xrayInboundId ?? null,
         xrayManualUri: input.xrayManualUri ?? "",
@@ -349,6 +352,7 @@ export const api = {
       name: string
       coreType: CoreType
       coreConfig?: unknown
+      enabled?: boolean
       xrayEnabled?: boolean
       xrayInboundId?: number | null
       xrayManualUri?: string
@@ -365,6 +369,7 @@ export const api = {
         name: input.name,
         coreType: input.coreType,
         coreConfig: input.coreConfig ?? {},
+        enabled: input.enabled ?? true,
         xrayEnabled: input.xrayEnabled ?? false,
         xrayInboundId: input.xrayInboundId ?? null,
         xrayManualUri: input.xrayManualUri ?? "",

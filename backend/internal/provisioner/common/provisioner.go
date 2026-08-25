@@ -60,6 +60,16 @@ type Provisioner interface {
 	// (combined stdout+stderr). maxBytes<=0 means the whole file.
 	Logs(profile *models.Profile, maxBytes int) (string, error)
 
+	// Stop halts this profile's process (if any is tracked) WITHOUT
+	// touching its persisted state — same "config survives, only the
+	// process stops" contract as Shutdown, just for one profile instead of
+	// every profile at once. This is what backs Profile.Enabled: turning a
+	// profile off calls Stop, turning it back on calls Restore (which
+	// reuses the same port/keys already sitting in profile.CoreConfig
+	// rather than re-provisioning). A no-op, not an error, for a profile
+	// with no tracked process (never started, or already stopped).
+	Stop(profile *models.Profile) error
+
 	// Shutdown gracefully stops every currently-supervised process (SIGTERM,
 	// bounded wait, Kill as a last resort — see ProcessSupervisor.Stop)
 	// WITHOUT touching any persisted state: unlike RemoveProfile, config
