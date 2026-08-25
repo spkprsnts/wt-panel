@@ -81,6 +81,7 @@ func (s *Server) getSettings(c *gin.Context) {
 		"turnableDefaultRouteHost":   s.cfg.TurnableDefaultRouteHost,
 		"freeturnDefaultConnectHost": s.cfg.FreeTurnDefaultConnectHost,
 		"webdavDefaultProxyUpstream": s.cfg.WebDAVDefaultProxyUpstream,
+		"olcrtcDefaultProxyUpstream": s.cfg.OlcRTCDefaultProxyUpstream,
 
 		"webdavPublicHost": s.cfg.ResolvedWebDAVPublicHost(),
 	})

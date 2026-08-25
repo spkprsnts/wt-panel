@@ -10,8 +10,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 
 	"gopkg.in/yaml.v3"
@@ -183,6 +186,9 @@ func (p *Provisioner) parseConfig(profile *models.Profile) (profileCoreConfig, e
 	if cc.DNS == "" {
 		cc.DNS = "1.1.1.1:53"
 	}
+	if cc.ProxyUpstream == "" {
+		cc.ProxyUpstream = p.cfg.OlcRTCDefaultProxyUpstream
+	}
 
 	switch cc.Transport {
 	case "vp8channel":
@@ -230,6 +236,40 @@ func (p *Provisioner) writeAndStart(profile *models.Profile, cc profileCoreConfi
 	return buildURI(cc, profile.Name), nil
 }
 
+// parseSocksProxy splits a "socks5://[user[:pass]@]host:port" upstream URL
+// (the one operator-facing field, matching webdav's own ProxyUpstream) into
+// olcrtc's own separate proxy_addr/proxy_port/proxy_user/proxy_pass YAML
+// keys (see socksYAML) — olcrtc's config schema has no single "upstream
+// URL" field the way webdav-tunnel's -proxy flag does. Returns nil, nil for
+// an empty upstream (no proxy configured, olcrtc reaches the network
+// directly), so callers can assign the result straight to yamlConfig.Socks.
+func parseSocksProxy(upstream string) (*socksYAML, error) {
+	if upstream == "" {
+		return nil, nil
+	}
+	u, err := url.Parse(upstream)
+	if err != nil {
+		return nil, fmt.Errorf("invalid socks5 proxy upstream: %w", err)
+	}
+	if u.Scheme != "socks5" {
+		return nil, fmt.Errorf("socks5 proxy upstream must start with socks5:// (got %q)", u.Scheme)
+	}
+	host, portStr, err := net.SplitHostPort(u.Host)
+	if err != nil {
+		return nil, fmt.Errorf("socks5 proxy upstream needs an explicit host:port: %w", err)
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return nil, fmt.Errorf("socks5 proxy upstream has a non-numeric port: %w", err)
+	}
+	sk := &socksYAML{ProxyAddr: host, ProxyPort: port}
+	if u.User != nil {
+		sk.ProxyUser = u.User.Username()
+		sk.ProxyPass, _ = u.User.Password()
+	}
+	return sk, nil
+}
+
 func (p *Provisioner) configPath(externalID string) string {
 	return filepath.Join(p.dataDir, fmt.Sprintf("profile-%s.yaml", externalID))
 }
@@ -238,10 +278,26 @@ func writeYAML(path string, cc profileCoreConfig) error {
 	var yc yamlConfig
 	yc.Mode = "srv"
 	yc.Auth.Provider = cc.Provider
+	yc.Auth.Token = cc.AuthToken
 	yc.Room.ID = cc.RoomID
 	yc.Crypto.Key = cc.CryptoKey
 	yc.Net.Transport = cc.Transport
 	yc.Net.DNS = cc.DNS
+
+	socks, err := parseSocksProxy(cc.ProxyUpstream)
+	if err != nil {
+		return err
+	}
+	yc.Socks = socks
+
+	if cc.Liveness != nil {
+		yc.Liveness = &livenessYAML{
+			Interval: cc.Liveness.Interval, Timeout: cc.Liveness.Timeout, Failures: cc.Liveness.Failures,
+		}
+	}
+	if cc.MaxSessionDuration != "" {
+		yc.Lifecycle = &lifecycleYAML{MaxSessionDuration: cc.MaxSessionDuration}
+	}
 
 	if cc.Vp8 != nil {
 		yc.Vp8 = &vp8YAML{FPS: cc.Vp8.FPS, BatchSize: cc.Vp8.BatchSize}

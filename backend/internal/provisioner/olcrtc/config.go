@@ -20,10 +20,46 @@ type profileCoreConfig struct {
 	Transport string `json:"transport"`            // "datachannel", "vp8channel", "seichannel", "videochannel"
 	CryptoKey string `json:"crypto_key,omitempty"` // 64 hex chars
 	DNS       string `json:"dns,omitempty"`        // e.g. "1.1.1.1:53"
+	// ProxyUpstream is an optional outbound SOCKS5 proxy for olcrtc's own
+	// egress (docs/settings.md upstream, server-only "socks:" block) — same
+	// "socks5://[user:pass@]host:port" shape and same reasoning as webdav's
+	// own ProxyUpstream (provisioner/webdav/config.go): so the kernel's
+	// traffic to the video-call provider goes through a tunnel/VPN instead
+	// of the VPS's own IP directly. Stored here as one URL string (matching
+	// the operator-facing field everywhere else in this panel); split into
+	// olcrtc's own separate proxy_addr/proxy_port/proxy_user/proxy_pass
+	// YAML keys only at writeYAML time — see parseSocksProxy.
+	ProxyUpstream string `json:"proxy_upstream,omitempty"`
+
+	// AuthToken is a pre-issued account token for provider "wbstream" only
+	// (docs/settings.md upstream, "auth.token") — enables moderator
+	// features (datachannel publishing) for that provider. Meaningless for
+	// jitsi/telemost, so the UI only shows it when Provider == "wbstream".
+	AuthToken string `json:"auth_token,omitempty"`
+
+	// Liveness/MaxSessionDuration are optional advanced connection-health
+	// knobs (docs/settings.md upstream, "liveness:"/"lifecycle:" blocks) —
+	// same "empty means let olcrtc apply its own default" convention as
+	// webdav's own tuning fields (provisioner/webdav/config.go): every
+	// sub-field is only ever written to the YAML if the operator actually
+	// set it, so an untouched field falls back to whatever olcrtc's own
+	// built-in default for it is, not a value this panel silently pins.
+	Liveness           *livenessConfig `json:"liveness,omitempty"`
+	MaxSessionDuration string          `json:"max_session_duration,omitempty"` // e.g. "6h"; empty = disabled (never auto-rebuilds)
 
 	Vp8   *vp8Config   `json:"vp8,omitempty"`
 	Sei   *seiConfig   `json:"sei,omitempty"`
 	Video *videoConfig `json:"video,omitempty"`
+}
+
+// livenessConfig tunes olcrtc's own control-stream heartbeat (upstream
+// defaults: interval 10s, timeout 15s, failures 4) — lower values notice a
+// dead link and rebuild sooner on flaky networks; higher values avoid
+// rebuilding over a merely slow reply.
+type livenessConfig struct {
+	Interval string `json:"interval,omitempty"` // e.g. "10s"
+	Timeout  string `json:"timeout,omitempty"`  // e.g. "15s"
+	Failures int    `json:"failures,omitempty"` // consecutive misses before rebuild
 }
 
 type vp8Config struct {
@@ -55,6 +91,7 @@ type yamlConfig struct {
 	Mode string `yaml:"mode"`
 	Auth struct {
 		Provider string `yaml:"provider"`
+		Token    string `yaml:"token,omitempty"`
 	} `yaml:"auth"`
 	Room struct {
 		ID string `yaml:"id"`
@@ -66,9 +103,32 @@ type yamlConfig struct {
 		Transport string `yaml:"transport"`
 		DNS       string `yaml:"dns"`
 	} `yaml:"net"`
-	Vp8   *vp8YAML   `yaml:"vp8,omitempty"`
-	Sei   *seiYAML   `yaml:"sei,omitempty"`
-	Video *videoYAML `yaml:"video,omitempty"`
+	Vp8       *vp8YAML       `yaml:"vp8,omitempty"`
+	Sei       *seiYAML       `yaml:"sei,omitempty"`
+	Video     *videoYAML     `yaml:"video,omitempty"`
+	Socks     *socksYAML     `yaml:"socks,omitempty"`
+	Liveness  *livenessYAML  `yaml:"liveness,omitempty"`
+	Lifecycle *lifecycleYAML `yaml:"lifecycle,omitempty"`
+}
+
+type livenessYAML struct {
+	Interval string `yaml:"interval,omitempty"`
+	Timeout  string `yaml:"timeout,omitempty"`
+	Failures int    `yaml:"failures,omitempty"`
+}
+
+type lifecycleYAML struct {
+	MaxSessionDuration string `yaml:"max_session_duration,omitempty"`
+}
+
+// socksYAML is olcrtc's own "socks:" server-mode block (docs/settings.md
+// upstream) — ProxyUser/ProxyPass are RFC 1929 SOCKS5 username/password
+// auth, optional (upstream: "omit for no auth").
+type socksYAML struct {
+	ProxyAddr string `yaml:"proxy_addr,omitempty"`
+	ProxyPort int    `yaml:"proxy_port,omitempty"`
+	ProxyUser string `yaml:"proxy_user,omitempty"`
+	ProxyPass string `yaml:"proxy_pass,omitempty"`
 }
 
 type vp8YAML struct {

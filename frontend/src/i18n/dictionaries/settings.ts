@@ -120,6 +120,7 @@ export const settings = {
     "settings.label.turnableDefaultRouteHost": "Turnable — хост маршрута по умолчанию",
     "settings.label.freeturnDefaultConnectHost": "FreeTurn — хост -connect по умолчанию",
     "settings.label.webdavDefaultProxyUpstream": "WebDAV — upstream-прокси по умолчанию",
+    "settings.label.olcrtcDefaultProxyUpstream": "olcRTC — upstream-прокси по умолчанию",
     "settings.label.webdavPublicHost": "WebDAV — публичный хост",
   },
   en: {
@@ -243,6 +244,7 @@ export const settings = {
     "settings.label.turnableDefaultRouteHost": "Turnable — default route host",
     "settings.label.freeturnDefaultConnectHost": "FreeTurn — default -connect host",
     "settings.label.webdavDefaultProxyUpstream": "WebDAV — default upstream proxy",
+    "settings.label.olcrtcDefaultProxyUpstream": "olcRTC — default upstream proxy",
     "settings.label.webdavPublicHost": "WebDAV — public host",
   },
 }

@@ -42,6 +42,7 @@ const SETTINGS_LABEL_KEYS: Record<string, TranslationKey> = {
   turnableDefaultRouteHost: "settings.label.turnableDefaultRouteHost",
   freeturnDefaultConnectHost: "settings.label.freeturnDefaultConnectHost",
   webdavDefaultProxyUpstream: "settings.label.webdavDefaultProxyUpstream",
+  olcrtcDefaultProxyUpstream: "settings.label.olcrtcDefaultProxyUpstream",
   webdavPublicHost: "settings.label.webdavPublicHost",
 }
 

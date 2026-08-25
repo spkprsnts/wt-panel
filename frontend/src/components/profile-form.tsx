@@ -74,12 +74,12 @@ function VkCallHint() {
   )
 }
 
-function AdvancedFields({ children }: { children: React.ReactNode }) {
+function AdvancedFields({ label, children }: { label?: string; children: React.ReactNode }) {
   const t = useT()
   return (
     <details className="rounded-md border p-3 text-sm">
       <summary className="cursor-pointer font-medium text-muted-foreground">
-        {t("profileForm.advancedSettings")}
+        {label ?? t("profileForm.advancedSettings")}
       </summary>
       <div className="mt-3 flex flex-col gap-3">{children}</div>
     </details>
@@ -173,6 +173,10 @@ interface OlcrtcState {
   roomId: string
   cryptoKey: string
   dns: string
+  proxyUpstream: string
+  // authToken only applies to provider "wbstream" — a pre-issued account
+  // token enabling moderator features (datachannel publishing).
+  authToken: string
   transport: "datachannel" | "vp8channel" | "seichannel" | "videochannel"
   vp8Fps: string
   vp8Batch: string
@@ -188,6 +192,12 @@ interface OlcrtcState {
   videoQrSize: string
   videoTileModule: string
   videoTileRs: string
+  // Empty means "let olcrtc apply its own default for this field" — same
+  // convention as WebdavTuning below, not a real value of its own.
+  livenessInterval: string
+  livenessTimeout: string
+  livenessFailures: string
+  maxSessionDuration: string
 }
 
 const initialOlcrtc: OlcrtcState = {
@@ -195,6 +205,8 @@ const initialOlcrtc: OlcrtcState = {
   roomId: "",
   cryptoKey: "",
   dns: "1.1.1.1:53",
+  proxyUpstream: "",
+  authToken: "",
   transport: "datachannel",
   vp8Fps: "30",
   vp8Batch: "64",
@@ -210,6 +222,10 @@ const initialOlcrtc: OlcrtcState = {
   videoQrSize: "0",
   videoTileModule: "4",
   videoTileRs: "0",
+  livenessInterval: "",
+  livenessTimeout: "",
+  livenessFailures: "",
+  maxSessionDuration: "",
 }
 
 interface FreeturnState {
@@ -355,6 +371,7 @@ function parseCoreConfig(
     const vp8 = (cfg.vp8 as Record<string, unknown>) ?? {}
     const sei = (cfg.sei as Record<string, unknown>) ?? {}
     const video = (cfg.video as Record<string, unknown>) ?? {}
+    const liveness = (cfg.liveness as Record<string, unknown>) ?? {}
     return {
       tn: initialTurnable,
       oc: {
@@ -362,6 +379,8 @@ function parseCoreConfig(
         roomId: str(cfg.room_id, initialOlcrtc.roomId),
         cryptoKey: str(cfg.crypto_key, initialOlcrtc.cryptoKey),
         dns: str(cfg.dns, initialOlcrtc.dns),
+        proxyUpstream: str(cfg.proxy_upstream, initialOlcrtc.proxyUpstream),
+        authToken: str(cfg.auth_token, initialOlcrtc.authToken),
         transport: (str(cfg.transport, initialOlcrtc.transport) as OlcrtcState["transport"]),
         vp8Fps: num(vp8.fps, initialOlcrtc.vp8Fps),
         vp8Batch: num(vp8.batch_size, initialOlcrtc.vp8Batch),
@@ -377,6 +396,10 @@ function parseCoreConfig(
         videoQrSize: num(video.qr_size, initialOlcrtc.videoQrSize),
         videoTileModule: num(video.tile_module, initialOlcrtc.videoTileModule),
         videoTileRs: num(video.tile_rs, initialOlcrtc.videoTileRs),
+        livenessInterval: str(liveness.interval, initialOlcrtc.livenessInterval),
+        livenessTimeout: str(liveness.timeout, initialOlcrtc.livenessTimeout),
+        livenessFailures: num(liveness.failures, initialOlcrtc.livenessFailures),
+        maxSessionDuration: str(cfg.max_session_duration, initialOlcrtc.maxSessionDuration),
       },
       ft: initialFreeturn,
       wd: initialWebdav,
@@ -467,6 +490,16 @@ function buildCoreConfig(
       room_id: oc.roomId,
       crypto_key: oc.cryptoKey,
       dns: oc.dns,
+      ...(oc.proxyUpstream && { proxy_upstream: oc.proxyUpstream }),
+      ...(oc.provider === "wbstream" && oc.authToken && { auth_token: oc.authToken }),
+      ...((oc.livenessInterval || oc.livenessTimeout || oc.livenessFailures) && {
+        liveness: {
+          ...(oc.livenessInterval && { interval: oc.livenessInterval }),
+          ...(oc.livenessTimeout && { timeout: oc.livenessTimeout }),
+          ...(Number(oc.livenessFailures) > 0 && { failures: Number(oc.livenessFailures) }),
+        },
+      }),
+      ...(oc.maxSessionDuration && { max_session_duration: oc.maxSessionDuration }),
       transport: oc.transport,
       ...(oc.transport === "vp8channel" && {
         vp8: { fps: Number(oc.vp8Fps) || 30, batch_size: Number(oc.vp8Batch) || 64 },
@@ -1210,6 +1243,20 @@ export function ProfileForm({
             <p className="text-xs text-muted-foreground">{t(OLCRTC_ROOM_ID_HINT_KEYS[oc.provider])}</p>
           </div>
 
+          {oc.provider === "wbstream" && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="olcrtc-auth-token">{t("profileForm.olcrtc.authTokenLabel")}</Label>
+              <Input
+                id="olcrtc-auth-token"
+                value={oc.authToken}
+                onChange={(e) => setOc({ ...oc, authToken: e.target.value })}
+                placeholder={t("profileForm.olcrtc.authTokenPlaceholder")}
+                className="font-mono text-xs"
+              />
+              <p className="text-xs text-muted-foreground">{t("profileForm.olcrtc.authTokenHint")}</p>
+            </div>
+          )}
+
           <KeyField
             id="crypto-key"
             label={t("profileForm.olcrtc.cryptoKeyLabel")}
@@ -1222,6 +1269,70 @@ export function ProfileForm({
             <Label htmlFor="dns">DNS</Label>
             <Input id="dns" value={oc.dns} onChange={(e) => setOc({ ...oc, dns: e.target.value })} />
           </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="olcrtc-proxy">{t("profileForm.olcrtc.proxyLabel")}</Label>
+            <Input
+              id="olcrtc-proxy"
+              value={oc.proxyUpstream}
+              onChange={(e) => setOc({ ...oc, proxyUpstream: e.target.value })}
+              placeholder={t("profileForm.olcrtc.proxyPlaceholder")}
+            />
+          </div>
+
+          <AdvancedFields>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="flex flex-col gap-2">
+                {/* min-h-10 (~2 lines of text-sm) reserves the same label
+                    height across all three columns regardless of which
+                    ones actually wrap — a plain flex-col here would let a
+                    shorter one-line label (e.g. "Таймаут ответа") pull its
+                    Input up above the two-line labels' Inputs beside it. */}
+                <Label htmlFor="olcrtc-liveness-interval" className="min-h-10">
+                  {t("profileForm.olcrtc.livenessIntervalLabel")}
+                </Label>
+                <Input
+                  id="olcrtc-liveness-interval"
+                  value={oc.livenessInterval}
+                  onChange={(e) => setOc({ ...oc, livenessInterval: e.target.value })}
+                  placeholder="10s"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="olcrtc-liveness-timeout" className="min-h-10">
+                  {t("profileForm.olcrtc.livenessTimeoutLabel")}
+                </Label>
+                <Input
+                  id="olcrtc-liveness-timeout"
+                  value={oc.livenessTimeout}
+                  onChange={(e) => setOc({ ...oc, livenessTimeout: e.target.value })}
+                  placeholder="15s"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="olcrtc-liveness-failures" className="min-h-10">
+                  {t("profileForm.olcrtc.livenessFailuresLabel")}
+                </Label>
+                <Input
+                  id="olcrtc-liveness-failures"
+                  type="number"
+                  value={oc.livenessFailures}
+                  onChange={(e) => setOc({ ...oc, livenessFailures: e.target.value })}
+                  placeholder="4"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="olcrtc-max-session">{t("profileForm.olcrtc.maxSessionDurationLabel")}</Label>
+              <Input
+                id="olcrtc-max-session"
+                value={oc.maxSessionDuration}
+                onChange={(e) => setOc({ ...oc, maxSessionDuration: e.target.value })}
+                placeholder={t("profileForm.olcrtc.maxSessionDurationPlaceholder")}
+              />
+              <p className="text-xs text-muted-foreground">{t("profileForm.olcrtc.maxSessionDurationHint")}</p>
+            </div>
+          </AdvancedFields>
 
           <div className="flex flex-col gap-2">
             <Label>{t("profileForm.olcrtc.transportLabel")}</Label>
@@ -1242,7 +1353,7 @@ export function ProfileForm({
           </div>
 
           {oc.transport === "vp8channel" && (
-            <AdvancedFields>
+            <AdvancedFields label={t("profileForm.advancedTransportSettings")}>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="vp8-fps">VP8 stream FPS</Label>
@@ -1257,7 +1368,7 @@ export function ProfileForm({
           )}
 
           {oc.transport === "seichannel" && (
-            <AdvancedFields>
+            <AdvancedFields label={t("profileForm.advancedTransportSettings")}>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="sei-fps">H264 stream FPS</Label>
@@ -1280,7 +1391,7 @@ export function ProfileForm({
           )}
 
           {oc.transport === "videochannel" && (
-            <AdvancedFields>
+            <AdvancedFields label={t("profileForm.advancedTransportSettings")}>
               <div className="flex flex-col gap-2">
                 <Label>Codec</Label>
                 <Select

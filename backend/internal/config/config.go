@@ -60,6 +60,12 @@ type Config struct {
 
 	WebDAVDefaultProxyUpstream string // optional "-proxy socks5://..." upstream; empty = direct internet egress
 
+	// OlcRTCDefaultProxyUpstream is olcrtc's own outbound SOCKS5 default,
+	// same "socks5://[user:pass@]host:port" shape and same reasoning as
+	// WebDAVDefaultProxyUpstream above — empty = olcrtc reaches the video
+	// call provider directly off the VPS's own IP.
+	OlcRTCDefaultProxyUpstream string
+
 	// WebDAVPublicHost overrides the host address baked into a selfhosted
 	// WebDAV profile's client URI when it should differ from PublicIP (a
 	// custom domain, say) — see ResolvedWebDAVPublicHost. Same two-tier
@@ -109,6 +115,7 @@ func Load() *Config {
 		FreeTurnDefaultConnectHost: getEnv("WTP_FREETURN_DEFAULT_CONNECT_HOST", "127.0.0.1"),
 
 		WebDAVDefaultProxyUpstream: getEnv("WTP_WEBDAV_DEFAULT_PROXY_UPSTREAM", ""),
+		OlcRTCDefaultProxyUpstream: getEnv("WTP_OLCRTC_DEFAULT_PROXY_UPSTREAM", ""),
 	}
 	// Deliberately NOT falling back to cfg.PublicIP here — at this point in
 	// startup PublicIP is often still "" (main.go overrides it from
