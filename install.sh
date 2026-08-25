@@ -893,7 +893,13 @@ install_wtp_command() {
 	# see handlers_panel_settings.go), and only the NEXT invocation sees the
 	# new file.
 	local tmp
-	tmp=$(mktemp) || return 1
+	# mktemp in WTP_COMMAND_PATH's own directory, not the default /tmp:
+	# mv is only atomic when source and destination share a filesystem, and
+	# /tmp is a separate tmpfs mount from /usr/local/bin on plenty of hosts
+	# (RHEL/Fedora-family in particular) — across that boundary mv silently
+	# falls back to a non-atomic copy-then-unlink, which reopens exactly the
+	# mid-read corruption this whole temp-file dance exists to avoid.
+	tmp=$(mktemp "$(dirname "$WTP_COMMAND_PATH")/.wtp.XXXXXX") || return 1
 	if [[ -f "$SCRIPT_DIR/install.sh" && -f "$SCRIPT_DIR/backend/go.mod" ]]; then
 		cp "$SCRIPT_DIR/install.sh" "$tmp"
 	elif ! curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/install.sh" -o "$tmp"; then
