@@ -229,21 +229,9 @@ export function ClientsPage() {
                         loadVariants={() =>
                           api
                             .getSubscriptionLinks(client.ID)
-                            .then(({ url, wireturnLink, domainUrl, domainWireturnLink }) => [
-                              {
-                                key: "wireturn",
-                                label: "WireTurn",
-                                content: domainWireturnLink
-                                  ? { ip: wireturnLink, domain: domainWireturnLink }
-                                  : wireturnLink,
-                              },
-                              {
-                                key: "text",
-                                label: t("clientsPage.textVariant"),
-                                content: domainUrl
-                                  ? { ip: `${url}?format=text`, domain: `${domainUrl}?format=text` }
-                                  : `${url}?format=text`,
-                              },
+                            .then(({ url, wireturnLink }) => [
+                              { key: "wireturn", label: "WireTurn", content: wireturnLink },
+                              { key: "text", label: t("clientsPage.textVariant"), content: `${url}?format=text` },
                             ])
                         }
                         onDownload={() => api.downloadClientExport(client.ID)}

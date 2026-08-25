@@ -3,8 +3,6 @@ import QRCode from "qrcode"
 
 import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
 import {
   Dialog,
   DialogContent,
@@ -17,12 +15,7 @@ import {
 export interface QrVariant {
   key: string
   label: string
-  // A plain string when there's only one way to reach this link. An
-  // { ip, domain } pair when the panel has both a public IP and a domain
-  // configured (see PanelSettings.ListenDomain) — the dialog then shows an
-  // "Использовать домен" switch, mirroring 3x-ui's own IP/domain choice
-  // for subscription links, instead of silently picking one.
-  content: string | { ip: string; domain: string }
+  content: string
 }
 
 // QrDialog is the shared "show me a QR code" dialog for both the
@@ -47,7 +40,6 @@ export function QrDialog({
   const [open, setOpen] = React.useState(false)
   const [variants, setVariants] = React.useState<QrVariant[] | null>(null)
   const [activeKey, setActiveKey] = React.useState("")
-  const [useDomain, setUseDomain] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [dataUrl, setDataUrl] = React.useState("")
   const [copied, setCopied] = React.useState(false)
@@ -76,12 +68,7 @@ export function QrDialog({
   }, [open])
 
   const active = variants?.find((v) => v.key === activeKey) ?? null
-  const hasHostChoice = typeof active?.content === "object"
-  const activeContent = active
-    ? typeof active.content === "string"
-      ? active.content
-      : (useDomain ? active.content.domain : active.content.ip) || active.content.ip
-    : ""
+  const activeContent = active?.content ?? ""
 
   React.useEffect(() => {
     if (!activeContent) {
@@ -143,15 +130,6 @@ export function QrDialog({
                     {v.label}
                   </Button>
                 ))}
-              </div>
-            )}
-
-            {hasHostChoice && (
-              <div className="flex items-center justify-center gap-2">
-                <Label htmlFor="qr-use-domain" className="text-sm font-normal">
-                  {t("qrDialog.useDomain")}
-                </Label>
-                <Switch id="qr-use-domain" checked={useDomain} onCheckedChange={setUseDomain} />
               </div>
             )}
 

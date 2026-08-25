@@ -16,26 +16,44 @@ import (
 	"wtpanel/internal/xray"
 )
 
-// subscriptionOrigins resolves the "scheme://host:port" to embed in
-// subscription links, for both the VPS's public IP and (if configured) its
-// domain — mirrors 3x-ui's own IP-vs-domain choice for subscription links,
-// instead of the old flat s.cfg.PublicOrigin (WTP_PUBLIC_ORIGIN), which
-// nothing ever actually sets — a real client-facing bug: the QR dialog was
-// handing out "http://localhost:8090/sub/..." links no client device could
-// ever reach. scheme reflects whatever the panel is actually serving
-// (TLS cert+key both configured → https, else http), so the link a client
-// gets always matches reality. domain is "" whenever PanelSettings.
-// ListenDomain isn't set — callers (subscriptionLinks, the QR dialog) show
-// only the ip variant in that case.
-func (s *Server) subscriptionOrigins() (ip, domain string) {
+// subscriptionOrigin resolves the single "scheme://host:port" to embed in
+// subscription links — mirrors 3x-ui's own subscription-link origin, instead
+// of the old flat s.cfg.PublicOrigin (WTP_PUBLIC_ORIGIN), which nothing ever
+// actually sets — a real client-facing bug: the QR dialog was handing out
+// "http://localhost:8090/sub/..." links no client device could ever reach.
+//
+// There used to be an operator-facing IP-vs-domain switch here (3x-ui has
+// one too), but that choice isn't actually free: a TLS cert here is
+// virtually always issued for ListenDomain, not the bare PublicIP (see
+// PanelSettings.WebDAVPublicHost's own doc comment) — acme.sh's own DNS/
+// HTTP-01 challenge needs a resolvable name, and install.sh's SSL setup
+// only ever targets whichever host the operator picked as the SSL target in
+// the first place. Handing out the OTHER host would silently produce a
+// link whose scheme this function still reports as https but whose
+// certificate doesn't actually match — exactly the kind of thing an
+// operator flipping the old switch without thinking about it could ship to
+// a client by accident. So: whichever host the cert is actually good for
+// wins outright — domain when both a cert and ListenDomain are configured,
+// else the public address — and there's nothing left for an operator to
+// pick wrong.
+func (s *Server) subscriptionOrigin() string {
 	var ps models.PanelSettings
 	if err := s.db.First(&ps, 1).Error; err != nil {
-		return s.cfg.PublicOrigin, ""
+		return s.cfg.PublicOrigin
 	}
 
+	hasCert := ps.TLSCertFile != "" && ps.TLSKeyFile != ""
 	scheme := "http"
-	if ps.TLSCertFile != "" && ps.TLSKeyFile != "" {
+	if hasCert {
 		scheme = "https"
+	}
+
+	host := ps.PublicIP
+	if hasCert && ps.ListenDomain != "" {
+		host = ps.ListenDomain
+	}
+	if host == "" {
+		return s.cfg.PublicOrigin
 	}
 
 	port := ps.ListenPort
@@ -48,16 +66,7 @@ func (s *Server) subscriptionOrigins() (ip, domain string) {
 	if port != 0 {
 		portSuffix = fmt.Sprintf(":%d", port)
 	}
-
-	if ps.PublicIP != "" {
-		ip = fmt.Sprintf("%s://%s%s", scheme, ps.PublicIP, portSuffix)
-	} else {
-		ip = s.cfg.PublicOrigin
-	}
-	if ps.ListenDomain != "" {
-		domain = fmt.Sprintf("%s://%s%s", scheme, ps.ListenDomain, portSuffix)
-	}
-	return ip, domain
+	return fmt.Sprintf("%s://%s%s", scheme, host, portSuffix)
 }
 
 // getOrCreateSubscriptionToken reuses a client's existing token if it has
@@ -95,14 +104,10 @@ func (s *Server) createSubscriptionToken(c *gin.Context) {
 		return
 	}
 
-	ipOrigin, domainOrigin := s.subscriptionOrigins()
-	origin := ipOrigin
-	if domainOrigin != "" {
-		origin = domainOrigin
-	}
+	url := s.subscriptionOrigin() + "/sub/" + token.Token
 	c.JSON(http.StatusCreated, gin.H{
 		"token": token.Token,
-		"url":   origin + "/sub/" + token.Token,
+		"url":   url,
 	})
 }
 
@@ -119,16 +124,10 @@ func (s *Server) subscriptionLinks(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	ipOrigin, domainOrigin := s.subscriptionOrigins()
-	url := ipOrigin + "/sub/" + token.Token
+	url := s.subscriptionOrigin() + "/sub/" + token.Token
 	resp := gin.H{
 		"url":          url,
 		"wireturnLink": buildSubscriptionWireturnLink(url),
-	}
-	if domainOrigin != "" {
-		domainURL := domainOrigin + "/sub/" + token.Token
-		resp["domainUrl"] = domainURL
-		resp["domainWireturnLink"] = buildSubscriptionWireturnLink(domainURL)
 	}
 	c.JSON(http.StatusOK, resp)
 }
@@ -228,12 +227,7 @@ func (s *Server) handleSubscription(c *gin.Context) {
 
 	switch format {
 	case "html":
-		ipOrigin, domainOrigin := s.subscriptionOrigins()
-		origin := ipOrigin
-		if domainOrigin != "" {
-			origin = domainOrigin
-		}
-		subURL := origin + "/sub/" + token.Token
+		subURL := s.subscriptionOrigin() + "/sub/" + token.Token
 		s.renderSubscriptionHTML(c, client, bundle, subURL, expired)
 	case "text":
 		c.String(http.StatusOK, s.buildTextSubscription(client, client.TrafficUsedByte, client.TrafficLimitByte))

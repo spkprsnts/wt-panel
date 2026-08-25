@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Loader2 } from "lucide-react"
+import { Loader2, TriangleAlert } from "lucide-react"
 
 import { api } from "@/lib/api"
 import { useDialogPrompt } from "@/components/dialog-prompt"
@@ -148,6 +148,23 @@ function buildTargetUrl(opts: {
   return `${scheme}://${host}:${port}${path}`
 }
 
+// isInsecureConnection reads the BROWSER's own address bar, not
+// PanelSettings.TLSCertFile — deliberately: this page's TLS cert fields
+// only describe whether the Go panel process itself terminates TLS, but a
+// perfectly common deployment puts nginx (or another reverse proxy) in
+// front of the panel doing the TLS termination itself, leaving the panel's
+// own listener on plain http behind it. Checking TLSCertFile there would
+// wrongly flag that setup as insecure even though the browser's actual
+// connection is https all the way. window.location.protocol reflects
+// reality regardless of which layer terminated TLS. localhost/127.0.0.1/
+// ::1 are excluded — loopback (or an SSH tunnel terminating there) isn't
+// exposed to the same interception risk plain http over a real network is.
+function isInsecureConnection(): boolean {
+  if (typeof window === "undefined") return false
+  if (window.location.protocol === "https:") return false
+  return !["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)
+}
+
 function PanelNetworkCard() {
   const t = useT()
   const { confirm } = useDialogPrompt()
@@ -243,6 +260,12 @@ function PanelNetworkCard() {
         <CardDescription>{t("settings.network.description")}</CardDescription>
       </CardHeader>
       <CardContent>
+        {isInsecureConnection() && (
+          <div className="mb-4 flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+            <span>{t("settings.network.insecureWarning")}</span>
+          </div>
+        )}
         <PanelRestartDialog
           open={restarting}
           beforeBootId={beforeBootId}

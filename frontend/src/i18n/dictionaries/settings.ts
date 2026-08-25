@@ -15,6 +15,8 @@ export const settings = {
     "settings.network.title": "Сеть панели",
     "settings.network.description":
       "Сохраняется сразу, но применяется только после перезапуска панели — процесс читает эти настройки один раз при старте",
+    "settings.network.insecureWarning":
+      "Вы открыли панель по незащищённому http — пароль и токен авторизации передаются в открытом виде. Настройте TLS-сертификат ниже (или SSL на реверс-прокси перед панелью) и открывайте панель по https.",
     "settings.network.saveFailed": "Не удалось сохранить",
     "settings.network.restartConfirm":
       "Перезапустить панель? Все процессы ядер (Turnable/olcRTC/FreeTurn/WebDAV) будут остановлены и подняты заново — активные звонки на пару секунд прервутся.",
@@ -100,6 +102,8 @@ export const settings = {
     "settings.network.title": "Panel network",
     "settings.network.description":
       "Saved immediately, but only takes effect after the panel restarts — the process reads these settings once at startup",
+    "settings.network.insecureWarning":
+      "You're viewing the panel over plain http — your password and auth token are being sent unencrypted. Set up a TLS certificate below (or SSL on a reverse proxy in front of the panel), then open the panel over https.",
     "settings.network.saveFailed": "Failed to save",
     "settings.network.restartConfirm":
       "Restart the panel? Every kernel process (Turnable/olcRTC/FreeTurn/WebDAV) will be stopped and brought back up — active calls will drop for a couple of seconds.",

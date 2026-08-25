@@ -402,8 +402,6 @@ export const api = {
     request<{
       url: string
       wireturnLink: string
-      domainUrl?: string
-      domainWireturnLink?: string
     }>(`/api/clients/${clientId}/subscription-links`),
   downloadClientExport: (clientId: number) => downloadFile(`/api/clients/${clientId}/export`),
 
