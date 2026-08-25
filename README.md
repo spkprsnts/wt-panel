@@ -1,9 +1,23 @@
 # wt-panel
 
-Control-plane для клиентов [WireTurn](https://github.com/spkprsnts/WireTurn):
-управляет серверными процессами всех четырёх ядер (Turnable, olcRTC, WebDAV,
-FreeTurn), навешивает xray/WireGuard-оверлей и отдаёт подписки в формате
-`ProfileBundle` (`docs/subscriptions.md` апстрима).
+Control-plane для пользователей [WireTurn](https://github.com/spkprsnts/WireTurn):
+управляет серверными процессами всех четырёх ядер —
+[Turnable](https://github.com/TheAirBlow/Turnable),
+[olcRTC](https://github.com/openlibrecommunity/olcrtc),
+[WebDAV-tunnel](https://github.com/spkprsnts/webdav-tunnel),
+[FreeTurn](https://github.com/samosvalishe/free-turn-proxy) — навешивает
+поверх них Xray-оверлей (VLESS/Trojan/Hysteria2/WireGuard) и отдаёт подписки
+в формате `ProfileBundle` (`docs/subscriptions.md` апстрима).
+
+Панель не привязана только к WireTurn. У подписки клиента (все его профили
+разом) помимо `ProfileBundle` есть и обычный текстовый вариант
+(`?format=text`) — список URI профилей построчно, а у каждого отдельного
+профиля есть свой прямой URI ядра (`turnable://...`, `freeturn://...` и
+т.п.) — формат каждого задокументирован в репозитории соответствующего ядра
+(ссылки выше), так что профили годятся и для других клиентов, которые эти
+URI поддерживают, а не только для WireTurn. Xray здесь — вспомогательный
+оверлей поверх основных ядер (камуфляж трафика/dual route), а не отдельный
+самостоятельный протокол.
 
 ## Стек
 
