@@ -661,6 +661,10 @@ export function ProfileForm({
   onSubmit: (payload: ProfileSubmitPayload) => Promise<void>
 }) {
   const t = useT()
+  // Lets the footer's submit button (rendered outside this <form>, so it
+  // can stay pinned below the scrolling fields — see the render below)
+  // still submit it via the standard form="..." attribute.
+  const formId = React.useId()
   const [name, setName] = React.useState(initialValues.name)
   const [enabled, setEnabled] = React.useState(initialValues.enabled)
   const [coreType, setCoreType] = React.useState<CoreType>(initialValues.coreType)
@@ -975,9 +979,23 @@ export function ProfileForm({
   )
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="profile-name">{t("profileForm.name")}</Label>
+    <>
+      {/* display:contents keeps this <form> out of the flex layout below —
+          it exists purely so the footer's submit button (form={formId},
+          rendered outside it) still triggers this form's onSubmit — while
+          the actual scrolling happens on the div inside it, not on
+          DialogContent itself. That's what keeps the dialog's header/close
+          button and this footer pinned in place instead of scrolling away
+          with the fields between them. */}
+      <form id={formId} onSubmit={handleSubmit} className="contents">
+        {/* px-6 lives here (not on DialogContent, see the dialog wrapper's
+            own className) so the scrollbar this div grows renders flush at
+            DialogContent's actual edge instead of inset within a shared
+            padding — the content itself still gets the same inset via this
+            div's own padding, just without dragging the scrollbar in with it. */}
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="profile-name">{t("profileForm.name")}</Label>
         <Input
           id="profile-name"
           value={name}
@@ -1882,14 +1900,15 @@ export function ProfileForm({
         </>
       )}
 
-      {(coreType === "olcrtc" || coreType === "webdav") && xrayBlock}
-
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      <DialogFooter>
-        <Button type="submit" disabled={loading}>
+          {(coreType === "olcrtc" || coreType === "webdav") && xrayBlock}
+        </div>
+      </form>
+      {error && <p className="px-6 text-sm text-destructive">{error}</p>}
+      <DialogFooter className="shrink-0 px-6">
+        <Button type="submit" form={formId} disabled={loading}>
           {loading ? submittingLabel : submitLabel}
         </Button>
       </DialogFooter>
-    </form>
+    </>
   )
 }

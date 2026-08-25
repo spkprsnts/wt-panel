@@ -1106,6 +1106,10 @@ function InboundFormDialog({
   onSaved: () => void
 }) {
   const t = useT()
+  // Lets the footer's submit button (rendered outside this <form>, so it
+  // can stay pinned below the scrolling fields) still submit it via the
+  // standard form="..." attribute — see the render below.
+  const formId = React.useId()
   const defaultRemark = nextNumber ? `${t("xray.inboundForm.defaultNamePrefix")} #${nextNumber}` : ""
   const [open, setOpen] = React.useState(false)
   const [protocol, setProtocol] = React.useState<XrayProtocol>(existing?.Protocol ?? "vless")
@@ -1153,11 +1157,12 @@ function InboundFormDialog({
           <Button>{t("xray.inboundForm.addTrigger")}</Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden px-0 py-6 sm:max-w-xl">
+        <DialogHeader className="shrink-0 px-6">
           <DialogTitle>{existing ? t("xray.inboundForm.editTitle") : t("xray.inboundForm.createTitle")}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form id={formId} onSubmit={handleSubmit} className="contents">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6">
           <SwitchField id="inbound-enable" label={t("xray.inboundForm.enabled")} checked={f.enable} onChange={(v) => setF({ ...f, enable: v })} />
 
           <div className="flex flex-col gap-2">
@@ -1260,12 +1265,13 @@ function InboundFormDialog({
           </AdvancedSection>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <DialogFooter>
-            <Button type="submit" disabled={loading}>
-              {loading ? t("xray.inboundForm.saving") : existing ? t("common.save") : t("common.create")}
-            </Button>
-          </DialogFooter>
+        </div>
         </form>
+        <DialogFooter className="shrink-0 px-6">
+          <Button type="submit" form={formId} disabled={loading}>
+            {loading ? t("xray.inboundForm.saving") : existing ? t("common.save") : t("common.create")}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
@@ -1370,11 +1376,11 @@ function InboundClientsDialog({ inbound, allClients, onChanged }: { inbound: Xra
           {t("xray.inboundClients.trigger")} ({(inbound.Clients ?? []).length})
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden px-0 py-6 sm:max-w-lg">
+        <DialogHeader className="shrink-0 px-6">
           <DialogTitle>{t("xray.inboundClients.title")} «{inbound.Remark}»</DialogTitle>
         </DialogHeader>
-        <div className="flex flex-col gap-4">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6">
           <div className="flex flex-col gap-2 rounded-md border p-3">
             {attached.length === 0 && <p className="text-sm text-muted-foreground">{t("xray.inboundClients.none")}</p>}
             {attached.map((xc) => (
@@ -1409,11 +1415,15 @@ function InboundClientsDialog({ inbound, allClients, onChanged }: { inbound: Xra
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="attach-traffic">{t("xray.inboundClients.trafficLimit")}</Label>
+                  <Label htmlFor="attach-traffic" className="min-h-10">
+                    {t("xray.inboundClients.trafficLimit")}
+                  </Label>
                   <Input id="attach-traffic" type="number" value={trafficGB} onChange={(e) => setTrafficGB(e.target.value)} />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="attach-ip">{t("xray.inboundClients.ipLimit")}</Label>
+                  <Label htmlFor="attach-ip" className="min-h-10">
+                    {t("xray.inboundClients.ipLimit")}
+                  </Label>
                   <Input id="attach-ip" type="number" value={limitIp} onChange={(e) => setLimitIp(e.target.value)} />
                 </div>
               </div>

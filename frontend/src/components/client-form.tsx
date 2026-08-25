@@ -97,7 +97,12 @@ export function ClientForm({
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="client-traffic">{t("clientForm.trafficLimit")}</Label>
+          {/* min-h-10 (~2 lines of text-sm) keeps this Input aligned with
+              updateInterval's below even though this label wraps to 2
+              lines on typical dialog widths and the other one doesn't. */}
+          <Label htmlFor="client-traffic" className="min-h-10">
+            {t("clientForm.trafficLimit")}
+          </Label>
           <Input
             id="client-traffic"
             type="number"
@@ -107,7 +112,9 @@ export function ClientForm({
           />
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="client-refresh">{t("clientForm.updateInterval")}</Label>
+          <Label htmlFor="client-refresh" className="min-h-10">
+            {t("clientForm.updateInterval")}
+          </Label>
           <Input
             id="client-refresh"
             type="number"

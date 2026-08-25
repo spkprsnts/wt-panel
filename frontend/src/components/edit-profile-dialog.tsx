@@ -67,8 +67,8 @@ export function EditProfileDialog({
           <Pencil className="size-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden px-0 py-6 sm:max-w-xl">
+        <DialogHeader className="shrink-0 px-6">
           <DialogTitle>{t("profileDialogs.editTitle")}</DialogTitle>
         </DialogHeader>
         <ProfileForm
