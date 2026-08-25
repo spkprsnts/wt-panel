@@ -1,5 +1,6 @@
 import * as React from "react"
 import { Link } from "react-router-dom"
+import { Pencil, Trash2 } from "lucide-react"
 
 import { api, type Client, type KernelStatus, type XrayClient, type XrayInbound, type XrayProtocol } from "@/lib/api"
 import { useDialogPrompt } from "@/components/dialog-prompt"
@@ -648,7 +649,7 @@ function TlsFields({
         <Label htmlFor="tls-sni">Server name (SNI)</Label>
         <Input id="tls-sni" value={f.tlsServerName} onChange={(e) => setF({ ...f, tlsServerName: e.target.value })} />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <Label>Min version</Label>
           <Select value={f.tlsMinVersion} onValueChange={(v) => setF({ ...f, tlsMinVersion: v as InboundFormState["tlsMinVersion"] })}>
@@ -719,7 +720,7 @@ function TlsFields({
         </Select>
       </div>
       {f.tlsCertMode === "file" ? (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-2">
             <Label htmlFor="tls-cert-file">{t("xray.certFileLabel")}</Label>
             <Input id="tls-cert-file" value={f.tlsCertFile} onChange={(e) => setF({ ...f, tlsCertFile: e.target.value })} placeholder="/etc/ssl/certs/example.crt" />
@@ -818,7 +819,7 @@ function RealityFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
         <Label htmlFor="reality-spiderx">SpiderX</Label>
         <Input id="reality-spiderx" value={f.realitySpiderX} onChange={(e) => setF({ ...f, realitySpiderX: e.target.value })} />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <Label htmlFor="reality-min-ver">Min client version</Label>
           <Input id="reality-min-ver" value={f.realityMinClientVer} onChange={(e) => setF({ ...f, realityMinClientVer: e.target.value })} placeholder="26.3.27" />
@@ -851,7 +852,7 @@ function FallbacksEditor({ f, setF }: { f: InboundFormState; setF: React.Dispatc
   return (
     <AdvancedSection title={`Fallbacks (${f.fallbacks.length})`}>
       {f.fallbacks.map((fb, i) => (
-        <div key={i} className="grid grid-cols-5 items-end gap-2 rounded border p-2">
+        <div key={i} className="grid grid-cols-2 items-end gap-2 rounded border p-2 sm:grid-cols-5">
           <div className="flex flex-col gap-1">
             <Label className="text-xs">name</Label>
             <Input value={fb.name} onChange={(e) => update(i, { name: e.target.value })} />
@@ -904,7 +905,7 @@ function NetworkFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
     case "ws":
       return (
         <>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="ws-path">Path</Label>
               <Input id="ws-path" value={f.wsPath} onChange={(e) => setF({ ...f, wsPath: e.target.value })} />
@@ -937,7 +938,7 @@ function NetworkFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
       )
     case "kcp":
       return (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-2">
             <Label htmlFor="kcp-mtu">MTU</Label>
             <Input id="kcp-mtu" type="number" value={f.kcpMtu} onChange={(e) => setF({ ...f, kcpMtu: e.target.value })} />
@@ -967,7 +968,7 @@ function NetworkFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
     case "httpupgrade":
       return (
         <>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="hu-path">Path</Label>
               <Input id="hu-path" value={f.httpupgradePath} onChange={(e) => setF({ ...f, httpupgradePath: e.target.value })} />
@@ -983,7 +984,7 @@ function NetworkFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
     case "xhttp":
       return (
         <>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="xhttp-path">Path</Label>
               <Input id="xhttp-path" value={f.xhttpPath} onChange={(e) => setF({ ...f, xhttpPath: e.target.value })} />
@@ -1010,7 +1011,7 @@ function NetworkFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
           </div>
           <SwitchField id="xhttp-xmux" label={t("xray.network.xhttpXmuxLabel")} checked={f.xhttpEnableXmux} onChange={(v) => setF({ ...f, xhttpEnableXmux: v })} />
           {f.xhttpEnableXmux && (
-            <div className="grid grid-cols-2 gap-3 rounded border p-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 rounded border p-2">
               <div className="flex flex-col gap-1">
                 <Label className="text-xs">maxConcurrency</Label>
                 <Input value={f.xhttpMaxConcurrency} onChange={(e) => setF({ ...f, xhttpMaxConcurrency: e.target.value })} placeholder="16-32" />
@@ -1037,7 +1038,7 @@ function NetworkSecurityFields({
   const t = useT()
   return (
     <>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <Label>{t("xray.networkSecurity.transport")}</Label>
           <Select value={f.network} onValueChange={(v) => setF({ ...f, network: v as Network })}>
@@ -1129,9 +1130,13 @@ function InboundFormDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant={existing ? "outline" : "default"} size={existing ? "sm" : "default"}>
-          {existing ? t("xray.inboundForm.editTrigger") : t("xray.inboundForm.addTrigger")}
-        </Button>
+        {existing ? (
+          <Button variant="outline" size="sm" title={t("xray.inboundForm.editTrigger")}>
+            <Pencil className="size-4" />
+          </Button>
+        ) : (
+          <Button>{t("xray.inboundForm.addTrigger")}</Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
@@ -1166,7 +1171,7 @@ function InboundFormDialog({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="inbound-listen">{t("xray.inboundForm.listen")}</Label>
               <Input id="inbound-listen" value={f.listen} onChange={(e) => setF({ ...f, listen: e.target.value })} placeholder="0.0.0.0" />
@@ -1212,7 +1217,7 @@ function InboundFormDialog({
                 <Label htmlFor="wg-pub">{t("xray.inboundForm.wgPublicKey")}</Label>
                 <Input id="wg-pub" value={f.wgPublicKey} onChange={(e) => setF({ ...f, wgPublicKey: e.target.value })} className="font-mono text-xs" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="wg-address">{t("xray.inboundForm.wgAddress")}</Label>
                   <Input id="wg-address" value={f.wgAddress} onChange={(e) => setF({ ...f, wgAddress: e.target.value })} />
@@ -1387,7 +1392,7 @@ function InboundClientsDialog({ inbound, allClients, onChanged }: { inbound: Xra
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="attach-traffic">{t("xray.inboundClients.trafficLimit")}</Label>
                   <Input id="attach-traffic" type="number" value={trafficGB} onChange={(e) => setTrafficGB(e.target.value)} />
@@ -1618,8 +1623,8 @@ export function XrayPage() {
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
                     <InboundFormDialog existing={ib} onSaved={load} />
-                    <Button size="sm" variant="destructive" onClick={() => handleDelete(ib.ID)}>
-                      {t("common.delete")}
+                    <Button size="sm" variant="destructive" title={t("common.delete")} onClick={() => handleDelete(ib.ID)}>
+                      <Trash2 className="size-4" />
                     </Button>
                   </div>
                 </TableCell>

@@ -1,4 +1,5 @@
 import * as React from "react"
+import { ScrollText } from "lucide-react"
 
 import { api } from "@/lib/api"
 import { useT } from "@/lib/i18n"
@@ -68,8 +69,8 @@ export function ProfileLogsDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="ghost">
-          {t("profileLogs.trigger")}
+        <Button size="sm" variant="ghost" title={t("profileLogs.trigger")}>
+          <ScrollText className="size-4" />
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[80vh] overflow-hidden sm:max-w-2xl">

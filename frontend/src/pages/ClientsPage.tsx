@@ -1,7 +1,7 @@
 import * as React from "react"
 
 import { useT } from "@/lib/i18n"
-import { api, type Client } from "@/lib/api"
+import { api, type Client, type Profile } from "@/lib/api"
 import { useDialogPrompt } from "@/components/dialog-prompt"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -19,7 +19,57 @@ import { AddProfileDialog } from "@/components/add-profile-dialog"
 import { EditProfileDialog } from "@/components/edit-profile-dialog"
 import { ProfileLogsDialog } from "@/components/profile-logs-dialog"
 import { QrDialog } from "@/components/qr-dialog"
-import { ChevronRight, Loader2, QrCode, RotateCw } from "lucide-react"
+import { ChevronRight, Loader2, QrCode, RotateCw, Trash2 } from "lucide-react"
+
+// profileSummaryBadges pulls a couple of the most distinguishing fields out
+// of a profile's own CoreConfig JSON — the CoreType badge alone doesn't tell
+// two olcRTC (or two FreeTurn, etc.) profiles apart at a glance, so this
+// surfaces whichever settings actually vary in practice per core (provider/
+// transport for olcRTC; connection type/proto/route socket for Turnable;
+// connection mode for WebDAV — FreeTurn has nothing else worth surfacing,
+// so it's just the port), plus the actual listen port for every core except
+// olcRTC (which has none
+// — see docs/settings.md upstream, it's a pure client library, not a local
+// listener). The backend always persists `port` once a profile's been
+// provisioned (Turnable/FreeTurn/WebDAV's own Go structs have no
+// `omitempty` on that field — see their provisioner/config.go), whether it
+// was auto-assigned or operator-specified, so this reflects the real
+// running port, not just a manually-typed one. Values are the raw technical
+// strings already used elsewhere on this page (CoreType itself,
+// XrayInbound.Protocol) — not translated, same convention. Best-effort: a
+// profile saved before a field existed, or a parse failure, just means
+// fewer badges, never an error.
+function profileSummaryBadges(profile: Profile): string[] {
+  let cfg: Record<string, unknown> = {}
+  try {
+    cfg = profile.CoreConfig ? JSON.parse(profile.CoreConfig) : {}
+  } catch {
+    return []
+  }
+  const str = (v: unknown) => (typeof v === "string" && v ? v : null)
+  const port = typeof cfg.port === "number" && cfg.port > 0 ? `:${cfg.port}` : null
+
+  let fields: (string | null)[]
+  switch (profile.CoreType) {
+    case "turnable":
+      fields = [str(cfg.connection_type), str(cfg.proto), str(cfg.route_socket), port]
+      break
+    case "olcrtc":
+      fields = [str(cfg.provider), str(cfg.transport)]
+      break
+    case "freeturn":
+      fields = [port]
+      break
+    case "webdav":
+      // "server" mode relays out to external backends — no local listener,
+      // so no port to show, same reasoning as olcRTC.
+      fields = [str(cfg.conn_mode), cfg.conn_mode === "server" ? null : port]
+      break
+    default:
+      fields = []
+  }
+  return fields.filter((v): v is string => v !== null)
+}
 
 function formatBytes(n: number, units: string[]): string {
   if (n <= 0) return "0"
@@ -180,9 +230,10 @@ export function ClientsPage() {
                       <Button
                         size="sm"
                         variant="destructive"
+                        title={t("common.delete")}
                         onClick={() => handleDeleteClient(client.ID)}
                       >
-                        {t("common.delete")}
+                        <Trash2 className="size-4" />
                       </Button>
                     </div>
                   </TableCell>
@@ -209,7 +260,7 @@ export function ClientsPage() {
                             key={profile.ID}
                             className="flex items-center justify-between rounded-md border bg-background p-2 text-sm"
                           >
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <span
                                 className={`inline-block size-2 rounded-full ${
                                   profile.Running ? "bg-green-500" : "bg-muted-foreground/40"
@@ -218,6 +269,11 @@ export function ClientsPage() {
                               />
                               <Badge variant="outline">{profile.CoreType}</Badge>
                               <span>{profile.Name}</span>
+                              {profileSummaryBadges(profile).map((label, i) => (
+                                <Badge key={i} variant="outline">
+                                  {label}
+                                </Badge>
+                              ))}
                               {profile.XrayEnabled && (
                                 <Badge variant="secondary">
                                   {profile.XrayInbound?.Protocol ?? "xray (URI)"}
@@ -259,9 +315,10 @@ export function ClientsPage() {
                               <Button
                                 size="sm"
                                 variant="destructive"
+                                title={t("common.delete")}
                                 onClick={() => handleDeleteProfile(profile.ID)}
                               >
-                                {t("common.delete")}
+                                <Trash2 className="size-4" />
                               </Button>
                             </div>
                           </div>

@@ -905,7 +905,7 @@ export function ProfileForm({
                       placeholder="1.2.3.4:443"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="flex flex-col gap-2">
                       <Label htmlFor="xray-hc-interval">{t("profileForm.xray.hcIntervalLabel")}</Label>
                       <Input
@@ -1063,7 +1063,7 @@ export function ProfileForm({
           <div className="rounded-md border p-3">
             <p className="mb-3 text-sm font-medium">{t("profileForm.turnable.routeTitle")}</p>
             <div className="flex flex-col gap-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="route-host">{t("profileForm.hostLabel")}</Label>
                   <Input
@@ -1084,7 +1084,7 @@ export function ProfileForm({
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label>{t("profileForm.turnable.socketType")}</Label>
                   <Select
@@ -1230,7 +1230,7 @@ export function ProfileForm({
 
           {oc.transport === "vp8channel" && (
             <AdvancedFields>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="vp8-fps">VP8 stream FPS</Label>
                   <Input id="vp8-fps" type="number" value={oc.vp8Fps} onChange={(e) => setOc({ ...oc, vp8Fps: e.target.value })} />
@@ -1245,7 +1245,7 @@ export function ProfileForm({
 
           {oc.transport === "seichannel" && (
             <AdvancedFields>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="sei-fps">H264 stream FPS</Label>
                   <Input id="sei-fps" type="number" value={oc.seiFps} onChange={(e) => setOc({ ...oc, seiFps: e.target.value })} />
@@ -1283,7 +1283,7 @@ export function ProfileForm({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="video-width">Width (px)</Label>
                   <Input id="video-width" type="number" value={oc.videoWidth} onChange={(e) => setOc({ ...oc, videoWidth: e.target.value })} />
@@ -1315,7 +1315,7 @@ export function ProfileForm({
                 </div>
               </div>
               {oc.videoCodec === "tile" && (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="flex flex-col gap-2">
                     <Label htmlFor="video-tile-module">Tile size (px)</Label>
                     <Input id="video-tile-module" type="number" value={oc.videoTileModule} onChange={(e) => setOc({ ...oc, videoTileModule: e.target.value })} />
@@ -1376,7 +1376,7 @@ export function ProfileForm({
 
           <div className="rounded-md border p-3">
             <p className="mb-3 text-sm font-medium">{t("profileForm.freeturn.forwardTitle")}</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="connect-host">{t("profileForm.hostLabel")}</Label>
                 <Input
@@ -1476,7 +1476,7 @@ export function ProfileForm({
           </div>
 
           {wd.connMode === "selfhosted" && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="webdav-login">{t("profileForm.webdav.loginLabel")}</Label>
                 <Input
@@ -1556,7 +1556,7 @@ export function ProfileForm({
                       }
                       placeholder="https://dav.example.com"
                     />
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       <Input
                         value={b.login}
                         onChange={(e) =>
@@ -1588,7 +1588,7 @@ export function ProfileForm({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="webdav-proxy">{t("profileForm.webdav.proxyLabel")}</Label>
               <Input
@@ -1680,7 +1680,7 @@ export function ProfileForm({
                 {t("profileForm.webdav.presetReset")}
               </Button>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="webdav-poll-min">poll-min</Label>
                 <Input
@@ -1728,7 +1728,7 @@ export function ProfileForm({
                   placeholder="8"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="webdav-read-min">read-min</Label>
                   <Input

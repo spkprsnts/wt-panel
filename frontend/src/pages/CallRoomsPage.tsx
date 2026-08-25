@@ -1,4 +1,5 @@
 import * as React from "react"
+import { Pencil, Trash2 } from "lucide-react"
 
 import { useT } from "@/lib/i18n"
 import type { TranslationKey } from "@/i18n"
@@ -85,8 +86,8 @@ function RoomDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {room ? (
-          <Button size="sm" variant="ghost">
-            {t("rooms.editTrigger")}
+          <Button size="sm" variant="ghost" title={t("rooms.editTrigger")}>
+            <Pencil className="size-4" />
           </Button>
         ) : (
           <Button>{t("rooms.addTrigger")}</Button>
@@ -212,8 +213,8 @@ export function CallRoomsPage() {
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
                     <RoomDialog room={room} onSaved={load} />
-                    <Button size="sm" variant="destructive" onClick={() => handleDelete(room.ID)}>
-                      {t("common.delete")}
+                    <Button size="sm" variant="destructive" title={t("common.delete")} onClick={() => handleDelete(room.ID)}>
+                      <Trash2 className="size-4" />
                     </Button>
                   </div>
                 </TableCell>
