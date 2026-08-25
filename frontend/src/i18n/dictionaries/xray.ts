@@ -19,7 +19,7 @@ export const xray = {
     "xray.reality.privateKey": "Приватный ключ",
     "xray.reality.publicKey": "Публичный ключ",
     "xray.reality.shortIds": "Short IDs",
-    "xray.reality.addShortId": "+ Short ID",
+    "xray.reality.resetShortIds": "Сбросить",
     "xray.reality.maxTimediff": "Max timediff, мс",
     "xray.reality.advancedNote":
       "SpiderX, Min/Max client version — узкоспециальные настройки, в большинстве случаев значения по умолчанию подходят.",
@@ -116,7 +116,7 @@ export const xray = {
     "xray.reality.privateKey": "Private key",
     "xray.reality.publicKey": "Public key",
     "xray.reality.shortIds": "Short IDs",
-    "xray.reality.addShortId": "+ Short ID",
+    "xray.reality.resetShortIds": "Reset",
     "xray.reality.maxTimediff": "Max timediff, ms",
     "xray.reality.advancedNote":
       "SpiderX, Min/Max client version — specialized settings, the defaults work for most setups.",

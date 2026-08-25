@@ -1,6 +1,7 @@
 package api
 
 import (
+	"math/rand/v2"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -59,15 +60,24 @@ func (s *Server) keygenReality(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"privateKey": priv, "publicKey": pub})
 }
 
-// keygenShortID generates one Reality shortId candidate (8 random bytes,
-// 16 hex chars) — 3x-ui's UI generates several of these to fill
-// realitySettings.shortIds; the operator can click "Generate" repeatedly to
-// build a list.
-func (s *Server) keygenShortID(c *gin.Context) {
-	id, err := common.RandomHexKey(8)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+// keygenShortIds generates a full set of Reality shortId candidates for
+// realitySettings.shortIds — mirroring 3x-ui's own default: one id at each
+// valid byte length from 1 to 8 (2 to 16 hex chars — 0 bytes is a valid
+// length too, but that's the wildcard "match any client shortId" value, not
+// something to hand out as a generated candidate), in random order, rather
+// than 8 same-length ids or a single one. RandomHexKey supplies the actual
+// randomness for each id's content (crypto/rand); math/rand/v2 only
+// shuffles the harmless order they come back in.
+func (s *Server) keygenShortIds(c *gin.Context) {
+	ids := make([]string, 8)
+	for i := range ids {
+		id, err := common.RandomHexKey(i + 1)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		ids[i] = id
 	}
-	c.JSON(http.StatusOK, gin.H{"shortId": id})
+	rand.Shuffle(len(ids), func(i, j int) { ids[i], ids[j] = ids[j], ids[i] })
+	c.JSON(http.StatusOK, gin.H{"shortIds": ids})
 }

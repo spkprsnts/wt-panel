@@ -138,7 +138,7 @@ func New(db *gorm.DB, cfg *config.Config, authSvc *auth.Service, registry *provi
 		authorized.DELETE("/xray/clients/:clientId", s.detachXrayClient)
 
 		authorized.POST("/keygen/reality", s.keygenReality)
-		authorized.POST("/keygen/short-id", s.keygenShortID)
+		authorized.POST("/keygen/short-ids", s.keygenShortIds)
 
 		authorized.GET("/xray/status", s.getXrayStatus)
 		authorized.GET("/xray/logs", s.getXrayLogs)

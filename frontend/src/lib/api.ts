@@ -532,7 +532,7 @@ export const api = {
     request<{ privateKey: string; publicKey: string }>("/api/keygen/wireguard", { method: "POST" }),
   keygenReality: () =>
     request<{ privateKey: string; publicKey: string }>("/api/keygen/reality", { method: "POST" }),
-  keygenShortId: () => request<{ shortId: string }>("/api/keygen/short-id", { method: "POST" }),
+  keygenShortIds: () => request<{ shortIds: string[] }>("/api/keygen/short-ids", { method: "POST" }),
 
   getPanelSettings: () => request<PanelSettings>("/api/settings/panel"),
   updatePanelSettings: (input: PanelSettingsInput) =>

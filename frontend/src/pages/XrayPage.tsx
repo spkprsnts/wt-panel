@@ -752,6 +752,23 @@ function TlsFields({
 
 function RealityFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<React.SetStateAction<InboundFormState>> }) {
   const t = useT()
+  // 3x-ui pre-fills a full batch of shortIds the moment Reality becomes the
+  // active security mode, rather than leaving the operator to build a list
+  // by hand — a Reality inbound doesn't work without at least one, and
+  // xray-core accepts any length from 1 to 8 bytes per id, so one of each
+  // length (see keygenShortIds on the backend) is a sensible default set
+  // instead of a single fixed-length value. This component only mounts
+  // while security === "reality" (see NetworkSecurityFields), so mount is
+  // exactly that moment. Guarded on the field still being empty at mount
+  // time so it never clobbers a value already loaded from an existing
+  // inbound (edit mode) or typed in.
+  React.useEffect(() => {
+    if (f.realityShortIds) return
+    api.keygenShortIds().then(({ shortIds }) =>
+      setF((s) => (s.realityShortIds ? s : { ...s, realityShortIds: shortIds.join(",") }))
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   return (
     <AdvancedSection title={t("xray.reality.title")}>
       <div className="flex flex-col gap-2">
@@ -806,12 +823,10 @@ function RealityFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
             variant="outline"
             size="sm"
             onClick={() =>
-              api.keygenShortId().then(({ shortId }) =>
-                setF((s) => ({ ...s, realityShortIds: s.realityShortIds ? `${s.realityShortIds},${shortId}` : shortId }))
-              )
+              api.keygenShortIds().then(({ shortIds }) => setF((s) => ({ ...s, realityShortIds: shortIds.join(",") })))
             }
           >
-            {t("xray.reality.addShortId")}
+            {t("xray.reality.resetShortIds")}
           </Button>
         </div>
       </div>
