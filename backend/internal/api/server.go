@@ -22,11 +22,12 @@ import (
 )
 
 type Server struct {
-	db       *gorm.DB
-	cfg      *config.Config
-	authSvc  *auth.Service
-	registry *provisioner.Registry
-	jobs     *kernels.JobManager
+	db           *gorm.DB
+	cfg          *config.Config
+	authSvc      *auth.Service
+	loginLimiter *auth.LoginLimiter
+	registry     *provisioner.Registry
+	jobs         *kernels.JobManager
 	// restartCh is how the "Перезапустить панель" button reaches main()'s
 	// select loop — see restartPanel and main.go's relaunchSelf. Buffered
 	// so the handler's send never blocks even if main hasn't picked a
@@ -66,7 +67,7 @@ func generateBootID() string {
 }
 
 func New(db *gorm.DB, cfg *config.Config, authSvc *auth.Service, registry *provisioner.Registry, restartCh chan<- struct{}, basePath string, xrayMgr *xray.Manager, version string) *gin.Engine {
-	s := &Server{db: db, cfg: cfg, authSvc: authSvc, registry: registry, jobs: kernels.NewJobManager(), restartCh: restartCh, xrayMgr: xrayMgr, version: version, bootID: generateBootID()}
+	s := &Server{db: db, cfg: cfg, authSvc: authSvc, loginLimiter: auth.NewLoginLimiter(), registry: registry, jobs: kernels.NewJobManager(), restartCh: restartCh, xrayMgr: xrayMgr, version: version, bootID: generateBootID()}
 
 	r := gin.Default()
 
@@ -147,6 +148,9 @@ func New(db *gorm.DB, cfg *config.Config, authSvc *auth.Service, registry *provi
 
 		authorized.GET("/account", s.getAccount)
 		authorized.PUT("/account/password", s.changePassword)
+		authorized.POST("/account/totp/setup", s.startTotpSetup)
+		authorized.POST("/account/totp/confirm", s.confirmTotpSetup)
+		authorized.POST("/account/totp/disable", s.disableTotp)
 		authorized.GET("/settings", s.getSettings)
 		authorized.GET("/settings/panel", s.getPanelSettings)
 		authorized.PUT("/settings/panel", s.updatePanelSettings)

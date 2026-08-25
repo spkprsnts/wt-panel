@@ -63,6 +63,12 @@ type WgConfig struct {
 type LoginRequest struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
+	// Code is the 6-digit TOTP code, required only once the username/
+	// password have already checked out AND the account has 2FA enabled —
+	// see handleLogin. Deliberately not `binding:"required"`: a first
+	// submission with the password alone is the normal first half of the
+	// two-step flow, not an error.
+	Code string `json:"code"`
 }
 
 type LoginResponse struct {

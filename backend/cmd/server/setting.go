@@ -33,6 +33,15 @@ func runSetting(args []string) {
 	password := fs.String("password", "", "set the admin password (min 8 characters)")
 	webBasePath := fs.String("webBasePath", "", "set the panel's URI base path (must start and end with /)")
 	clearTLS := fs.Bool("clearTls", false, "clear the configured TLS cert/key/domain, reverting to plain HTTP")
+	// clearTOTP is the break-glass recovery for 2FA specifically: unlike a
+	// forgotten password (recoverable via -password above), a lost/broken
+	// authenticator app has no in-app recovery path at all — disableTotp
+	// itself requires a valid code, so an admin locked out by 2FA (wrong
+	// device time, a botched authenticator import, lost phone, ...) can't
+	// self-service through the API or UI even once. This is the same
+	// "stop the service, fix the DB directly" escape hatch clearTls already
+	// is for a bad TLS config.
+	clearTOTP := fs.Bool("clearTotp", false, "disable 2FA for the admin account (use when locked out and unable to enter a valid code)")
 	fs.Parse(args)
 
 	cfg := config.Load()
@@ -56,6 +65,18 @@ func runSetting(args []string) {
 			log.Fatalf("hash password: %v", err)
 		}
 		admin.PasswordHash = string(hash)
+		if err := database.Save(&admin).Error; err != nil {
+			log.Fatalf("save admin account: %v", err)
+		}
+		changed = true
+	}
+
+	if *clearTOTP {
+		var admin models.AdminUser
+		if err := database.First(&admin, 1).Error; err != nil {
+			log.Fatalf("load admin account: %v", err)
+		}
+		admin.TOTPSecret = ""
 		if err := database.Save(&admin).Error; err != nil {
 			log.Fatalf("save admin account: %v", err)
 		}
@@ -100,6 +121,11 @@ func printCurrentSettings(database *gorm.DB) {
 	}
 
 	fmt.Printf("Login:      %s\n", admin.Username)
+	if admin.TOTPSecret != "" {
+		fmt.Println("2FA:        on (use -clearTotp if locked out)")
+	} else {
+		fmt.Println("2FA:        off")
+	}
 	fmt.Printf("URI path:   %s\n", ps.BasePath)
 	if ps.ListenDomain != "" {
 		fmt.Printf("Domain:     %s\n", ps.ListenDomain)

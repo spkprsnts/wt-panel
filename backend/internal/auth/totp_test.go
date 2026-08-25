@@ -1,0 +1,47 @@
+package auth
+
+import (
+	"encoding/base32"
+	"testing"
+	"time"
+)
+
+// TestTotpCodeAtRFC6238Vector checks totpCodeAt against RFC 6238 Appendix
+// B's own published SHA1 test vector: the 20-byte ASCII key
+// "12345678901234567890" at T=59s (a 30s step, so counter=1) produces the
+// 8-digit code 94287082. This package always truncates to 6 digits, which
+// is exactly that value's last 6 digits (== the value mod 10^6) — what a
+// real 6-digit authenticator app displays.
+func TestTotpCodeAtRFC6238Vector(t *testing.T) {
+	rawKey := "12345678901234567890"
+	secret := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString([]byte(rawKey))
+
+	got, err := totpCodeAt(secret, 1)
+	if err != nil {
+		t.Fatalf("totpCodeAt: %v", err)
+	}
+	if want := "287082"; got != want {
+		t.Errorf("totpCodeAt(counter=1) = %q, want %q", got, want)
+	}
+}
+
+func TestValidateTOTPCodeRoundTrip(t *testing.T) {
+	secret, err := GenerateTOTPSecret()
+	if err != nil {
+		t.Fatalf("GenerateTOTPSecret: %v", err)
+	}
+	// Matches exactly what ValidateTOTPCode itself computes internally, so
+	// the generated code lands in the same 30s step it'll be checked
+	// against.
+	now := uint64(time.Now().Unix()) / uint64(totpPeriod.Seconds())
+	code, err := totpCodeAt(secret, now)
+	if err != nil {
+		t.Fatalf("totpCodeAt: %v", err)
+	}
+	if !ValidateTOTPCode(secret, code) {
+		t.Error("ValidateTOTPCode rejected a code generated for the current step")
+	}
+	if ValidateTOTPCode(secret, "000000") && code != "000000" {
+		t.Error("ValidateTOTPCode accepted an unrelated code")
+	}
+}

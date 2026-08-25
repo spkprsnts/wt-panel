@@ -307,7 +307,13 @@ func applyPanelSettings(defaultListenAddr string, ps *models.PanelSettings, rout
 				host = h
 			}
 			if host != domain {
-				http.NotFound(w, r)
+				// 403, not 404 — mirrors 3x-ui's own webDomain check. The
+				// request IS understood (this is a real vhost check, not a
+				// missing route), it's just refused for this Host, so 403 is
+				// the semantically correct code — and it's a clearer signal
+				// than a 404 for an operator who forgot they'd restricted
+				// the panel to a domain and is now poking it by IP.
+				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 				return
 			}
 			inner.ServeHTTP(w, r)

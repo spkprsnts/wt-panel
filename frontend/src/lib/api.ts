@@ -63,7 +63,14 @@ async function request<T>(path: string, options: RequestInit = {}, timeoutMs?: n
   } finally {
     if (timer !== undefined) window.clearTimeout(timer)
   }
-  if (res.status === 401) {
+  // /api/login is excluded: its own 401s (wrong password, totp_required, a
+  // wrong/expired TOTP code) are meaningful in-context responses LoginPage
+  // needs to actually read — not "your session expired". Redirecting to
+  // /login here would just reload the login page out from under LoginPage's
+  // own catch block before it ever gets to look at the response, wiping
+  // out its state (which step it's on, any error) and making a correct
+  // password + 2FA look like it always fails with no explanation.
+  if (res.status === 401 && path !== "/api/login") {
     clearToken()
     window.location.href = BASE_PATH + "/login"
     throw new ApiError(401, "unauthorized")
@@ -258,10 +265,10 @@ export interface XrayInbound {
 }
 
 export const api = {
-  login: (username: string, password: string) =>
+  login: (username: string, password: string, code?: string) =>
     request<{ token: string }>("/api/login", {
       method: "POST",
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, code: code ?? "" }),
     }),
 
   listClients: () => request<Client[]>("/api/clients"),
@@ -548,11 +555,24 @@ export const api = {
   updatePanel: () =>
     request<{ updating: boolean; version: string }>("/api/settings/panel/update", { method: "POST" }),
 
-  getAccount: () => request<{ username: string }>("/api/account"),
+  getAccount: () => request<{ username: string; totpEnabled: boolean }>("/api/account"),
   changePassword: (currentPassword: string, newPassword: string) =>
     request<void>("/api/account/password", {
       method: "PUT",
       body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+
+  startTotpSetup: () =>
+    request<{ secret: string; qrDataUri: string }>("/api/account/totp/setup", { method: "POST" }),
+  confirmTotpSetup: (secret: string, code: string) =>
+    request<void>("/api/account/totp/confirm", {
+      method: "POST",
+      body: JSON.stringify({ secret, code }),
+    }),
+  disableTotp: (code: string) =>
+    request<void>("/api/account/totp/disable", {
+      method: "POST",
+      body: JSON.stringify({ code }),
     }),
 
   getSettings: (timeoutMs?: number) => request<Record<string, string>>("/api/settings", {}, timeoutMs),

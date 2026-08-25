@@ -12,6 +12,22 @@ export const settings = {
     "settings.account.changed": "Пароль изменён",
     "settings.account.changePassword": "Сменить пароль",
 
+    "settings.account.totp.title": "Двухфакторная аутентификация (2FA)",
+    "settings.account.totp.statusOn": "Включена",
+    "settings.account.totp.statusOff": "Выключена — при входе достаточно пароля",
+    "settings.account.totp.enableButton": "Включить 2FA",
+    "settings.account.totp.enableTitle": "Включение 2FA",
+    "settings.account.totp.enableDescription":
+      "Отсканируйте QR-код в приложении-аутентификаторе (Google Authenticator, Authy и т.п.) или введите секрет вручную, затем подтвердите код из приложения.",
+    "settings.account.totp.setupFailed": "Не удалось сгенерировать секрет",
+    "settings.account.totp.codeLabel": "Код из приложения",
+    "settings.account.totp.confirmButton": "Подтвердить и включить",
+    "settings.account.totp.confirmFailed": "Не удалось подтвердить код",
+    "settings.account.totp.disableButton": "Выключить 2FA",
+    "settings.account.totp.disableTitle": "Выключение 2FA",
+    "settings.account.totp.disableDescription": "Введите текущий код из приложения, чтобы подтвердить выключение.",
+    "settings.account.totp.disableFailed": "Не удалось выключить 2FA",
+
     "settings.network.title": "Сеть панели",
     "settings.network.description":
       "Сохраняется сразу, но применяется только после перезапуска панели — процесс читает эти настройки один раз при старте",
@@ -98,6 +114,22 @@ export const settings = {
     "settings.account.changeFailed": "Failed to change the password",
     "settings.account.changed": "Password changed",
     "settings.account.changePassword": "Change password",
+
+    "settings.account.totp.title": "Two-factor authentication (2FA)",
+    "settings.account.totp.statusOn": "Enabled",
+    "settings.account.totp.statusOff": "Disabled — a password alone is enough to sign in",
+    "settings.account.totp.enableButton": "Enable 2FA",
+    "settings.account.totp.enableTitle": "Enable 2FA",
+    "settings.account.totp.enableDescription":
+      "Scan the QR code with an authenticator app (Google Authenticator, Authy, etc.) or enter the secret manually, then confirm with a code from the app.",
+    "settings.account.totp.setupFailed": "Failed to generate a secret",
+    "settings.account.totp.codeLabel": "Code from the app",
+    "settings.account.totp.confirmButton": "Confirm and enable",
+    "settings.account.totp.confirmFailed": "Failed to confirm the code",
+    "settings.account.totp.disableButton": "Disable 2FA",
+    "settings.account.totp.disableTitle": "Disable 2FA",
+    "settings.account.totp.disableDescription": "Enter the current code from the app to confirm disabling it.",
+    "settings.account.totp.disableFailed": "Failed to disable 2FA",
 
     "settings.network.title": "Panel network",
     "settings.network.description":

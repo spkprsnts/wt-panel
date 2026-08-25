@@ -6,6 +6,11 @@ export const login = {
     "login.error": "Неверный логин или пароль",
     "login.submitting": "Входим...",
     "login.submit": "Войти",
+    "login.totpSubtitle": "Введите код из приложения-аутентификатора",
+    "login.totpCode": "Код 2FA",
+    "login.totpError": "Неверный код",
+    "login.back": "← Назад",
+    "login.tooManyAttempts": "Слишком много неудачных попыток входа — попробуйте позже",
   },
   en: {
     "login.subtitle": "Welcome!",
@@ -14,5 +19,10 @@ export const login = {
     "login.error": "Incorrect username or password",
     "login.submitting": "Signing in...",
     "login.submit": "Sign in",
+    "login.totpSubtitle": "Enter the code from your authenticator app",
+    "login.totpCode": "2FA code",
+    "login.totpError": "Invalid code",
+    "login.back": "← Back",
+    "login.tooManyAttempts": "Too many failed login attempts — try again later",
   },
 }

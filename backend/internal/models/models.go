@@ -26,6 +26,13 @@ type AdminUser struct {
 	gorm.Model
 	Username     string `gorm:"uniqueIndex;not null"`
 	PasswordHash string `gorm:"not null"`
+	// TOTPSecret is the base32 RFC 6238 secret for this admin's optional
+	// 2FA — empty means 2FA is off, same "presence is the flag" convention
+	// as ListenDomain/WebDAVPublicHost elsewhere in this file. Only ever
+	// set via confirmTotpSetup, which requires a real passing code first —
+	// never straight from the setup step — so a mis-scanned QR code or a
+	// typo can't lock the admin out of their own account.
+	TOTPSecret string
 }
 
 // Client is an end user of the VPN service.

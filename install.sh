@@ -1173,11 +1173,12 @@ run_setting_offline() {
 # `sudo wtp` (see install_wtp_command) or `sudo ./install.sh menu`, and as
 # the default action of a bare `wtp`/`install.sh` with no arguments once the
 # panel is already installed and a real terminal is attached (see the
-# dispatcher below). Path/password/TLS-clear go straight through
+# dispatcher below). Path/password/TLS-clear/2FA-clear go straight through
 # run_setting_offline rather than the panel's HTTP API, specifically so
-# this still works when the panel itself won't start — exactly the
-# situation a "reset my password" or "clear a bad TLS config" request
-# usually comes from. SSL/restart/update/uninstall just call the existing
+# this still works when the panel itself won't start (or, for 2FA, when the
+# admin can't get a valid code accepted at all) — exactly the situation a
+# "reset my password" or "clear a bad TLS config" request usually comes
+# from. SSL/restart/update/uninstall just call the existing
 # cmd_ssl/cmd_install/cmd_uninstall — no separate logic to keep in sync.
 # pause_for_key waits for a single keypress before the menu loop redraws —
 # used after screens that are pure information (status, logs) rather than a
@@ -1209,6 +1210,7 @@ cmd_menu() {
 		echo "6. Show logs"
 		echo "7. Update the panel"
 		echo "8. Remove the panel"
+		echo "9. Disable 2FA (if locked out)"
 		echo "0. Exit"
 		echo
 		read -r -p "Choice: " choice || break
@@ -1262,6 +1264,15 @@ cmd_menu() {
 			if [[ "$confirm" =~ ^[Yy]$ ]]; then
 				cmd_uninstall
 				return
+			fi
+			;;
+		9)
+			# Unlike the password (item 3, recoverable any time), 2FA has no
+			# self-service recovery in the panel itself once an admin is
+			# actually locked out — disabling it requires a valid code, the
+			# exact thing they don't have. This is the only way back in.
+			if run_setting_offline -clearTotp; then
+				green "2FA disabled — log in with just the password now."
 			fi
 			;;
 		0)

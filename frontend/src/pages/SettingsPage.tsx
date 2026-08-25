@@ -15,7 +15,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const SETTINGS_LABEL_KEYS: Record<string, TranslationKey> = {
@@ -36,9 +44,167 @@ const SETTINGS_LABEL_KEYS: Record<string, TranslationKey> = {
   webdavPublicHost: "settings.label.webdavPublicHost",
 }
 
+// TotpEnableDialog walks the operator through 3x-ui-style 2FA setup: scan a
+// QR (or type the secret manually), then prove the authenticator app is
+// actually wired up correctly by entering one real code before anything
+// gets saved — see startTotpSetup/confirmTotpSetup's own doc comments for
+// why the secret is never persisted before that proof.
+function TotpEnableDialog({ onEnabled }: { onEnabled: () => void }) {
+  const t = useT()
+  const [open, setOpen] = React.useState(false)
+  const [secret, setSecret] = React.useState("")
+  const [qrDataUri, setQrDataUri] = React.useState("")
+  const [code, setCode] = React.useState("")
+  const [loading, setLoading] = React.useState(false)
+  const [loadError, setLoadError] = React.useState<string | null>(null)
+  const [confirmError, setConfirmError] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    if (!open) return
+    setCode("")
+    setConfirmError(null)
+    setLoadError(null)
+    api
+      .startTotpSetup()
+      .then((res) => {
+        setSecret(res.secret)
+        setQrDataUri(res.qrDataUri)
+      })
+      .catch((err) => setLoadError(err instanceof Error ? err.message : t("settings.account.totp.setupFailed")))
+  }, [open, t])
+
+  async function handleConfirm(e: React.FormEvent) {
+    e.preventDefault()
+    setConfirmError(null)
+    setLoading(true)
+    try {
+      await api.confirmTotpSetup(secret, code)
+      setOpen(false)
+      onEnabled()
+    } catch (err) {
+      setConfirmError(err instanceof Error ? err.message : t("settings.account.totp.confirmFailed"))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button type="button" variant="outline">
+          {t("settings.account.totp.enableButton")}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{t("settings.account.totp.enableTitle")}</DialogTitle>
+          <DialogDescription>{t("settings.account.totp.enableDescription")}</DialogDescription>
+        </DialogHeader>
+        {loadError && <p className="text-sm text-destructive">{loadError}</p>}
+        {!loadError && !qrDataUri && <p className="text-sm text-muted-foreground">{t("common.loading")}</p>}
+        {qrDataUri && (
+          <form onSubmit={handleConfirm} className="flex flex-col gap-3">
+            <img src={qrDataUri} alt="QR" className="mx-auto size-48 rounded-md border p-2" />
+            <code className="break-all rounded-md border bg-muted p-2 text-center text-xs">{secret}</code>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="totp-confirm-code">{t("settings.account.totp.codeLabel")}</Label>
+              <Input
+                id="totp-confirm-code"
+                inputMode="numeric"
+                maxLength={6}
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                autoFocus
+                required
+              />
+            </div>
+            {confirmError && <p className="text-sm text-destructive">{confirmError}</p>}
+            <DialogFooter>
+              <Button type="submit" disabled={loading}>
+                {loading ? t("common.saving") : t("settings.account.totp.confirmButton")}
+              </Button>
+            </DialogFooter>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// TotpDisableDialog requires one more valid code before turning 2FA off —
+// mirrors disableTotp's own requirement on the backend, so losing access to
+// the authenticator app isn't itself a reason 2FA can be switched off (a
+// stolen bearer token alone isn't enough).
+function TotpDisableDialog({ onDisabled }: { onDisabled: () => void }) {
+  const t = useT()
+  const [open, setOpen] = React.useState(false)
+  const [code, setCode] = React.useState("")
+  const [loading, setLoading] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    if (open) {
+      setCode("")
+      setError(null)
+    }
+  }, [open])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    try {
+      await api.disableTotp(code)
+      setOpen(false)
+      onDisabled()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("settings.account.totp.disableFailed"))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button type="button" variant="destructive">
+          {t("settings.account.totp.disableButton")}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{t("settings.account.totp.disableTitle")}</DialogTitle>
+          <DialogDescription>{t("settings.account.totp.disableDescription")}</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="totp-disable-code">{t("settings.account.totp.codeLabel")}</Label>
+            <Input
+              id="totp-disable-code"
+              inputMode="numeric"
+              maxLength={6}
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              autoFocus
+              required
+            />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="submit" variant="destructive" disabled={loading}>
+              {loading ? t("common.saving") : t("settings.account.totp.disableButton")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function AccountCard() {
   const t = useT()
   const [username, setUsername] = React.useState<string | null>(null)
+  const [totpEnabled, setTotpEnabled] = React.useState(false)
   const [currentPassword, setCurrentPassword] = React.useState("")
   const [newPassword, setNewPassword] = React.useState("")
   const [confirmPassword, setConfirmPassword] = React.useState("")
@@ -46,9 +212,17 @@ function AccountCard() {
   const [error, setError] = React.useState<string | null>(null)
   const [success, setSuccess] = React.useState(false)
 
-  React.useEffect(() => {
-    api.getAccount().then((a) => setUsername(a.username)).catch(() => {})
-  }, [])
+  function loadAccount() {
+    api
+      .getAccount()
+      .then((a) => {
+        setUsername(a.username)
+        setTotpEnabled(a.totpEnabled)
+      })
+      .catch(() => {})
+  }
+
+  React.useEffect(loadAccount, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -119,6 +293,22 @@ function AccountCard() {
             {loading ? t("common.saving") : t("settings.account.changePassword")}
           </Button>
         </form>
+
+        <div className="mt-6 flex max-w-sm flex-col gap-2 border-t pt-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">{t("settings.account.totp.title")}</p>
+              <p className="text-xs text-muted-foreground">
+                {totpEnabled ? t("settings.account.totp.statusOn") : t("settings.account.totp.statusOff")}
+              </p>
+            </div>
+            {totpEnabled ? (
+              <TotpDisableDialog onDisabled={loadAccount} />
+            ) : (
+              <TotpEnableDialog onEnabled={loadAccount} />
+            )}
+          </div>
+        </div>
       </CardContent>
     </Card>
   )

@@ -16,7 +16,7 @@ func (s *Server) getAccount(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "account not found"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"username": admin.Username})
+	c.JSON(http.StatusOK, gin.H{"username": admin.Username, "totpEnabled": admin.TOTPSecret != ""})
 }
 
 type changePasswordRequest struct {
