@@ -432,6 +432,14 @@ prompt_kernel_selection() {
 		echo "turnable freeturn xray webdav olcrtc"
 		return
 	fi
+	# Reject anything that isn't a comma-separated list of 1-5 (e.g. a typo
+	# like "6" or stray letters) instead of silently treating every
+	# unrecognized token as "not picked", which would otherwise skip every
+	# kernel with no indication the input didn't parse.
+	if [[ ! "$choice" =~ ^[1-5](,[1-5])*$ ]]; then
+		red "Unrecognized selection \"${choice}\" — installing all kernels instead." >&2
+		return
+	fi
 	local names=(turnable freeturn xray webdav olcrtc) skip="" i picked=",${choice},"
 	for i in 1 2 3 4 5; do
 		[[ "$picked" != *",${i},"* ]] && skip+=" ${names[$((i - 1))]}"
@@ -450,7 +458,7 @@ install_kernels() {
 
 	if ! wait_for_panel "$base"; then
 		red "The panel isn't responding — skipping kernel auto-install (do it manually on the \"Kernels\" page)."
-		return
+		return 1
 	fi
 
 	local login_resp token
@@ -458,12 +466,12 @@ install_kernels() {
 		-H 'Content-Type: application/json' \
 		-d "{\"username\":\"admin\",\"password\":\"${admin_password}\"}") || {
 		red "Failed to log in to the panel for kernel auto-install — do it manually on the \"Kernels\" page."
-		return
+		return 1
 	}
 	token=$(json_field "$login_resp" token)
 	if [[ -z "$token" ]]; then
 		red "Logging in to the panel returned no token — skipping kernel auto-install."
-		return
+		return 1
 	fi
 
 	local api="http://127.0.0.1:${LISTEN_PORT}${base}api"
@@ -1014,7 +1022,12 @@ cmd_install() {
 			yellow "Kernel auto-install skipped."
 		else
 			section "Installing kernels"
-			install_kernels "$admin_password" "$base_path"
+			# `|| true`: install_kernels returns 1 on a login/panel failure, and
+			# under this script's `set -e` an unguarded non-zero return here
+			# would abort the rest of the install (SSL setup, final summary)
+			# instead of just leaving kernels for the operator to install
+			# manually later, which is the whole point of it being best-effort.
+			install_kernels "$admin_password" "$base_path" || true
 		fi
 
 		if [[ $no_ssl -eq 1 ]]; then
@@ -1220,7 +1233,11 @@ cmd_menu() {
 			fi
 			;;
 		4)
-			cmd_ssl
+			# `|| true` matters: apply_ssl_settings returns 1 on failure (e.g. a
+			# wrong admin password), and under this script's `set -e` an
+			# unguarded non-zero return here would kill the whole menu loop
+			# instead of just redrawing it.
+			cmd_ssl || true
 			;;
 		5)
 			systemctl restart "$SERVICE_NAME"

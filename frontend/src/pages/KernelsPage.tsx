@@ -22,6 +22,11 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Loader2, RefreshCw } from "lucide-react"
 
+// kernelJobPollTimeoutMs bounds each individual status poll request so a
+// single hung request can't stall the recursive poll() chain forever — see
+// SettingsPage's restartPollTimeoutMs for the same fix applied there first.
+const kernelJobPollTimeoutMs = 10000
+
 function formatDate(iso?: string) {
   if (!iso) return null
   return new Date(iso).toLocaleString("ru-RU")
@@ -61,7 +66,7 @@ function useKernelJob(kernelName: string, onInstalled: () => void) {
     (jobId: string) => {
       pollRef.current = window.setTimeout(async () => {
         try {
-          const updated = await api.getKernelJob(kernelName)
+          const updated = await api.getKernelJob(kernelName, kernelJobPollTimeoutMs)
           if (!updated) return
           setJob(updated)
           if (updated.status === "running") {

@@ -459,9 +459,9 @@ export const api = {
   // last result) after a full page reload without having remembered
   // anything itself. null (not a throw) when this kernel has never had a
   // job, which is the common case right after the panel starts.
-  getKernelJob: async (kernelName: string): Promise<BuildJob | null> => {
+  getKernelJob: async (kernelName: string, timeoutMs?: number): Promise<BuildJob | null> => {
     try {
-      return await request<BuildJob>(`/api/kernels/job/${kernelName}`)
+      return await request<BuildJob>(`/api/kernels/job/${kernelName}`, {}, timeoutMs)
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) return null
       throw err
