@@ -13,62 +13,111 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { CreateClientDialog } from "@/components/create-client-dialog"
 import { EditClientDialog } from "@/components/edit-client-dialog"
 import { AddProfileDialog } from "@/components/add-profile-dialog"
 import { EditProfileDialog } from "@/components/edit-profile-dialog"
 import { ProfileLogsDialog } from "@/components/profile-logs-dialog"
 import { QrDialog } from "@/components/qr-dialog"
-import { ChevronRight, Loader2, QrCode, RotateCw, Trash2 } from "lucide-react"
+import {
+  ChevronRight,
+  Loader2,
+  MoreVertical,
+  Pencil,
+  QrCode,
+  RotateCw,
+  ScrollText,
+  Trash2,
+} from "lucide-react"
+
+// parseCoreConfigJSON is the shared best-effort JSON.parse both
+// profileSummaryBadges and profilePort need — a profile saved before a
+// field existed, or a parse failure, just means fewer badges/no port,
+// never an error.
+function parseCoreConfigJSON(profile: Profile): Record<string, unknown> {
+  try {
+    return profile.CoreConfig ? JSON.parse(profile.CoreConfig) : {}
+  } catch {
+    return {}
+  }
+}
 
 // profileSummaryBadges pulls a couple of the most distinguishing fields out
 // of a profile's own CoreConfig JSON — the CoreType badge alone doesn't tell
 // two olcRTC (or two FreeTurn, etc.) profiles apart at a glance, so this
 // surfaces whichever settings actually vary in practice per core (provider/
 // transport for olcRTC; connection type/proto/route socket for Turnable;
-// connection mode for WebDAV — FreeTurn has nothing else worth surfacing,
-// so it's just the port), plus the actual listen port for every core except
-// olcRTC (which has none
-// — see docs/settings.md upstream, it's a pure client library, not a local
-// listener). The backend always persists `port` once a profile's been
-// provisioned (Turnable/FreeTurn/WebDAV's own Go structs have no
-// `omitempty` on that field — see their provisioner/config.go), whether it
-// was auto-assigned or operator-specified, so this reflects the real
-// running port, not just a manually-typed one. Values are the raw technical
-// strings already used elsewhere on this page (CoreType itself,
-// XrayInbound.Protocol) — not translated, same convention. Best-effort: a
-// profile saved before a field existed, or a parse failure, just means
-// fewer badges, never an error.
+// connection mode for WebDAV), plus a SOCKS5 marker for olcRTC/webdav
+// profiles that have an outbound proxy configured (see profile-form.tsx's
+// oc.proxyUpstream/wd.proxyUpstream) — the port itself is NOT included
+// here (see profilePort below): it renders in its own fixed-width slot in
+// the profile row instead of being just another badge mixed in with these,
+// so ports actually line up down the list instead of landing wherever they
+// happen to fall in a variable-length badge sequence. Values are the raw
+// technical strings already used elsewhere on this page (CoreType itself,
+// XrayInbound.Protocol) — not translated, same convention.
 function profileSummaryBadges(profile: Profile): string[] {
-  let cfg: Record<string, unknown> = {}
-  try {
-    cfg = profile.CoreConfig ? JSON.parse(profile.CoreConfig) : {}
-  } catch {
-    return []
-  }
+  const cfg = parseCoreConfigJSON(profile)
   const str = (v: unknown) => (typeof v === "string" && v ? v : null)
-  const port = typeof cfg.port === "number" && cfg.port > 0 ? `:${cfg.port}` : null
+  const socks5 = typeof cfg.proxy_upstream === "string" && cfg.proxy_upstream ? "SOCKS5" : null
 
   let fields: (string | null)[]
   switch (profile.CoreType) {
     case "turnable":
-      fields = [str(cfg.connection_type), str(cfg.proto), str(cfg.route_socket), port]
+      fields = [str(cfg.connection_type), str(cfg.proto), str(cfg.route_socket)]
       break
     case "olcrtc":
-      fields = [str(cfg.provider), str(cfg.transport)]
+      fields = [str(cfg.provider), str(cfg.transport), socks5]
       break
     case "freeturn":
-      fields = [port]
+      fields = []
       break
     case "webdav":
-      // "server" mode relays out to external backends — no local listener,
-      // so no port to show, same reasoning as olcRTC.
-      fields = [str(cfg.conn_mode), cfg.conn_mode === "server" ? null : port]
+      fields = [str(cfg.conn_mode), socks5]
       break
     default:
       fields = []
   }
   return fields.filter((v): v is string => v !== null)
+}
+
+// profilePort is the port half of what profileSummaryBadges used to
+// include inline — split out so it can render in its own fixed-width
+// column (see the profile row below) instead of wherever it happened to
+// fall among the other summary badges. null for olcRTC (a pure client
+// library, no local listener — see docs/settings.md upstream) and for
+// WebDAV "server" mode (relays out to external backends, same reasoning).
+// The backend always persists `port` once a profile's been provisioned
+// (Turnable/FreeTurn/WebDAV's own Go structs have no `omitempty` on that
+// field — see their provisioner/config.go), whether it was auto-assigned
+// or operator-specified, so this reflects the real running port, not just
+// a manually-typed one.
+function profilePort(profile: Profile): number | null {
+  if (profile.CoreType === "olcrtc") return null
+  const cfg = parseCoreConfigJSON(profile)
+  if (profile.CoreType === "webdav" && cfg.conn_mode === "server") return null
+  return typeof cfg.port === "number" && cfg.port > 0 ? cfg.port : null
+}
+
+// xraySummaryLabel is what the Xray overlay badge shows: the picked
+// inbound's own protocol when there is one, otherwise the protocol
+// sniffed from the manual fallback the operator pasted in (a URI's own
+// scheme, or "wireguard" for a manual WG config) — "xray (URI)" alone
+// didn't distinguish a manual hysteria2 link from a manual vless one, even
+// though the scheme is right there in the string profile-form.tsx already
+// saved.
+function xraySummaryLabel(profile: Profile): string {
+  if (profile.XrayInbound) return profile.XrayInbound.Protocol
+  if (profile.XrayManualWireGuard) return "wireguard (WG)"
+  const scheme = profile.XrayManualURI.split("://", 1)[0]?.toLowerCase()
+  return scheme ? `${scheme} (URI)` : "xray (URI)"
 }
 
 // ProfileSummaryBadges wraps profileSummaryBadges in a useMemo keyed on the
@@ -92,6 +141,19 @@ function ProfileSummaryBadges({ profile }: { profile: Profile }) {
       ))}
     </>
   )
+}
+
+// ProfilePortLabel is profileSummaryBadges' own memoization pattern
+// (same CoreConfig/CoreType-keyed useMemo, same reasoning) applied to
+// profilePort — kept as a separate small component so the fixed-width
+// column below only ever re-renders this, not the whole badge row, when
+// nothing relevant changed.
+function ProfilePortLabel({ profile }: { profile: Profile }) {
+  const port = React.useMemo(
+    () => profilePort(profile),
+    [profile.CoreConfig, profile.CoreType]
+  )
+  return <>{port !== null ? `:${port}` : ""}</>
 }
 
 function formatBytes(n: number, units: string[]): string {
@@ -122,6 +184,18 @@ export function ClientsPage() {
   const [expanded, setExpanded] = React.useState<number | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [restartingId, setRestartingId] = React.useState<number | null>(null)
+  // Which profile's Edit/Logs dialog is currently open — same single-active-
+  // ID convention as restartingId above. These are triggered from a
+  // DropdownMenuItem now (see the profile row below), not each dialog's own
+  // DialogTrigger button: nesting a Dialog inside a DropdownMenuItem is a
+  // known Radix footgun — the dropdown's own close-on-select and outside-
+  // click dismissal can race with the dialog's own opening and stomp on it.
+  // Lifting open state here instead, with EditProfileDialog/ProfileLogsDialog
+  // unconditionally mounted per row (open just toggles false/true, never
+  // unmount/remount — see EditProfileDialog's own openCount comment for why
+  // that specifically matters), sidesteps the whole class of bug.
+  const [editingProfileId, setEditingProfileId] = React.useState<number | null>(null)
+  const [logsProfileId, setLogsProfileId] = React.useState<number | null>(null)
 
   const load = React.useCallback(() => {
     api
@@ -269,9 +343,9 @@ export function ClientsPage() {
                         {(client.Profiles ?? []).map((profile) => (
                           <div
                             key={profile.ID}
-                            className="flex items-center justify-between rounded-md border bg-background p-2 text-sm"
+                            className="flex items-center gap-3 rounded-md border bg-background p-2 text-sm"
                           >
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                               <span
                                 className={`inline-block size-2 rounded-full ${
                                   profile.Running ? "bg-green-500" : "bg-muted-foreground/40"
@@ -285,12 +359,17 @@ export function ClientsPage() {
                               )}
                               <ProfileSummaryBadges profile={profile} />
                               {profile.XrayEnabled && (
-                                <Badge variant="secondary">
-                                  {profile.XrayInbound?.Protocol ?? "xray (URI)"}
-                                </Badge>
+                                <Badge variant="secondary">{xraySummaryLabel(profile)}</Badge>
                               )}
                             </div>
-                            <div className="flex items-center gap-2">
+                            {/* Fixed width so ports line up in their own
+                                column instead of landing wherever they fall
+                                among the summary badges above, which vary
+                                in count/length per core type. */}
+                            <span className="w-12 shrink-0 text-right font-mono text-xs text-muted-foreground">
+                              <ProfilePortLabel profile={profile} />
+                            </span>
+                            <div className="flex shrink-0 items-center gap-1">
                               <QrDialog
                                 title={`${t("clientsPage.profileTitle")} — ${profile.Name}`}
                                 trigger={
@@ -307,34 +386,57 @@ export function ClientsPage() {
                                 onDownload={() => api.downloadProfileExport(profile.ID)}
                                 downloadLabel={t("clientsPage.downloadProfile")}
                               />
-                              <EditProfileDialog profile={profile} onUpdated={load} />
-                              <ProfileLogsDialog profileId={profile.ID} profileName={profile.Name} />
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                title={
-                                  profile.Enabled
-                                    ? t("clientsPage.restartProfileTitle")
-                                    : t("clientsPage.profileDisabled")
-                                }
-                                disabled={restartingId === profile.ID || !profile.Enabled}
-                                onClick={() => handleRestartProfile(profile.ID)}
-                              >
-                                {restartingId === profile.ID ? (
-                                  <Loader2 className="size-4 animate-spin" />
-                                ) : (
-                                  <RotateCw className="size-4" />
-                                )}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                title={t("common.delete")}
-                                onClick={() => handleDeleteProfile(profile.ID)}
-                              >
-                                <Trash2 className="size-4" />
-                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button size="sm" variant="ghost" title={t("common.moreActions")}>
+                                    <MoreVertical className="size-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => setEditingProfileId(profile.ID)}>
+                                    <Pencil /> {t("profileDialogs.editTooltip")}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setLogsProfileId(profile.ID)}>
+                                    <ScrollText /> {t("profileLogs.trigger")}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    disabled={restartingId === profile.ID || !profile.Enabled}
+                                    onClick={() => handleRestartProfile(profile.ID)}
+                                  >
+                                    {restartingId === profile.ID ? (
+                                      <Loader2 className="animate-spin" />
+                                    ) : (
+                                      <RotateCw />
+                                    )}
+                                    {profile.Enabled
+                                      ? t("clientsPage.restartProfileTitle")
+                                      : t("clientsPage.profileDisabled")}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    variant="destructive"
+                                    onClick={() => handleDeleteProfile(profile.ID)}
+                                  >
+                                    <Trash2 /> {t("common.delete")}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
+                            {/* Unconditionally mounted (not `{editingProfileId === profile.ID && <.../>}`)
+                                so toggling open never unmounts/remounts these — see
+                                the editingProfileId/logsProfileId state comment above. */}
+                            <EditProfileDialog
+                              profile={profile}
+                              open={editingProfileId === profile.ID}
+                              onOpenChange={(o) => setEditingProfileId(o ? profile.ID : null)}
+                              onUpdated={load}
+                            />
+                            <ProfileLogsDialog
+                              profileId={profile.ID}
+                              profileName={profile.Name}
+                              open={logsProfileId === profile.ID}
+                              onOpenChange={(o) => setLogsProfileId(o ? profile.ID : null)}
+                            />
                           </div>
                         ))}
                       </div>

@@ -30,6 +30,7 @@ export const common = {
     "common.noMatches": "Нет совпадений",
     "common.customValue": "Своё значение...",
     "common.notice": "Уведомление",
+    "common.moreActions": "Ещё действия",
   },
   en: {
     "common.save": "Save",
@@ -56,5 +57,6 @@ export const common = {
     "common.noMatches": "No matches",
     "common.customValue": "Custom value...",
     "common.notice": "Notice",
+    "common.moreActions": "More actions",
   },
 }

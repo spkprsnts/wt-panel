@@ -1,27 +1,27 @@
 import * as React from "react"
-import { ScrollText } from "lucide-react"
 
 import { api } from "@/lib/api"
 import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
+// open/onOpenChange are controlled by the caller (ClientsPage's dropdown
+// menu triggers this) rather than an internal useState + DialogTrigger —
+// see that call site's own comment for why a Dialog can't safely be
+// nested inside a DropdownMenuItem.
 export function ProfileLogsDialog({
   profileId,
   profileName,
+  open,
+  onOpenChange,
 }: {
   profileId: number
   profileName: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }) {
   const t = useT()
-  const [open, setOpen] = React.useState(false)
   const [log, setLog] = React.useState("")
   const [running, setRunning] = React.useState(false)
   const [pid, setPid] = React.useState(0)
@@ -45,7 +45,7 @@ export function ProfileLogsDialog({
   }
 
   function handleOpenChange(next: boolean) {
-    setOpen(next)
+    onOpenChange(next)
     if (next) {
       setLoading(true)
       fetchLogs()
@@ -68,11 +68,6 @@ export function ProfileLogsDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button size="sm" variant="ghost" title={t("profileLogs.trigger")}>
-          <ScrollText className="size-4" />
-        </Button>
-      </DialogTrigger>
       <DialogContent className="max-h-[80vh] overflow-hidden sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>

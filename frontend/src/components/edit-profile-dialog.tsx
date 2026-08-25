@@ -1,27 +1,26 @@
 import * as React from "react"
-import { Pencil } from "lucide-react"
 
 import { api, type Profile } from "@/lib/api"
 import { useT } from "@/lib/i18n"
-import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ProfileForm, type ProfileFormInitialValues, type ProfileSubmitPayload } from "@/components/profile-form"
 
+// open/onOpenChange are controlled by the caller (ClientsPage's dropdown
+// menu triggers this, not a trigger button of its own) rather than an
+// internal useState + DialogTrigger — see that call site's own comment for
+// why a Dialog can't safely be nested inside a DropdownMenuItem.
 export function EditProfileDialog({
   profile,
+  open,
+  onOpenChange,
   onUpdated,
 }: {
   profile: Profile
+  open: boolean
+  onOpenChange: (open: boolean) => void
   onUpdated: () => void
 }) {
   const t = useT()
-  const [open, setOpen] = React.useState(false)
   // Bumped only when the dialog actually opens — used in ProfileForm's key
   // below so it remounts with fresh state each time (no stale in-progress
   // edits left over from a previous open-then-cancel), without ever
@@ -35,7 +34,7 @@ export function EditProfileDialog({
   const [openCount, setOpenCount] = React.useState(0)
 
   function handleOpenChange(next: boolean) {
-    setOpen(next)
+    onOpenChange(next)
     if (next) setOpenCount((c) => c + 1)
   }
 
@@ -56,17 +55,12 @@ export function EditProfileDialog({
 
   async function handleSubmit(payload: ProfileSubmitPayload) {
     await api.updateProfile(profile.ID, payload)
-    setOpen(false)
+    onOpenChange(false)
     onUpdated()
   }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button size="sm" variant="ghost" title={t("profileDialogs.editTooltip")}>
-          <Pencil className="size-4" />
-        </Button>
-      </DialogTrigger>
       <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden px-0 py-6 sm:max-w-xl">
         <DialogHeader className="shrink-0 px-6">
           <DialogTitle>{t("profileDialogs.editTitle")}</DialogTitle>
