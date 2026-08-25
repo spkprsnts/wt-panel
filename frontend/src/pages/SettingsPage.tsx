@@ -750,12 +750,18 @@ function PanelUpdateCard() {
       return
     }
     setError(null)
+    // Open the blocking dialog before the network calls below, not after —
+    // updatePanel() downloads and installs the release synchronously on the
+    // backend before responding (see its own doc comment), so awaiting it
+    // first left a multi-second gap between confirming and any dialog
+    // showing up at all.
+    setUpdating(true)
     try {
       const before = await api.getSettings()
-      await api.updatePanel()
       setBeforeBootId(before.bootId)
-      setUpdating(true)
+      await api.updatePanel()
     } catch (err) {
+      setUpdating(false)
       setError(err instanceof Error ? err.message : t("settings.update.startFailed"))
     }
   }
@@ -868,12 +874,16 @@ function PanelBackupCard() {
       return
     }
     setError(null)
+    // Same reasoning as PanelUpdateCard's handleUpdate: restorePanelBackup
+    // uploads the file and swaps the live DB synchronously before
+    // responding, so the dialog needs to open before that call, not after.
+    setRestoring(true)
     try {
       const before = await api.getSettings()
-      await api.restorePanelBackup(file, restoreNetworkSettings)
       setBeforeBootId(before.bootId)
-      setRestoring(true)
+      await api.restorePanelBackup(file, restoreNetworkSettings)
     } catch (err) {
+      setRestoring(false)
       setError(err instanceof Error ? err.message : t("settings.backup.restoreFailed"))
     }
   }
