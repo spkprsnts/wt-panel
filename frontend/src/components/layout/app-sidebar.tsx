@@ -187,7 +187,7 @@ export function AppSidebar({
         <DialogPortal>
           <DialogOverlay />
           <DialogPrimitive.Popup
-            className="fixed inset-y-0 left-0 z-50 flex h-svh w-72 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-transform duration-200 data-ending-style:-translate-x-full data-starting-style:-translate-x-full"
+            className="fixed inset-y-0 left-0 z-50 flex h-svh w-72 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-200 data-ending-style:-translate-x-full data-starting-style:-translate-x-full"
           >
             <DialogTitle className="sr-only">wt-panel</DialogTitle>
             <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-3">

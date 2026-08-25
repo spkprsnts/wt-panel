@@ -271,7 +271,7 @@ export function ClientsPage() {
                 >
                   <TableCell>
                     <ChevronRight
-                      className={`size-4 text-muted-foreground transition-transform ${
+                      className={`size-4 text-muted-foreground transition-all ${
                         expanded === client.ID ? "rotate-90" : ""
                       }`}
                     />
