@@ -1,4 +1,5 @@
 import * as React from "react"
+import { Plus } from "lucide-react"
 
 import { api } from "@/lib/api"
 import { useT } from "@/lib/i18n"
@@ -46,6 +47,7 @@ export function AddProfileDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
+          <Plus className="size-4" />
           {t("profileDialogs.createTrigger")}
         </Button>
       </DialogTrigger>

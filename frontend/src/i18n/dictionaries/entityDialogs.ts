@@ -11,7 +11,7 @@ export const entityDialogs = {
     "clientDialogs.createTitle": "Новый клиент",
     "profileDialogs.editTooltip": "Редактировать профиль",
     "profileDialogs.editTitle": "Редактирование профиля",
-    "profileDialogs.createTrigger": "+ Профиль",
+    "profileDialogs.createTrigger": "Профиль",
     "profileDialogs.createTitle": "Новый профиль",
   },
   en: {
@@ -21,7 +21,7 @@ export const entityDialogs = {
     "clientDialogs.createTitle": "New client",
     "profileDialogs.editTooltip": "Edit profile",
     "profileDialogs.editTitle": "Edit profile",
-    "profileDialogs.createTrigger": "+ Profile",
+    "profileDialogs.createTrigger": "Profile",
     "profileDialogs.createTitle": "New profile",
   },
 }
