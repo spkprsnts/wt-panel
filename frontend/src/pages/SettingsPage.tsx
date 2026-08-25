@@ -92,11 +92,13 @@ function TotpEnableDialog({ onEnabled }: { onEnabled: () => void }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button type="button" variant="outline">
-          {t("settings.account.totp.enableButton")}
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          <Button type="button" variant="outline">
+            {t("settings.account.totp.enableButton")}
+          </Button>
+        }
+      />
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>{t("settings.account.totp.enableTitle")}</DialogTitle>
@@ -168,11 +170,13 @@ function TotpDisableDialog({ onDisabled }: { onDisabled: () => void }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button type="button" variant="destructive">
-          {t("settings.account.totp.disableButton")}
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          <Button type="button" variant="destructive">
+            {t("settings.account.totp.disableButton")}
+          </Button>
+        }
+      />
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>{t("settings.account.totp.disableTitle")}</DialogTitle>
@@ -684,13 +688,16 @@ function PanelRestartDialog({
   }, [open, beforeBootId, targetUrl])
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent
-        showCloseButton={false}
-        className="sm:max-w-sm"
-        onInteractOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
-      >
+    <Dialog
+      open={open}
+      onOpenChange={(_open, eventDetails) => {
+        if (eventDetails.reason === "escape-key") {
+          eventDetails.cancel()
+        }
+      }}
+      disablePointerDismissal
+    >
+      <DialogContent showCloseButton={false} className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>

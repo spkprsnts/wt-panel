@@ -45,12 +45,14 @@ export function AddProfileDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Plus className="size-4" />
-          {t("profileDialogs.createTrigger")}
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          <Button variant="outline" size="sm">
+            <Plus className="size-4" />
+            {t("profileDialogs.createTrigger")}
+          </Button>
+        }
+      />
       <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden px-0 py-6 sm:max-w-xl">
         <DialogHeader className="shrink-0 px-6">
           <DialogTitle>{t("profileDialogs.createTitle")}</DialogTitle>

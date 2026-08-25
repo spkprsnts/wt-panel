@@ -854,9 +854,14 @@ export function ProfileForm({
             <Label htmlFor="xray-inbound">{t("profileForm.xray.inboundLabel")}</Label>
             <div className="flex gap-2">
               <div className="flex-1">
-                <Select value={xrayInboundId} onValueChange={handlePickInbound}>
+                <Select value={xrayInboundId} onValueChange={(v) => handlePickInbound(v ?? "")}>
                   <SelectTrigger id="xray-inbound" className="w-full">
-                    <SelectValue placeholder={t("profileForm.xray.inboundPlaceholder")} />
+                    <SelectValue placeholder={t("profileForm.xray.inboundPlaceholder")}>
+                      {(v: string | null) => {
+                        const ib = visibleInbounds.find((ib) => String(ib.ID) === v)
+                        return ib ? `${ib.Remark} — ${ib.Protocol} :${ib.Port}` : v
+                      }}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {visibleInbounds.map((ib) => (
@@ -1025,7 +1030,7 @@ export function ProfileForm({
           disabled={mode === "edit"}
         >
           <SelectTrigger className="w-full">
-            <SelectValue />
+            <SelectValue>{(v: CoreType | null) => (v ? t(CORE_LABELS[v]) : null)}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {(Object.keys(CORE_LABELS) as (keyof typeof CORE_LABELS)[]).map((ct) => (
@@ -1051,7 +1056,15 @@ export function ProfileForm({
               onValueChange={(v) => setTn({ ...tn, connectionType: v as TurnableState["connectionType"] })}
             >
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>
+                  {(v: string | null) =>
+                    v === "relay"
+                      ? t("profileForm.turnable.connectionTypeRelay")
+                      : v === "direct"
+                        ? t("profileForm.turnable.connectionTypeDirect")
+                        : v
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="relay">{t("profileForm.turnable.connectionTypeRelay")}</SelectItem>
@@ -1064,7 +1077,17 @@ export function ProfileForm({
             <Label>{t("profileForm.turnable.protocol")}</Label>
             <Select value={tn.proto} onValueChange={(v) => setTn({ ...tn, proto: v as TurnableState["proto"] })}>
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>
+                  {(v: string | null) =>
+                    v === "srtp"
+                      ? t("profileForm.turnable.protoSrtp")
+                      : v === "dtls"
+                        ? "DTLS"
+                        : v === "none"
+                          ? t("profileForm.turnable.protoNone")
+                          : v
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="srtp">{t("profileForm.turnable.protoSrtp")}</SelectItem>
@@ -1076,7 +1099,7 @@ export function ProfileForm({
 
           <div className="flex flex-col gap-2">
             <Label>{t("profileForm.turnable.platform")}</Label>
-            <Select value={tn.platformId} onValueChange={(v) => setTn({ ...tn, platformId: v })}>
+            <Select value={tn.platformId} onValueChange={(v) => setTn({ ...tn, platformId: v ?? "" })}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -1159,7 +1182,7 @@ export function ProfileForm({
                     }}
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue />
+                      <SelectValue>{(v: string | null) => v?.toUpperCase()}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="udp">UDP</SelectItem>
@@ -1174,7 +1197,15 @@ export function ProfileForm({
                     onValueChange={(v) => setTn({ ...tn, routeTransport: v as TurnableState["routeTransport"] })}
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue />
+                      <SelectValue>
+                        {(v: string | null) =>
+                          v === "none"
+                            ? t("profileForm.turnable.transportNoneUdp")
+                            : v === "kcp"
+                              ? t("profileForm.turnable.transportKcpTcp")
+                              : v
+                        }
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">{t("profileForm.turnable.transportNoneUdp")}</SelectItem>
@@ -1193,7 +1224,15 @@ export function ProfileForm({
               onValueChange={(v) => setTn({ ...tn, encryption: v as TurnableState["encryption"] })}
             >
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>
+                  {(v: string | null) =>
+                    v === "handshake"
+                      ? t("profileForm.turnable.encryptionHandshake")
+                      : v === "full"
+                        ? t("profileForm.turnable.encryptionFull")
+                        : v
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="handshake">{t("profileForm.turnable.encryptionHandshake")}</SelectItem>
@@ -1235,7 +1274,11 @@ export function ProfileForm({
               onValueChange={(v) => setOc({ ...oc, provider: v as OlcrtcState["provider"] })}
             >
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>
+                  {(v: string | null) =>
+                    ({ jitsi: "Jitsi", telemost: "Telemost", wbstream: "WB Stream" })[v ?? ""] ?? v
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="jitsi">Jitsi</SelectItem>
@@ -1359,7 +1402,16 @@ export function ProfileForm({
               onValueChange={(v) => setOc({ ...oc, transport: v as OlcrtcState["transport"] })}
             >
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>
+                  {(v: string | null) =>
+                    ({
+                      datachannel: "DataChannel",
+                      vp8channel: "VP8Channel",
+                      seichannel: "SEIChannel",
+                      videochannel: "VideoChannel",
+                    })[v ?? ""] ?? v
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="datachannel">DataChannel</SelectItem>
@@ -1494,7 +1546,7 @@ export function ProfileForm({
               onValueChange={(v) => setFt({ ...ft, transport: v as FreeturnState["transport"] })}
             >
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>{(v: string | null) => v?.toUpperCase()}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="tcp">TCP</SelectItem>
@@ -1548,7 +1600,15 @@ export function ProfileForm({
               onValueChange={(v) => setFt({ ...ft, obfProfile: v as FreeturnState["obfProfile"] })}
             >
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>
+                  {(v: string | null) =>
+                    v === "rtpopus"
+                      ? t("profileForm.freeturn.obfProfileRecommended")
+                      : v === "none"
+                        ? t("profileForm.freeturn.obfProfileNone")
+                        : v
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="rtpopus">{t("profileForm.freeturn.obfProfileRecommended")}</SelectItem>

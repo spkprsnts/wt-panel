@@ -1,6 +1,6 @@
 import * as React from "react"
 import { NavLink, useNavigate } from "react-router-dom"
-import * as DialogPrimitive from "@radix-ui/react-dialog"
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 import {
   LayoutDashboard,
   Users,
@@ -113,7 +113,7 @@ function SidebarFooter({ collapsed, version }: { collapsed: boolean; version: st
 
 // AppSidebar renders two independent things: a permanent desktop `<aside>`
 // (hidden below md, collapse/expand toggle persisted in localStorage — same
-// as before) and a mobile off-canvas drawer (Radix Dialog styled as a
+// as before) and a mobile off-canvas drawer (Base UI Dialog styled as a
 // left-sliding panel rather than a centered modal, only ever mounted below
 // md via AppLayout's own `md:hidden` hamburger button). The drawer is
 // always shown in its full, non-collapsed form — "collapse to icons" only
@@ -186,21 +186,21 @@ export function AppSidebar({
       <Dialog open={mobileOpen} onOpenChange={onMobileOpenChange}>
         <DialogPortal>
           <DialogOverlay />
-          <DialogPrimitive.Content
-            className="fixed inset-y-0 left-0 z-50 flex h-svh w-72 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground duration-200 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left"
+          <DialogPrimitive.Popup
+            className="fixed inset-y-0 left-0 z-50 flex h-svh w-72 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-transform duration-200 data-ending-style:-translate-x-full data-starting-style:-translate-x-full"
           >
             <DialogTitle className="sr-only">wt-panel</DialogTitle>
             <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-3">
               <span className="truncate font-semibold">wt-panel</span>
-              <DialogClose asChild>
-                <Button variant="ghost" size="icon" className="size-8" title={t("common.close")}>
-                  <X className="size-4" />
-                </Button>
+              <DialogClose
+                render={<Button variant="ghost" size="icon" className="size-8" title={t("common.close")} />}
+              >
+                <X className="size-4" />
               </DialogClose>
             </div>
             <SidebarBody collapsed={false} onNavigate={() => onMobileOpenChange(false)} />
             <SidebarFooter collapsed={false} version={version} />
-          </DialogPrimitive.Content>
+          </DialogPrimitive.Popup>
         </DialogPortal>
       </Dialog>
     </>

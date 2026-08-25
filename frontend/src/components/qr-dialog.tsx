@@ -30,7 +30,7 @@ export function QrDialog({
   onDownload,
   downloadLabel,
 }: {
-  trigger: React.ReactNode
+  trigger: React.ReactElement
   title: string
   loadVariants: () => Promise<QrVariant[]>
   onDownload?: () => Promise<void>
@@ -106,7 +106,7 @@ export function QrDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogTrigger render={trigger} />
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>

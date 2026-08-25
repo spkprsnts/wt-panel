@@ -389,11 +389,13 @@ export function ClientsPage() {
                                 downloadLabel={t("clientsPage.downloadProfile")}
                               />
                               <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button size="sm" variant="ghost" title={t("common.moreActions")}>
-                                    <MoreVertical className="size-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
+                                <DropdownMenuTrigger
+                                  render={
+                                    <Button size="sm" variant="ghost" title={t("common.moreActions")}>
+                                      <MoreVertical className="size-4" />
+                                    </Button>
+                                  }
+                                />
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuItem onClick={() => setEditingProfileId(profile.ID)}>
                                     <Pencil /> {t("profileDialogs.editTooltip")}

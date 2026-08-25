@@ -693,9 +693,9 @@ function TlsFields({
       </div>
       <div className="flex flex-col gap-2">
         <Label>uTLS fingerprint</Label>
-        <Select value={f.tlsFingerprint} onValueChange={(v) => setF({ ...f, tlsFingerprint: v })}>
+        <Select value={f.tlsFingerprint} onValueChange={(v) => setF({ ...f, tlsFingerprint: v ?? "" })}>
           <SelectTrigger className="w-full">
-            <SelectValue />
+            <SelectValue>{(v: string | null) => v || "None"}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {FINGERPRINTS.map((fp) => (
@@ -711,7 +711,9 @@ function TlsFields({
         <Label>{t("xray.certificateLabel")}</Label>
         <Select value={f.tlsCertMode} onValueChange={(v) => setF({ ...f, tlsCertMode: v as InboundFormState["tlsCertMode"] })}>
           <SelectTrigger className="w-full">
-            <SelectValue />
+            <SelectValue>
+              {(v: string | null) => (v === "file" ? t("xray.certModeFile") : v === "inline" ? t("xray.certModeInline") : v)}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="file">{t("xray.certModeFile")}</SelectItem>
@@ -781,7 +783,7 @@ function RealityFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
       </div>
       <div className="flex flex-col gap-2">
         <Label>uTLS fingerprint</Label>
-        <Select value={f.realityFingerprint} onValueChange={(v) => setF({ ...f, realityFingerprint: v })}>
+        <Select value={f.realityFingerprint} onValueChange={(v) => setF({ ...f, realityFingerprint: v ?? "" })}>
           <SelectTrigger className="w-full">
             <SelectValue />
           </SelectTrigger>
@@ -906,7 +908,9 @@ function NetworkFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
             <Label>Header type</Label>
             <Select value={f.tcpHeaderType} onValueChange={(v) => setF({ ...f, tcpHeaderType: v as InboundFormState["tcpHeaderType"] })}>
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>
+                  {(v: string | null) => (v === "none" ? "None" : v === "http" ? "HTTP (camouflage)" : v)}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">None</SelectItem>
@@ -1058,7 +1062,7 @@ function NetworkSecurityFields({
           <Label>{t("xray.networkSecurity.transport")}</Label>
           <Select value={f.network} onValueChange={(v) => setF({ ...f, network: v as Network })}>
             <SelectTrigger className="w-full">
-              <SelectValue />
+              <SelectValue>{(v: Network | null) => (v ? NETWORK_LABELS[v] : null)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {(Object.keys(NETWORK_LABELS) as Network[]).map((n) => (
@@ -1073,7 +1077,11 @@ function NetworkSecurityFields({
           <Label>{t("xray.networkSecurity.security")}</Label>
           <Select value={f.security} onValueChange={(v) => setF({ ...f, security: v as InboundFormState["security"] })}>
             <SelectTrigger className="w-full">
-              <SelectValue />
+              <SelectValue>
+                {(v: string | null) =>
+                  v === "none" ? "None" : v === "tls" ? "TLS" : v === "reality" ? "Reality" : v
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">None</SelectItem>
@@ -1148,15 +1156,17 @@ function InboundFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {existing ? (
-          <Button variant="outline" size="sm" title={t("xray.inboundForm.editTrigger")}>
-            <Pencil className="size-4" />
-          </Button>
-        ) : (
-          <Button>{t("xray.inboundForm.addTrigger")}</Button>
-        )}
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          existing ? (
+            <Button variant="outline" size="sm" title={t("xray.inboundForm.editTrigger")}>
+              <Pencil className="size-4" />
+            </Button>
+          ) : (
+            <Button>{t("xray.inboundForm.addTrigger")}</Button>
+          )
+        }
+      />
       <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden px-0 py-6 sm:max-w-xl">
         <DialogHeader className="shrink-0 px-6">
           <DialogTitle>{existing ? t("xray.inboundForm.editTitle") : t("xray.inboundForm.createTitle")}</DialogTitle>
@@ -1174,7 +1184,7 @@ function InboundFormDialog({
             <Label>{t("xray.inboundForm.protocol")}</Label>
             <Select value={protocol} onValueChange={(v) => setProtocol(v as XrayProtocol)} disabled={!!existing}>
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>{(v: XrayProtocol | null) => (v ? PROTOCOL_LABELS[v] : null)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {(Object.keys(PROTOCOL_LABELS) as XrayProtocol[]).map((p) => (
@@ -1371,11 +1381,13 @@ function InboundClientsDialog({ inbound, allClients, onChanged }: { inbound: Xra
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          {t("xray.inboundClients.trigger")} ({(inbound.Clients ?? []).length})
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          <Button variant="outline" size="sm">
+            {t("xray.inboundClients.trigger")} ({(inbound.Clients ?? []).length})
+          </Button>
+        }
+      />
       <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden px-0 py-6 sm:max-w-lg">
         <DialogHeader className="shrink-0 px-6">
           <DialogTitle>{t("xray.inboundClients.title")} «{inbound.Remark}»</DialogTitle>
@@ -1400,9 +1412,11 @@ function InboundClientsDialog({ inbound, allClients, onChanged }: { inbound: Xra
             <div className="flex flex-col gap-3 rounded-md border p-3">
               <div className="flex flex-col gap-2">
                 <Label>{t("xray.inboundClients.clientLabel")}</Label>
-                <Select value={pickClientId} onValueChange={setPickClientId}>
+                <Select value={pickClientId} onValueChange={(v) => setPickClientId(v ?? "")}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder={t("xray.inboundClients.pickPlaceholder")} />
+                    <SelectValue placeholder={t("xray.inboundClients.pickPlaceholder")}>
+                      {(v: string | null) => available.find((c) => String(c.ID) === v)?.Name ?? v}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {available.map((c) => (
@@ -1500,9 +1514,7 @@ function XrayLogsDialog() {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button variant="outline">{t("xray.logsDialog.trigger")}</Button>
-      </DialogTrigger>
+      <DialogTrigger render={<Button variant="outline">{t("xray.logsDialog.trigger")}</Button>} />
       <DialogContent className="max-h-[80vh] overflow-hidden sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t("xray.logsDialog.title")}</DialogTitle>

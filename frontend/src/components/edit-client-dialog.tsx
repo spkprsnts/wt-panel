@@ -54,11 +54,13 @@ export function EditClientDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button size="sm" variant="ghost" title={t("clientDialogs.editTooltip")}>
-          <Pencil className="size-4" />
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          <Button size="sm" variant="ghost" title={t("clientDialogs.editTooltip")}>
+            <Pencil className="size-4" />
+          </Button>
+        }
+      />
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t("clientDialogs.editTitle")}</DialogTitle>

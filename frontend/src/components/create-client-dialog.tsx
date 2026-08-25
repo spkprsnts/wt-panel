@@ -26,9 +26,7 @@ export function CreateClientDialog({ onCreated }: { onCreated: () => void }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>{t("clientDialogs.createTrigger")}</Button>
-      </DialogTrigger>
+      <DialogTrigger render={<Button>{t("clientDialogs.createTrigger")}</Button>} />
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t("clientDialogs.createTitle")}</DialogTitle>

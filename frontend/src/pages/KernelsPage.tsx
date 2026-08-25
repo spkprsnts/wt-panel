@@ -229,9 +229,14 @@ function ReleaseKernelCard({
           ) : releases.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t("kernels.noReleases")}</p>
           ) : (
-            <Select value={selected} onValueChange={setSelected}>
+            <Select value={selected} onValueChange={(v) => setSelected(v ?? "")}>
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>
+                  {(v: string | null) => {
+                    const r = releases.find((r) => r.tag_name === v)
+                    return r ? `${r.name || r.tag_name}${r.prerelease ? " (pre-release)" : ""}` : v
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {releases.map((r) => (
@@ -315,9 +320,14 @@ function OlcrtcKernelCard({ status, onInstalled }: { status?: KernelStatus; onIn
           {commits === null ? (
             <p className="text-sm text-muted-foreground">{t("kernels.olcrtc.loadingCommits")}</p>
           ) : (
-            <Select value={selected} onValueChange={setSelected}>
+            <Select value={selected} onValueChange={(v) => setSelected(v ?? "")}>
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>
+                  {(v: string | null) => {
+                    const c = commits.find((c) => c.sha === v)
+                    return c ? `${c.sha.slice(0, 7)} — ${c.commit.message.split("\n")[0].slice(0, 60)}` : v
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {commits.map((c) => (

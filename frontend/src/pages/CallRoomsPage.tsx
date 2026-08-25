@@ -84,15 +84,17 @@ function RoomDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {room ? (
-          <Button size="sm" variant="ghost" title={t("rooms.editTrigger")}>
-            <Pencil className="size-4" />
-          </Button>
-        ) : (
-          <Button>{t("rooms.addTrigger")}</Button>
-        )}
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          room ? (
+            <Button size="sm" variant="ghost" title={t("rooms.editTrigger")}>
+              <Pencil className="size-4" />
+            </Button>
+          ) : (
+            <Button>{t("rooms.addTrigger")}</Button>
+          )
+        }
+      />
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{room ? t("rooms.editTitle") : t("rooms.createTitle")}</DialogTitle>
@@ -102,7 +104,7 @@ function RoomDialog({
             <Label>{t("rooms.providerLabel")}</Label>
             <Select value={provider} onValueChange={(v) => setProvider(v as RoomProvider)}>
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>{(v: RoomProvider | null) => (v ? t(PROVIDER_LABELS[v]) : null)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {(Object.keys(PROVIDER_LABELS) as RoomProvider[]).map((p) => (

@@ -1,5 +1,5 @@
 import * as React from "react"
-import * as PopoverPrimitive from "@radix-ui/react-popover"
+import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
 
 import { Input } from "@/components/ui/input"
 
@@ -12,7 +12,7 @@ export interface ComboboxOption {
 // the value field IS a real <input>, so typing always works; opening the
 // popover (on focus, or by typing) just offers suggestions to click
 // instead of typing the whole thing out. Unlike ./select.tsx (a thin
-// @radix-ui/react-select wrapper — list-only, no free text) this is built
+// @base-ui/react/select wrapper — list-only, no free text) this is built
 // on the bare Popover primitive, same reasoning as ./multi-select.tsx: no
 // existing primitive here combines "typeable" with "has suggestions".
 function Combobox({
@@ -39,14 +39,13 @@ function Combobox({
   noMatchesText?: string
 }) {
   const [open, setOpen] = React.useState(false)
-  // Popover.Anchor (unlike Trigger) doesn't register as part of the
-  // popover's own interactive surface, so Radix's dismissable layer treats
-  // a pointerdown/focus landing back on our own input as "outside" and
-  // closes it the instant it opens — this ref lets onPointerDownOutside/
-  // onFocusOutside below recognize "that's actually our anchor" and ignore
-  // it, which Anchor-based (non-Trigger) Popover usage is expected to do
-  // itself; Radix has no built-in exclusion for Anchor the way it does for
-  // Trigger.
+  // Base UI's Popover has no Anchor part (unlike Radix) — the input is
+  // rendered as a plain element outside the popover's own subtree, and its
+  // ref is passed to the Positioner's `anchor` prop for positioning. That
+  // means a pointerdown/focus landing back on it still reads as "outside"
+  // to the popover's dismiss logic, so onOpenChange below checks the
+  // triggering event's target against this ref and cancels the close when
+  // it's actually our own input, same intent as the old Anchor workaround.
   const inputRef = React.useRef<HTMLInputElement>(null)
 
   const filtered = React.useMemo(() => {
@@ -57,57 +56,62 @@ function Combobox({
     )
   }, [options, value])
 
-  function ignoreIfAnchor(e: { target: EventTarget | null; preventDefault: () => void }) {
-    if (inputRef.current && e.target instanceof Node && inputRef.current.contains(e.target)) {
-      e.preventDefault()
-    }
-  }
-
   return (
-    <PopoverPrimitive.Root open={open && options.length > 0} onOpenChange={setOpen}>
-      <PopoverPrimitive.Anchor asChild>
-        <Input
-          ref={inputRef}
-          id={id}
-          className={className}
-          value={value}
-          autoComplete="off"
-          required={required}
-          onChange={(e) => {
-            onChange(e.target.value)
-            setOpen(true)
-          }}
-          onFocus={() => setOpen(true)}
-          placeholder={placeholder}
-        />
-      </PopoverPrimitive.Anchor>
+    <PopoverPrimitive.Root
+      open={open && options.length > 0}
+      onOpenChange={(nextOpen, eventDetails) => {
+        if (
+          !nextOpen &&
+          (eventDetails.reason === "outside-press" || eventDetails.reason === "focus-out")
+        ) {
+          const target = eventDetails.event?.target
+          if (inputRef.current && target instanceof Node && inputRef.current.contains(target)) {
+            eventDetails.cancel()
+            return
+          }
+        }
+        setOpen(nextOpen)
+      }}
+    >
+      <Input
+        ref={inputRef}
+        id={id}
+        className={className}
+        value={value}
+        autoComplete="off"
+        required={required}
+        onChange={(e) => {
+          onChange(e.target.value)
+          setOpen(true)
+        }}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder}
+      />
       <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Content
-          align="start"
-          sideOffset={4}
-          onOpenAutoFocus={(e) => e.preventDefault()}
-          onPointerDownOutside={ignoreIfAnchor}
-          onFocusOutside={ignoreIfAnchor}
-          className="bg-popover text-popover-foreground z-50 max-h-64 w-(--radix-popover-trigger-width) overflow-y-auto rounded-md border p-1 shadow-md"
-        >
-          {filtered.length === 0 ? (
-            <p className="text-muted-foreground px-2 py-1.5 text-sm">{noMatchesText}</p>
-          ) : (
-            filtered.map((o) => (
-              <button
-                type="button"
-                key={o.value}
-                onClick={() => {
-                  onChange(o.value)
-                  setOpen(false)
-                }}
-                className="hover:bg-accent hover:text-accent-foreground flex w-full items-center rounded-sm px-2 py-1.5 text-left text-sm"
-              >
-                {o.label}
-              </button>
-            ))
-          )}
-        </PopoverPrimitive.Content>
+        <PopoverPrimitive.Positioner anchor={inputRef} align="start" sideOffset={4}>
+          <PopoverPrimitive.Popup
+            initialFocus={false}
+            className="bg-popover text-popover-foreground z-50 max-h-64 w-(--anchor-width) overflow-y-auto rounded-md border p-1 shadow-md"
+          >
+            {filtered.length === 0 ? (
+              <p className="text-muted-foreground px-2 py-1.5 text-sm">{noMatchesText}</p>
+            ) : (
+              filtered.map((o) => (
+                <button
+                  type="button"
+                  key={o.value}
+                  onClick={() => {
+                    onChange(o.value)
+                    setOpen(false)
+                  }}
+                  className="hover:bg-accent hover:text-accent-foreground flex w-full items-center rounded-sm px-2 py-1.5 text-left text-sm"
+                >
+                  {o.label}
+                </button>
+              ))
+            )}
+          </PopoverPrimitive.Popup>
+        </PopoverPrimitive.Positioner>
       </PopoverPrimitive.Portal>
     </PopoverPrimitive.Root>
   )
