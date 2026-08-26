@@ -113,7 +113,6 @@
   --info-container: #004b77;
   --on-info-container: #cee5ff;
 
-  --surface: #131313;
   --on-surface: #e2e2e2;
   --surface-variant: #474747;
   --on-surface-variant: #c6c6c6;
@@ -125,11 +124,19 @@
   --surface-container-high: #2a2a2a;
   --surface-container-highest: #353535;
 
-  /* Dark remap from Theme.kt: background = surfaceContainer,
-     surface = surfaceBright (brighter than background, unlike light). */
+  /* Dark remap from Theme.kt: background = surfaceContainer, and — this
+     is the one that was missing — `surface` itself is overridden to
+     surfaceBright, not the raw Color.kt surfaceDark constant. Theme.kt
+     builds darkColorScheme(surface = surfaceDark, ...) and then
+     immediately `.copy(background = surfaceContainerDark, surface =
+     surfaceBrightDark)`; surfaceDark only ever backs the separate,
+     unremapped `surfaceDim` role above. Skipping this left `surface`
+     darker than `background` in dark mode — backwards from every real
+     screen in the app, where surface-toned elements sit visibly lighter
+     than the screen behind them. */
+  --surface: var(--surface-bright);
   --background: var(--surface-container);
   --on-background: var(--on-surface);
-  --surface-elevated: var(--surface-bright);
 
   --outline: #919191;
   --outline-variant: #474747;
@@ -137,13 +144,6 @@
   --inverse-surface: #f9f9f9;
   --inverse-on-surface: #1b1b1b;
   --inverse-primary: #000000;
-}
-
-/* Light theme's `surface` already equals its own baseline; only dark
-   needs the extra `--surface-elevated` indirection above. Give light one
-   too so components can use a single token in both themes. */
-:root {
-  --surface-elevated: var(--surface);
 }
 
 @theme inline {
@@ -185,7 +185,6 @@
   --color-on-surface-variant: var(--on-surface-variant);
   --color-surface-dim: var(--surface-dim);
   --color-surface-bright: var(--surface-bright);
-  --color-surface-elevated: var(--surface-elevated);
   --color-surface-container-lowest: var(--surface-container-lowest);
   --color-surface-container-low: var(--surface-container-low);
   --color-surface-container: var(--surface-container);

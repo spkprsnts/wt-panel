@@ -10,7 +10,7 @@ function Switch({ className, ...props }: SwitchPrimitive.Root.Props) {
     <SwitchPrimitive.Root
       data-slot="switch"
       className={cn(
-        "state-layer peer inline-flex h-8 w-13 shrink-0 items-center rounded-full border-2 px-1 transition-colors outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-checked:border-primary data-checked:bg-primary data-unchecked:border-outline data-unchecked:bg-surface-container-highest data-disabled:pointer-events-none data-disabled:opacity-[0.38]",
+        "group state-layer peer inline-flex h-8 w-13 shrink-0 items-center rounded-full border-2 px-1 transition-colors outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-checked:border-primary data-checked:bg-primary data-unchecked:border-outline data-unchecked:bg-surface-container-highest data-disabled:pointer-events-none data-disabled:opacity-[0.38]",
         className
       )}
       {...props}
@@ -30,7 +30,10 @@ function Switch({ className, ...props }: SwitchPrimitive.Root.Props) {
             }
           />
         }
-        className="pointer-events-none rounded-full transition-colors data-unchecked:size-4 data-unchecked:bg-outline data-checked:ml-auto data-checked:size-6 data-checked:bg-on-primary"
+        // Momentary 28px "pressed" size (AndroidX Switch's
+        // pressed-handle-size) while the track is actively held, between
+        // the resting 16px/24px unselected/selected sizes.
+        className="pointer-events-none rounded-full transition-colors data-unchecked:size-4 data-unchecked:bg-outline data-checked:ml-auto data-checked:size-6 data-checked:bg-on-primary data-unchecked:group-active:size-7 data-checked:group-active:size-7"
       />
     </SwitchPrimitive.Root>
   )

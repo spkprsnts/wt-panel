@@ -67,12 +67,12 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "state-layer relative flex w-full cursor-default items-center gap-2 rounded-xs py-2 pr-8 pl-3 text-body-large outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-[0.38]",
+        "state-layer relative flex w-full cursor-default items-center gap-2 rounded-xs py-2 pr-8 pl-3 text-body-large outline-hidden select-none data-selected:bg-tertiary-container data-selected:text-on-tertiary-container data-disabled:pointer-events-none data-disabled:opacity-[0.38]",
         className
       )}
       {...props}
     >
-      <span className="absolute right-2 flex size-4 items-center justify-center text-primary">
+      <span className="absolute right-2 flex size-4 items-center justify-center">
         <SelectPrimitive.ItemIndicator>
           <Icon name="check" size={18} />
         </SelectPrimitive.ItemIndicator>
