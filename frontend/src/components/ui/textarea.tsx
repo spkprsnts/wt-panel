@@ -17,7 +17,7 @@ function Textarea({ className, label, id, placeholder, ...props }: TextareaProps
       data-slot="textarea"
       placeholder={label ? " " : placeholder}
       className={cn(
-        "peer min-h-16 w-full rounded-t-xs border-b-2 border-outline bg-surface-container-highest px-4 py-3.5 text-body-large text-on-surface transition-colors outline-none placeholder:text-transparent selection:bg-primary selection:text-on-primary focus:border-primary disabled:pointer-events-none disabled:opacity-[0.38] aria-invalid:border-error",
+        "peer min-h-16 w-full rounded-t-xs border-b-2 border-on-surface-variant bg-surface-container-highest px-4 py-3.5 text-body-large text-on-surface transition-colors outline-none placeholder:text-transparent selection:bg-primary selection:text-on-primary focus:border-primary disabled:pointer-events-none disabled:opacity-[0.38] aria-invalid:border-error",
         label && "pt-5 pb-1",
         className
       )}

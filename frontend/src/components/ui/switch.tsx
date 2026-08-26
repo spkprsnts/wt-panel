@@ -20,10 +20,13 @@ function Switch({ className, ...props }: SwitchPrimitive.Root.Props) {
         render={
           <motion.span
             layout
+            // M3 Expressive "default spatial" spring (stiffness 380,
+            // dampingRatio 0.8) — see button.tsx's press spring for the
+            // dampingRatio-to-damping conversion.
             transition={
               reduceMotion
                 ? { duration: 0 }
-                : { type: "spring", stiffness: 500, damping: 30 }
+                : { type: "spring", stiffness: 380, damping: 31 }
             }
           />
         }

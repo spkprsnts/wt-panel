@@ -10,7 +10,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-on-primary",
-        elevated: "bg-surface-container-low text-primary shadow-sm",
+        elevated: "bg-surface-container-low text-primary shadow-elevation-1 hover:shadow-elevation-2",
         tonal: "bg-secondary-container text-on-secondary-container",
         outline: "border border-outline text-on-surface-variant",
         ghost: "text-primary",
@@ -48,7 +48,10 @@ function Button({
       render={
         <motion.button
           whileTap={reduceMotion ? undefined : { scale: 0.96 }}
-          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+          // M3 Expressive "fast spatial" spring (stiffness 800, dampingRatio
+          // 0.6); Motion wants an absolute damping, not a ratio, so this is
+          // dampingRatio * 2 * sqrt(stiffness).
+          transition={{ type: "spring", stiffness: 800, damping: 34 }}
         />
       }
       {...props}

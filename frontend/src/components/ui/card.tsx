@@ -6,9 +6,9 @@ import { cn } from "@/lib/utils"
 const cardVariants = cva("flex flex-col gap-6 rounded-md py-6", {
   variants: {
     variant: {
-      filled: "bg-surface-container-low",
+      filled: "bg-surface-container-highest",
       outlined: "bg-surface border border-outline-variant",
-      elevated: "bg-surface-container-lowest shadow-sm",
+      elevated: "bg-surface-container-low shadow-elevation-1",
     },
   },
   defaultVariants: {

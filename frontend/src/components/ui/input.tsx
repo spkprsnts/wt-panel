@@ -23,7 +23,7 @@ function Input({ className, type, label, id, placeholder, ref, ...props }: Input
       data-slot="input"
       placeholder={label ? " " : placeholder}
       className={cn(
-        "peer h-14 w-full min-w-0 rounded-t-xs border-b-2 border-outline bg-surface-container-highest px-4 text-body-large text-on-surface transition-colors outline-none placeholder:text-transparent selection:bg-primary selection:text-on-primary focus:border-primary disabled:pointer-events-none disabled:opacity-[0.38] aria-invalid:border-error",
+        "peer h-14 w-full min-w-0 rounded-t-xs border-b-2 border-on-surface-variant bg-surface-container-highest px-4 text-body-large text-on-surface transition-colors outline-none placeholder:text-transparent selection:bg-primary selection:text-on-primary focus:border-primary disabled:pointer-events-none disabled:opacity-[0.38] aria-invalid:border-error",
         label ? "pt-5 pb-1" : "py-3.5",
         className
       )}

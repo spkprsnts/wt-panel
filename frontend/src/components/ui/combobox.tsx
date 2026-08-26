@@ -91,7 +91,7 @@ function Combobox({
         <PopoverPrimitive.Positioner anchor={inputRef} align="start" sideOffset={4}>
           <PopoverPrimitive.Popup
             initialFocus={false}
-            className="z-50 max-h-64 w-(--anchor-width) overflow-y-auto rounded-xs bg-surface-container p-1 text-on-surface shadow-md"
+            className="z-50 max-h-64 w-(--anchor-width) overflow-y-auto rounded-xs bg-surface-container p-1 text-on-surface shadow-elevation-2"
           >
             {filtered.length === 0 ? (
               <p className="px-3 py-2 text-body-medium text-on-surface-variant">{noMatchesText}</p>

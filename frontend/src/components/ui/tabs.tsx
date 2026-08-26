@@ -31,10 +31,11 @@ function TabsList({ className, ...props }: TabsPrimitive.List.Props) {
         render={
           <motion.span
             layout
+            // M3 Expressive "default spatial" spring — see switch.tsx.
             transition={
               reduceMotion
                 ? { duration: 0 }
-                : { type: "spring", stiffness: 500, damping: 30 }
+                : { type: "spring", stiffness: 380, damping: 31 }
             }
           />
         }

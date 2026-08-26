@@ -67,7 +67,7 @@ function MultiSelect({
           <button
             type="button"
             className={cn(
-              "flex min-h-14 w-full flex-wrap items-center gap-1.5 rounded-t-xs border-b-2 border-outline bg-surface-container-highest px-4 py-2.5 text-body-large text-on-surface transition-colors outline-none focus-visible:border-primary",
+              "flex min-h-14 w-full flex-wrap items-center gap-1.5 rounded-t-xs border-b-2 border-on-surface-variant bg-surface-container-highest px-4 py-2.5 text-body-large text-on-surface transition-colors outline-none focus-visible:border-primary",
               className
             )}
           />
@@ -95,7 +95,7 @@ function MultiSelect({
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Positioner align="start" sideOffset={4}>
-          <PopoverPrimitive.Popup className="z-50 w-(--anchor-width) min-w-32 rounded-xs bg-surface-container p-1 text-on-surface shadow-md">
+          <PopoverPrimitive.Popup className="z-50 w-(--anchor-width) min-w-32 rounded-xs bg-surface-container p-1 text-on-surface shadow-elevation-2">
             {allowCustom && (
               <div className="flex gap-1 p-1">
                 <Input
