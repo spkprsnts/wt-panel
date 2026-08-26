@@ -1626,8 +1626,7 @@ export function XrayPage() {
 
       {error && <p className="mb-4 text-sm text-error">{error}</p>}
 
-      <div className="rounded-md border">
-        <Table>
+      <Table>
           <TableHeader>
             <TableRow>
               <TableHead>{t("xray.page.colStatus")}</TableHead>
@@ -1676,7 +1675,6 @@ export function XrayPage() {
             )}
           </TableBody>
         </Table>
-      </div>
     </div>
   )
 }

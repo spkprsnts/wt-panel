@@ -238,8 +238,7 @@ export function ClientsPage() {
 
       {error && <p className="mb-4 text-sm text-error">{error}</p>}
 
-      <div className="rounded-md border">
-        <Table>
+      <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="w-8" />
@@ -451,7 +450,6 @@ export function ClientsPage() {
             )}
           </TableBody>
         </Table>
-      </div>
     </div>
   )
 }

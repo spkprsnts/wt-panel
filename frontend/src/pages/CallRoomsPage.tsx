@@ -186,8 +186,7 @@ export function CallRoomsPage() {
 
       {error && <p className="mb-4 text-sm text-error">{error}</p>}
 
-      <div className="rounded-md border">
-        <Table>
+      <Table>
           <TableHeader>
             <TableRow>
               <TableHead>{t("rooms.providerLabel")}</TableHead>
@@ -231,7 +230,6 @@ export function CallRoomsPage() {
             )}
           </TableBody>
         </Table>
-      </div>
     </div>
   )
 }
