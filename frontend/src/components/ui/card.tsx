@@ -1,15 +1,30 @@
 import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
-function Card({ className, ...props }: React.ComponentProps<"div">) {
+const cardVariants = cva("flex flex-col gap-6 rounded-md py-6", {
+  variants: {
+    variant: {
+      filled: "bg-surface-container-low",
+      outlined: "bg-surface border border-outline-variant",
+      elevated: "bg-surface-container-lowest shadow-sm",
+    },
+  },
+  defaultVariants: {
+    variant: "filled",
+  },
+})
+
+function Card({
+  className,
+  variant,
+  ...props
+}: React.ComponentProps<"div"> & VariantProps<typeof cardVariants>) {
   return (
     <div
       data-slot="card"
-      className={cn(
-        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
-        className
-      )}
+      className={cn(cardVariants({ variant }), "text-on-surface", className)}
       {...props}
     />
   )
@@ -32,7 +47,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-title"
-      className={cn("leading-none font-semibold", className)}
+      className={cn("text-title-large leading-none", className)}
       {...props}
     />
   )
@@ -42,7 +57,7 @@ function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-description"
-      className={cn("text-muted-foreground text-sm", className)}
+      className={cn("text-on-surface-variant text-body-medium", className)}
       {...props}
     />
   )
@@ -89,4 +104,5 @@ export {
   CardAction,
   CardDescription,
   CardContent,
+  cardVariants,
 }

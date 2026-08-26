@@ -1,100 +1,374 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "@fontsource-variable/roboto-flex";
+@import "material-symbols/outlined.css";
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+  Material Design 3 (Expressive) tokens, ported from the WireTurn Android
+  app's theme (ui/theme/Color.kt, ExtendedColor.kt, Theme.kt, Type.kt) so
+  the panel and the app it administers read as one product family.
+  Static scheme only — WireTurn's Android-12+ dynamic color has no web
+  equivalent.
+*/
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-accent: oklch(0.94 0 0);
-  --sidebar-accent-foreground: oklch(0.145 0 0);
-  --sidebar-border: oklch(0.922 0 0);
+  /* Primary / secondary / tertiary / error — Color.kt *Light */
+  --primary: #000000;
+  --on-primary: #e2e2e2;
+  --primary-container: #3b3b3b;
+  --on-primary-container: #ffffff;
+  --secondary: #5e5e5e;
+  --on-secondary: #ffffff;
+  --secondary-container: #d4d4d4;
+  --on-secondary-container: #1b1b1b;
+  --tertiary: #3b3b3b;
+  --on-tertiary: #e2e2e2;
+  --tertiary-container: #747474;
+  --on-tertiary-container: #ffffff;
+  --error: #b3261e;
+  --on-error: #ffffff;
+  --error-container: #f9dedc;
+  --on-error-container: #410e0b;
+
+  /* Extended roles (WireTurn ExtendedColor.kt — not in stock M3) */
+  --success: #006e1c;
+  --on-success: #ffffff;
+  --success-container: #7bfb88;
+  --on-success-container: #002204;
+  --warning: #8b5000;
+  --on-warning: #ffffff;
+  --warning-container: #ffdcbe;
+  --on-warning-container: #2d1600;
+  --info: #00639c;
+  --on-info: #ffffff;
+  --info-container: #cee5ff;
+  --on-info-container: #001d33;
+
+  /* Surfaces */
+  --surface: #f9f9f9;
+  --on-surface: #1b1b1b;
+  --surface-variant: #e2e2e2;
+  --on-surface-variant: #474747;
+  --surface-dim: #dadada;
+  --surface-bright: #f9f9f9;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #f3f3f3;
+  --surface-container: #eeeeee;
+  --surface-container-high: #e8e8e8;
+  --surface-container-highest: #e2e2e2;
+
+  /* Background/surface remap from Theme.kt: background borrows the
+     surfaceContainerLow tone so elevated surfaceContainer* steps read
+     as a lift above it, while `surface` keeps the app's own baseline. */
+  --background: var(--surface-container-low);
+  --on-background: var(--on-surface);
+
+  --outline: #777777;
+  --outline-variant: #c6c6c6;
+  --scrim: #000000;
+  --inverse-surface: #131313;
+  --inverse-on-surface: #e2e2e2;
+  --inverse-primary: #ffffff;
+
+  /* Shape scale (M3 baseline; xl/2xl double as Expressive "increased" steps) */
+  --radius-none: 0px;
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 28px;
+  --radius-2xl: 32px;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
+  /* Color.kt *Dark */
+  --primary: #ffffff;
+  --on-primary: #1b1b1b;
+  --primary-container: #d4d4d4;
+  --on-primary-container: #000000;
+  --secondary: #c6c6c6;
+  --on-secondary: #1b1b1b;
+  --secondary-container: #474747;
+  --on-secondary-container: #e2e2e2;
+  --tertiary: #e2e2e2;
+  --on-tertiary: #1b1b1b;
+  --tertiary-container: #919191;
+  --on-tertiary-container: #000000;
+  --error: #f2b8b5;
+  --on-error: #601410;
+  --error-container: #8c1d18;
+  --on-error-container: #f9dedc;
+
+  --success: #5fdb72;
+  --on-success: #00390b;
+  --success-container: #005313;
+  --on-success-container: #7bfb88;
+  --warning: #ffb787;
+  --on-warning: #4b2800;
+  --warning-container: #6b3c00;
+  --on-warning-container: #ffdcbe;
+  --info: #97ccff;
+  --on-info: #003354;
+  --info-container: #004b77;
+  --on-info-container: #cee5ff;
+
+  --surface: #131313;
+  --on-surface: #e2e2e2;
+  --surface-variant: #474747;
+  --on-surface-variant: #c6c6c6;
+  --surface-dim: #131313;
+  --surface-bright: #393939;
+  --surface-container-lowest: #0e0e0e;
+  --surface-container-low: #1b1b1b;
+  --surface-container: #1f1f1f;
+  --surface-container-high: #2a2a2a;
+  --surface-container-highest: #353535;
+
+  /* Dark remap from Theme.kt: background = surfaceContainer,
+     surface = surfaceBright (brighter than background, unlike light). */
+  --background: var(--surface-container);
+  --on-background: var(--on-surface);
+  --surface-elevated: var(--surface-bright);
+
+  --outline: #919191;
+  --outline-variant: #474747;
+  --scrim: #000000;
+  --inverse-surface: #f9f9f9;
+  --inverse-on-surface: #1b1b1b;
+  --inverse-primary: #000000;
+}
+
+/* Light theme's `surface` already equals its own baseline; only dark
+   needs the extra `--surface-elevated` indirection above. Give light one
+   too so components can use a single token in both themes. */
+:root {
+  --surface-elevated: var(--surface);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
+  --color-on-primary: var(--on-primary);
+  --color-primary-container: var(--primary-container);
+  --color-on-primary-container: var(--on-primary-container);
   --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --color-on-secondary: var(--on-secondary);
+  --color-secondary-container: var(--secondary-container);
+  --color-on-secondary-container: var(--on-secondary-container);
+  --color-tertiary: var(--tertiary);
+  --color-on-tertiary: var(--on-tertiary);
+  --color-tertiary-container: var(--tertiary-container);
+  --color-on-tertiary-container: var(--on-tertiary-container);
+  --color-error: var(--error);
+  --color-on-error: var(--on-error);
+  --color-error-container: var(--error-container);
+  --color-on-error-container: var(--on-error-container);
+
+  --color-success: var(--success);
+  --color-on-success: var(--on-success);
+  --color-success-container: var(--success-container);
+  --color-on-success-container: var(--on-success-container);
+  --color-warning: var(--warning);
+  --color-on-warning: var(--on-warning);
+  --color-warning-container: var(--warning-container);
+  --color-on-warning-container: var(--on-warning-container);
+  --color-info: var(--info);
+  --color-on-info: var(--on-info);
+  --color-info-container: var(--info-container);
+  --color-on-info-container: var(--on-info-container);
+
+  --color-background: var(--background);
+  --color-on-background: var(--on-background);
+  --color-surface: var(--surface);
+  --color-on-surface: var(--on-surface);
+  --color-surface-variant: var(--surface-variant);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-surface-dim: var(--surface-dim);
+  --color-surface-bright: var(--surface-bright);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container: var(--surface-container);
+  --color-surface-container-high: var(--surface-container-high);
+  --color-surface-container-highest: var(--surface-container-highest);
+
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+  --color-scrim: var(--scrim);
+  --color-inverse-surface: var(--inverse-surface);
+  --color-inverse-on-surface: var(--inverse-on-surface);
+  --color-inverse-primary: var(--inverse-primary);
+
+  /* Focus indicator: M3 has no dedicated "ring" role — primary carries it. */
+  --color-ring: var(--primary);
+
+  --font-sans: "Roboto Flex Variable", ui-sans-serif, system-ui, sans-serif;
+
+  /*
+    Transitional aliases: components/layout, the overlay primitives
+    (dialog/select/dropdown-menu/combobox/multi-select) and the pages
+    haven't been reworked to the M3 role names yet (deferred to the next
+    pass) and still reference these shadcn-era names. Map them onto M3
+    roles so they render coherently in the meantime instead of going
+    unstyled. Drop this block once every call site migrates.
+  */
+  --color-foreground: var(--on-background);
+  --color-primary-foreground: var(--on-primary);
+  --color-secondary-foreground: var(--on-secondary);
+  --color-card: var(--surface-container-low);
+  --color-card-foreground: var(--on-surface);
+  --color-popover: var(--surface-container);
+  --color-popover-foreground: var(--on-surface);
+  --color-muted: var(--surface-variant);
+  --color-muted-foreground: var(--on-surface-variant);
+  --color-accent: var(--secondary-container);
+  --color-accent-foreground: var(--on-secondary-container);
+  --color-destructive: var(--error);
+  --color-destructive-foreground: var(--on-error);
+  --color-border: var(--outline-variant);
+  --color-input: var(--outline-variant);
+  --color-sidebar: var(--surface-container-low);
+  --color-sidebar-foreground: var(--on-surface);
+  --color-sidebar-accent: var(--secondary-container);
+  --color-sidebar-accent-foreground: var(--on-secondary-container);
+  --color-sidebar-border: var(--outline-variant);
+}
+
+/* M3 baseline type scale (Type.kt) — one utility class per style, each
+   pairing size/line-height/tracking/weight the way the spec defines a
+   style, so callers don't have to compose three separate scales. */
+@utility text-display-large {
+  font-size: 3.5625rem; /* 57sp */
+  line-height: 4rem; /* 64sp */
+  letter-spacing: -0.015625rem; /* -0.25sp */
+  font-weight: 400;
+}
+@utility text-display-medium {
+  font-size: 2.8125rem; /* 45sp */
+  line-height: 3.25rem; /* 52sp */
+  letter-spacing: 0;
+  font-weight: 400;
+}
+@utility text-display-small {
+  font-size: 2.25rem; /* 36sp */
+  line-height: 2.75rem; /* 44sp */
+  letter-spacing: 0;
+  font-weight: 400;
+}
+@utility text-headline-large {
+  /* WireTurn compresses this to stock M3's displaySmall size. */
+  font-size: 2.25rem; /* 36sp */
+  line-height: 2.75rem; /* 44sp */
+  letter-spacing: 0;
+  font-weight: 500;
+}
+@utility text-headline-medium {
+  font-size: 1.75rem; /* 28sp */
+  line-height: 2.25rem; /* 36sp */
+  letter-spacing: 0;
+  font-weight: 400;
+}
+@utility text-headline-small {
+  font-size: 1.5rem; /* 24sp */
+  line-height: 2rem; /* 32sp */
+  letter-spacing: 0;
+  font-weight: 400;
+}
+@utility text-title-large {
+  font-size: 1.375rem; /* 22sp */
+  line-height: 1.75rem; /* 28sp */
+  letter-spacing: 0;
+  font-weight: 600; /* WireTurn: SemiBold, not stock M3's Regular */
+}
+@utility text-title-medium {
+  font-size: 1rem; /* 16sp */
+  line-height: 1.5rem; /* 24sp */
+  letter-spacing: 0.009375rem; /* 0.15sp */
+  font-weight: 500;
+}
+@utility text-title-small {
+  font-size: 0.875rem; /* 14sp */
+  line-height: 1.25rem; /* 20sp */
+  letter-spacing: 0.00625rem; /* 0.1sp */
+  font-weight: 500;
+}
+@utility text-body-large {
+  font-size: 1rem; /* 16sp */
+  line-height: 1.5rem; /* 24sp */
+  letter-spacing: 0.03125rem; /* 0.5sp */
+  font-weight: 400;
+}
+@utility text-body-medium {
+  font-size: 0.875rem; /* 14sp */
+  line-height: 1.25rem; /* 20sp */
+  letter-spacing: 0.015625rem; /* 0.25sp */
+  font-weight: 400;
+}
+@utility text-body-small {
+  font-size: 0.75rem; /* 12sp */
+  line-height: 1rem; /* 16sp */
+  letter-spacing: 0.025rem; /* 0.4sp */
+  font-weight: 400;
+}
+@utility text-label-large {
+  font-size: 0.875rem; /* 14sp */
+  line-height: 1.25rem; /* 20sp */
+  letter-spacing: 0.00625rem; /* 0.1sp */
+  font-weight: 500;
+}
+@utility text-label-medium {
+  font-size: 0.75rem; /* 12sp */
+  line-height: 1rem; /* 16sp */
+  letter-spacing: 0.03125rem; /* 0.5sp */
+  font-weight: 500;
+}
+@utility text-label-small {
+  font-size: 0.6875rem; /* 11sp */
+  line-height: 1rem; /* 16sp */
+  letter-spacing: 0.03125rem; /* 0.5sp */
+  font-weight: 500;
+}
+
+/* Shared interaction state layer (M3 hover/focus/pressed opacities).
+   Tints with `currentColor`, so set text color to the surface's "on-*"
+   role before applying — the overlay then matches the M3 spec's rule
+   that the state layer color equals the content color. */
+@utility state-layer {
+  position: relative;
+  isolation: isolate;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background-color: currentcolor;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 100ms linear;
+  }
+  &:hover::after {
+    opacity: 0.08;
+  }
+  &:focus-visible::after {
+    opacity: 0.12;
+  }
+  &:active::after {
+    opacity: 0.12;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &::after {
+      transition: none;
+    }
+  }
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-outline-variant outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-on-background text-body-large;
   }
 }
 
@@ -104,7 +378,7 @@
      overflows, so it's harmless to apply unconditionally. */
   .thin-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
+    scrollbar-color: var(--outline-variant) transparent;
   }
   .thin-scrollbar::-webkit-scrollbar {
     width: 10px;
@@ -113,7 +387,7 @@
     background: transparent;
   }
   .thin-scrollbar::-webkit-scrollbar-thumb {
-    background-color: var(--border);
+    background-color: var(--outline-variant);
     border-radius: 9999px;
     border: 3px solid transparent;
     background-clip: content-box;

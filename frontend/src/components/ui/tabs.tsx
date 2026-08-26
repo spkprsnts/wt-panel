@@ -1,4 +1,5 @@
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs"
+import { motion, useReducedMotion } from "motion/react"
 
 import { cn } from "@/lib/utils"
 
@@ -13,15 +14,33 @@ function Tabs({ className, ...props }: TabsPrimitive.Root.Props) {
 }
 
 function TabsList({ className, ...props }: TabsPrimitive.List.Props) {
+  const reduceMotion = useReducedMotion()
+
   return (
     <TabsPrimitive.List
       data-slot="tabs-list"
       className={cn(
-        "bg-muted text-muted-foreground inline-flex h-9 w-fit max-w-full items-center justify-center overflow-x-auto rounded-lg p-1",
+        "relative flex w-fit max-w-full items-center overflow-x-auto border-b border-outline-variant",
         className
       )}
       {...props}
-    />
+    >
+      {props.children}
+      <TabsPrimitive.Indicator
+        data-slot="tabs-indicator"
+        render={
+          <motion.span
+            layout
+            transition={
+              reduceMotion
+                ? { duration: 0 }
+                : { type: "spring", stiffness: 500, damping: 30 }
+            }
+          />
+        }
+        className="absolute -bottom-px h-0.75 rounded-t-xs bg-primary"
+      />
+    </TabsPrimitive.List>
   )
 }
 
@@ -30,7 +49,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
     <TabsPrimitive.Tab
       data-slot="tabs-trigger"
       className={cn(
-        "data-active:bg-background data-active:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 data-active:shadow-sm",
+        "state-layer inline-flex h-12 flex-1 items-center justify-center gap-1.5 px-4 text-title-small whitespace-nowrap text-on-surface-variant transition-colors outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-[0.38] data-active:text-primary",
         className
       )}
       {...props}

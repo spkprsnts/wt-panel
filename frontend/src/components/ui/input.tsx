@@ -2,20 +2,47 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Input({ className, type, ref, ...props }: React.ComponentProps<"input">) {
-  return (
+interface InputProps extends React.ComponentProps<"input"> {
+  /**
+   * Renders an M3 floating label inside the field. Omit to keep using an
+   * external `<Label>` above the field (today's pattern on every page) —
+   * the field still gets the M3 filled-field treatment either way.
+   */
+  label?: string
+}
+
+function Input({ className, type, label, id, placeholder, ref, ...props }: InputProps) {
+  const generatedId = React.useId()
+  const inputId = id ?? generatedId
+
+  const field = (
     <input
       ref={ref}
+      id={inputId}
       type={type}
       data-slot="input"
+      placeholder={label ? " " : placeholder}
       className={cn(
-        "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input flex h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-        "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-        "aria-invalid:ring-destructive/20 aria-invalid:border-destructive",
+        "peer h-14 w-full min-w-0 rounded-t-xs border-b-2 border-outline bg-surface-container-highest px-4 text-body-large text-on-surface transition-colors outline-none placeholder:text-transparent selection:bg-primary selection:text-on-primary focus:border-primary disabled:pointer-events-none disabled:opacity-[0.38] aria-invalid:border-error",
+        label ? "pt-5 pb-1" : "py-3.5",
         className
       )}
       {...props}
     />
+  )
+
+  if (!label) return field
+
+  return (
+    <div className="relative">
+      {field}
+      <label
+        htmlFor={inputId}
+        className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-body-large text-on-surface-variant transition-all peer-focus:top-2.5 peer-focus:text-label-small peer-focus:text-primary peer-not-placeholder-shown:top-2.5 peer-not-placeholder-shown:text-label-small peer-not-placeholder-shown:text-on-surface-variant"
+      >
+        {label}
+      </label>
+    </div>
   )
 }
 
