@@ -4,26 +4,47 @@ import { motion, useReducedMotion } from "motion/react"
 
 import { cn } from "@/lib/utils"
 
+// Sizing/spacing/disabled-state values below are read straight off the
+// pinned AndroidX source (BaselineButtonTokens.kt / ButtonXSmallTokens.kt /
+// ButtonMediumTokens.kt, compose/material3/material3 @ dd849e2), not a
+// secondary reference — that reference's own derived token tables turned
+// out to disagree with the primary source in a couple of places (e.g. it
+// lists 12px for the extra-small size's inline padding; the token file
+// itself says 16px).
 const buttonVariants = cva(
-  "state-layer inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-label-large transition-colors disabled:pointer-events-none disabled:opacity-[0.38] [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-[18px] outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-invalid:outline-2 aria-invalid:outline-error",
+  "state-layer inline-flex min-w-[58px] items-center justify-center gap-2 whitespace-nowrap rounded-full text-label-large transition-colors disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-invalid:outline-2 aria-invalid:outline-error",
   {
     variants: {
       variant: {
-        default: "bg-primary text-on-primary",
-        elevated: "bg-surface-container-low text-primary shadow-elevation-1 hover:shadow-elevation-2",
-        tonal: "bg-secondary-container text-on-secondary-container",
-        outline: "border border-outline text-on-surface-variant",
-        ghost: "text-primary",
-        destructive: "bg-error text-on-error",
-        link: "text-primary underline-offset-4 hover:underline",
+        // Disabled containers swap to a flat onSurface wash rather than
+        // just fading the variant's own color (BaselineButtonTokens:
+        // DisabledContainerColor = onSurface @ 10% opacity, disabled
+        // content = onSurfaceVariant @ 38% — two independent opacities,
+        // not one blanket fade over the whole button).
+        default:
+          "bg-primary text-on-primary disabled:bg-on-surface/10 disabled:text-on-surface-variant/38",
+        elevated:
+          "bg-surface-container-low text-primary shadow-elevation-1 hover:shadow-elevation-2 disabled:bg-on-surface/10 disabled:text-on-surface-variant/38 disabled:shadow-none",
+        tonal:
+          "bg-secondary-container text-on-secondary-container disabled:bg-on-surface/12 disabled:text-on-surface-variant/38",
+        outline:
+          "border border-outline-variant text-on-surface-variant disabled:border-outline-variant/10 disabled:text-on-surface-variant/38",
+        ghost: "text-primary disabled:text-on-surface-variant/38",
+        destructive:
+          "bg-error text-on-error disabled:bg-on-surface/10 disabled:text-on-surface-variant/38",
+        link: "text-primary underline-offset-4 hover:underline disabled:text-on-surface-variant/38",
         // shadcn-era alias kept so not-yet-migrated call sites still resolve.
-        secondary: "bg-secondary-container text-on-secondary-container",
+        secondary:
+          "bg-secondary-container text-on-secondary-container disabled:bg-on-surface/12 disabled:text-on-surface-variant/38",
       },
       size: {
         default: "h-10 px-6 has-[>svg]:px-4",
-        sm: "h-8 gap-1.5 px-4 has-[>svg]:px-3",
-        lg: "h-14 px-8 text-title-medium has-[>svg]:px-6",
-        icon: "size-10 rounded-full",
+        sm: "h-8 px-4 has-[>svg]:px-3",
+        lg: "h-14 px-6 text-title-medium has-[>svg]:px-4 [&_svg:not([class*='size-'])]:size-6",
+        // MinWidth is a label-button affordance (keeps a very short word
+        // from looking cramped) — an icon-only button has no label to
+        // protect and must stay square.
+        icon: "size-10 min-w-0 rounded-full",
       },
     },
     defaultVariants: {
@@ -40,6 +61,11 @@ function Button({
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
   const reduceMotion = useReducedMotion()
+  // Shape-morph on press, not just scale — BaselineButtonTokens/
+  // ButtonXSmallTokens.PressedContainerShape is cornerSmall (8px) at the
+  // 40/32px heights (default/sm/icon), ButtonMediumTokens.
+  // PressedContainerShape is cornerMedium (12px) at the 56px (lg) height.
+  const pressedRadius = size === "lg" ? 12 : 8
 
   return (
     <ButtonPrimitive
@@ -47,7 +73,9 @@ function Button({
       className={cn(buttonVariants({ variant, size, className }))}
       render={
         <motion.button
-          whileTap={reduceMotion ? undefined : { scale: 0.96 }}
+          whileTap={
+            reduceMotion ? undefined : { scale: 0.96, borderRadius: pressedRadius }
+          }
           // M3 Expressive "fast spatial" spring (stiffness 800, dampingRatio
           // 0.6); Motion wants an absolute damping, not a ratio, so this is
           // dampingRatio * 2 * sqrt(stiffness).
