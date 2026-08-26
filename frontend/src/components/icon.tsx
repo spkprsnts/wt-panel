@@ -11,12 +11,7 @@ interface IconProps extends React.ComponentProps<"span"> {
   size?: number
 }
 
-/**
- * Material Symbols icon (self-hosted variable font, see index.css). Not yet
- * wired into any page — components/layout and the pages still use
- * lucide-react until that migration pass; this wrapper exists so that pass
- * can adopt the font without re-deriving the FILL/wght axis plumbing.
- */
+/** Material Symbols icon (self-hosted variable font, see index.css). */
 function Icon({ name, filled = false, weight = 400, size = 24, className, style, ...props }: IconProps) {
   return (
     <span

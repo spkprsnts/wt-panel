@@ -125,7 +125,7 @@ export function ClientForm({
         </div>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-sm text-error">{error}</p>}
       <DialogFooter>
         <Button type="submit" disabled={loading}>
           {loading ? submittingLabel : submitLabel}

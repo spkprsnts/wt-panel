@@ -26,16 +26,7 @@ import { AddProfileDialog } from "@/components/add-profile-dialog"
 import { EditProfileDialog } from "@/components/edit-profile-dialog"
 import { ProfileLogsDialog } from "@/components/profile-logs-dialog"
 import { QrDialog } from "@/components/qr-dialog"
-import {
-  ChevronRight,
-  Loader2,
-  MoreVertical,
-  Pencil,
-  QrCode,
-  RotateCw,
-  ScrollText,
-  Trash2,
-} from "lucide-react"
+import { Icon } from "@/components/icon"
 
 // parseCoreConfigJSON is the shared best-effort JSON.parse both
 // profileSummaryBadges and profilePort need — a profile saved before a
@@ -245,7 +236,7 @@ export function ClientsPage() {
         <CreateClientDialog onCreated={load} />
       </div>
 
-      {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
+      {error && <p className="mb-4 text-sm text-error">{error}</p>}
 
       <div className="rounded-md border">
         <Table>
@@ -263,15 +254,17 @@ export function ClientsPage() {
             {clients.map((client) => (
               <React.Fragment key={client.ID}>
                 <TableRow
-                  className="cursor-pointer transition-colors hover:bg-muted/50"
+                  className="cursor-pointer transition-colors hover:bg-surface-variant/50"
                   title={t("clientsPage.clickToExpand")}
                   onClick={() =>
                     setExpanded(expanded === client.ID ? null : client.ID)
                   }
                 >
                   <TableCell>
-                    <ChevronRight
-                      className={`size-4 text-muted-foreground transition-all ${
+                    <Icon
+                      name="chevron_right"
+                      size={18}
+                      className={`text-on-surface-variant transition-all ${
                         expanded === client.ID ? "rotate-90" : ""
                       }`}
                     />
@@ -297,7 +290,7 @@ export function ClientsPage() {
                         title={`${t("clientsPage.subscriptionTitle")} — ${client.Name}`}
                         trigger={
                           <Button size="sm" variant="outline" title={t("clientsPage.subscriptionQrTitle")}>
-                            <QrCode className="size-4" />
+                            <Icon name="qr_code" size={18} />
                           </Button>
                         }
                         loadVariants={() =>
@@ -318,14 +311,14 @@ export function ClientsPage() {
                         title={t("common.delete")}
                         onClick={() => handleDeleteClient(client.ID)}
                       >
-                        <Trash2 className="size-4" />
+                        <Icon name="delete" size={18} />
                       </Button>
                     </div>
                   </TableCell>
                 </TableRow>
                 {expanded === client.ID && (
                   <TableRow>
-                    <TableCell colSpan={6} className="bg-muted/30">
+                    <TableCell colSpan={6} className="bg-surface-variant/30">
                       <div className="flex flex-col gap-3 p-2">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium">{t("clientsPage.colProfiles")}</span>
@@ -336,7 +329,7 @@ export function ClientsPage() {
                           />
                         </div>
                         {(client.Profiles ?? []).length === 0 && (
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm text-on-surface-variant">
                             {t("clientsPage.noProfiles")}
                           </p>
                         )}
@@ -348,7 +341,7 @@ export function ClientsPage() {
                             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                               <span
                                 className={`inline-block size-2 rounded-full ${
-                                  profile.Running ? "bg-green-500" : "bg-muted-foreground/40"
+                                  profile.Running ? "bg-green-500" : "bg-on-surface-variant/40"
                                 }`}
                                 title={profile.Running ? t("profileLogs.running") : t("profileLogs.notRunning")}
                               />
@@ -368,7 +361,7 @@ export function ClientsPage() {
                                 column instead of landing wherever they fall
                                 among the summary badges above, which vary
                                 in count/length per core type. */}
-                            <span className="w-12 shrink-0 text-right font-mono text-xs text-muted-foreground">
+                            <span className="w-12 shrink-0 text-right font-mono text-xs text-on-surface-variant">
                               <ProfilePortLabel profile={profile} />
                             </span>
                             <div className="flex shrink-0 items-center gap-1">
@@ -376,7 +369,7 @@ export function ClientsPage() {
                                 title={`${t("clientsPage.profileTitle")} — ${profile.Name}`}
                                 trigger={
                                   <Button size="sm" variant="ghost" title={t("clientsPage.profileQrTitle")}>
-                                    <QrCode className="size-4" />
+                                    <Icon name="qr_code" size={18} />
                                   </Button>
                                 }
                                 loadVariants={() =>
@@ -392,25 +385,25 @@ export function ClientsPage() {
                                 <DropdownMenuTrigger
                                   render={
                                     <Button size="sm" variant="ghost" title={t("common.moreActions")}>
-                                      <MoreVertical className="size-4" />
+                                      <Icon name="more_vert" size={18} />
                                     </Button>
                                   }
                                 />
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuItem onClick={() => setEditingProfileId(profile.ID)}>
-                                    <Pencil /> {t("profileDialogs.editTooltip")}
+                                    <Icon name="edit" size={18} /> {t("profileDialogs.editTooltip")}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => setLogsProfileId(profile.ID)}>
-                                    <ScrollText /> {t("profileLogs.trigger")}
+                                    <Icon name="history" size={18} /> {t("profileLogs.trigger")}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     disabled={restartingId === profile.ID || !profile.Enabled}
                                     onClick={() => handleRestartProfile(profile.ID)}
                                   >
                                     {restartingId === profile.ID ? (
-                                      <Loader2 className="animate-spin" />
+                                      <Icon name="progress_activity" size={18} className="animate-spin" />
                                     ) : (
-                                      <RotateCw />
+                                      <Icon name="restart_alt" size={18} />
                                     )}
                                     {profile.Enabled
                                       ? t("clientsPage.restartProfileTitle")
@@ -421,7 +414,7 @@ export function ClientsPage() {
                                     variant="destructive"
                                     onClick={() => handleDeleteProfile(profile.ID)}
                                   >
-                                    <Trash2 /> {t("common.delete")}
+                                    <Icon name="delete" size={18} /> {t("common.delete")}
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -451,7 +444,7 @@ export function ClientsPage() {
             ))}
             {clients.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={6} className="text-center text-on-surface-variant">
                   {t("clientsPage.empty")}
                 </TableCell>
               </TableRow>

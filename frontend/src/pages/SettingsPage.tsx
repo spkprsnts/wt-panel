@@ -1,10 +1,10 @@
 import * as React from "react"
-import { Loader2, TriangleAlert } from "lucide-react"
 
 import { api } from "@/lib/api"
 import { useDialogPrompt } from "@/components/dialog-prompt"
 import { useT } from "@/lib/i18n"
 import type { TranslationKey } from "@/i18n"
+import { Icon } from "@/components/icon"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -104,12 +104,12 @@ function TotpEnableDialog({ onEnabled }: { onEnabled: () => void }) {
           <DialogTitle>{t("settings.account.totp.enableTitle")}</DialogTitle>
           <DialogDescription>{t("settings.account.totp.enableDescription")}</DialogDescription>
         </DialogHeader>
-        {loadError && <p className="text-sm text-destructive">{loadError}</p>}
-        {!loadError && !qrDataUri && <p className="text-sm text-muted-foreground">{t("common.loading")}</p>}
+        {loadError && <p className="text-sm text-error">{loadError}</p>}
+        {!loadError && !qrDataUri && <p className="text-sm text-on-surface-variant">{t("common.loading")}</p>}
         {qrDataUri && (
           <form onSubmit={handleConfirm} className="flex flex-col gap-3">
             <img src={qrDataUri} alt="QR" className="mx-auto size-48 rounded-md border p-2" />
-            <code className="break-all rounded-md border bg-muted p-2 text-center text-xs">{secret}</code>
+            <code className="break-all rounded-md border bg-surface-variant p-2 text-center text-xs">{secret}</code>
             <div className="flex flex-col gap-2">
               <Label htmlFor="totp-confirm-code">{t("settings.account.totp.codeLabel")}</Label>
               <Input
@@ -122,7 +122,7 @@ function TotpEnableDialog({ onEnabled }: { onEnabled: () => void }) {
                 required
               />
             </div>
-            {confirmError && <p className="text-sm text-destructive">{confirmError}</p>}
+            {confirmError && <p className="text-sm text-error">{confirmError}</p>}
             <DialogFooter>
               <Button type="submit" disabled={loading}>
                 {loading ? t("common.saving") : t("settings.account.totp.confirmButton")}
@@ -195,7 +195,7 @@ function TotpDisableDialog({ onDisabled }: { onDisabled: () => void }) {
               required
             />
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-error">{error}</p>}
           <DialogFooter>
             <Button type="submit" variant="destructive" disabled={loading}>
               {loading ? t("common.saving") : t("settings.account.totp.disableButton")}
@@ -293,7 +293,7 @@ function AccountCard() {
               required
             />
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-error">{error}</p>}
           {success && <p className="text-sm text-green-600">{t("settings.account.changed")}</p>}
           <Button type="submit" disabled={loading}>
             {loading ? t("common.saving") : t("settings.account.changePassword")}
@@ -304,7 +304,7 @@ function AccountCard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium">{t("settings.account.totp.title")}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-on-surface-variant">
                 {totpEnabled ? t("settings.account.totp.statusOn") : t("settings.account.totp.statusOff")}
               </p>
             </div>
@@ -457,8 +457,8 @@ function PanelNetworkCard() {
       </CardHeader>
       <CardContent>
         {isInsecureConnection() && (
-          <div className="mb-4 flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-            <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+          <div className="mb-4 flex items-start gap-2 rounded-md border border-error/50 bg-error/10 p-3 text-sm text-error">
+            <Icon name="warning" size={18} className="mt-0.5 shrink-0" />
             <span>{t("settings.network.insecureWarning")}</span>
           </div>
         )}
@@ -470,7 +470,7 @@ function PanelNetworkCard() {
           targetUrl={targetUrl}
         />
         {!loaded ? (
-          <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+          <p className="text-sm text-on-surface-variant">{t("common.loading")}</p>
         ) : (
           <form onSubmit={handleSubmit} className="flex max-w-sm flex-col gap-4">
             <div className="flex flex-col gap-2">
@@ -481,7 +481,7 @@ function PanelNetworkCard() {
                 onChange={(e) => setPublicIp(e.target.value)}
                 placeholder={t("settings.network.publicIpPlaceholder")}
               />
-              <p className="text-xs text-muted-foreground">{t("settings.network.publicIpHelp")}</p>
+              <p className="text-xs text-on-surface-variant">{t("settings.network.publicIpHelp")}</p>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="panel-webdav-public-host">{t("settings.network.webdavPublicHostLabel")}</Label>
@@ -491,7 +491,7 @@ function PanelNetworkCard() {
                 onChange={(e) => setWebdavPublicHost(e.target.value)}
                 placeholder={t("settings.network.webdavPublicHostPlaceholder")}
               />
-              <p className="text-xs text-muted-foreground">{t("settings.network.webdavPublicHostHelp")}</p>
+              <p className="text-xs text-on-surface-variant">{t("settings.network.webdavPublicHostHelp")}</p>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="panel-listen-ip">{t("settings.network.listenIpLabel")}</Label>
@@ -520,12 +520,12 @@ function PanelNetworkCard() {
                 onChange={(e) => setListenPort(e.target.value)}
                 placeholder={t("settings.network.listenPortPlaceholder")}
               />
-              <p className="text-xs text-muted-foreground">{t("settings.network.listenPortHelp")}</p>
+              <p className="text-xs text-on-surface-variant">{t("settings.network.listenPortHelp")}</p>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="panel-base-path">{t("settings.network.basePathLabel")}</Label>
               <Input id="panel-base-path" value={basePath} onChange={(e) => setBasePath(e.target.value)} required />
-              <p className="text-xs text-muted-foreground">{t("settings.network.basePathHelp")}</p>
+              <p className="text-xs text-on-surface-variant">{t("settings.network.basePathHelp")}</p>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="panel-tls-cert">{t("settings.network.tlsCertLabel")}</Label>
@@ -545,7 +545,7 @@ function PanelNetworkCard() {
                 placeholder={t("settings.network.pathPlaceholder")}
               />
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p className="text-sm text-error">{error}</p>}
             {saved && <p className="text-sm text-green-600">{t("settings.network.saved")}</p>}
             <div className="flex gap-2">
               <Button type="submit" disabled={loading}>
@@ -702,11 +702,11 @@ function PanelRestartDialog({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         {timedOut ? (
-          <p className="text-sm text-destructive">{t("settings.restartDialog.timedOut")}</p>
+          <p className="text-sm text-error">{t("settings.restartDialog.timedOut")}</p>
         ) : (
           <div className="flex flex-col items-center gap-3 py-2">
-            <Loader2 className="size-8 animate-spin text-muted-foreground" />
-            <p className="text-center text-sm text-muted-foreground">{message}</p>
+            <Icon name="progress_activity" size={32} className="animate-spin text-on-surface-variant" />
+            <p className="text-center text-sm text-on-surface-variant">{message}</p>
           </div>
         )}
       </DialogContent>
@@ -789,10 +789,10 @@ function PanelUpdateCard() {
           message={t("settings.update.dialogMessage")}
         />
         {isDev ? (
-          <p className="text-sm text-muted-foreground">{t("settings.update.devBuild")}</p>
+          <p className="text-sm text-on-surface-variant">{t("settings.update.devBuild")}</p>
         ) : (
           <div className="flex flex-col gap-3">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-on-surface-variant">
               {t("settings.update.currentVersion")} <span className="font-mono">{version ?? "..."}</span>
             </p>
             {latestVersion !== null && (
@@ -806,7 +806,7 @@ function PanelUpdateCard() {
                 )}
               </p>
             )}
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p className="text-sm text-error">{error}</p>}
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={handleCheck} disabled={checking}>
                 {checking ? t("settings.update.checking") : t("settings.update.check")}
@@ -909,7 +909,7 @@ function PanelBackupCard() {
           message={t("settings.backup.restoreDialogMessage")}
         />
         <div className="flex flex-col gap-3">
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-error">{error}</p>}
           <div className="flex items-center gap-2">
             <Switch
               id="restore-network-settings"
@@ -920,7 +920,7 @@ function PanelBackupCard() {
               {t("settings.backup.restoreNetworkSettingsLabel")}
             </Label>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-on-surface-variant">
             {restoreNetworkSettings
               ? t("settings.backup.restoreNetworkSettingsOnHint")
               : t("settings.backup.restoreNetworkSettingsOffHint")}
@@ -962,14 +962,14 @@ function ConfigCard() {
       </CardHeader>
       <CardContent>
         {settings === null ? (
-          <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+          <p className="text-sm text-on-surface-variant">{t("common.loading")}</p>
         ) : (
           <div className="flex flex-col gap-2 text-sm">
             {Object.entries(settings)
               .filter(([key]) => key !== "version" && key !== "bootId")
               .map(([key, value]) => (
                 <div key={key} className="flex items-center justify-between gap-4 border-b py-1.5 last:border-0">
-                  <span className="text-muted-foreground">
+                  <span className="text-on-surface-variant">
                     {SETTINGS_LABEL_KEYS[key] ? t(SETTINGS_LABEL_KEYS[key]) : key}
                   </span>
                   <span className="truncate font-mono text-xs">{value || "—"}</span>

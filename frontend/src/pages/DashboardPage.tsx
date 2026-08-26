@@ -55,13 +55,13 @@ function UsageStatCard({
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="mb-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+        <div className="mb-1.5 h-1.5 overflow-hidden rounded-full bg-surface-variant">
           <div
             className="h-full rounded-full bg-primary"
             style={{ width: `${Math.min(100, Math.max(0, percent ?? 0))}%` }}
           />
         </div>
-        <p className="text-xs text-muted-foreground">{hint ?? "—"}</p>
+        <p className="text-xs text-on-surface-variant">{hint ?? "—"}</p>
       </CardContent>
     </Card>
   )
@@ -83,7 +83,7 @@ function StatCard({
         <CardTitle className="text-3xl font-semibold tabular-nums">{value}</CardTitle>
       </CardHeader>
       {hint && (
-        <CardContent className="pt-0 text-xs text-muted-foreground">{hint}</CardContent>
+        <CardContent className="pt-0 text-xs text-on-surface-variant">{hint}</CardContent>
       )}
     </Card>
   )
@@ -141,7 +141,7 @@ export function DashboardPage() {
     <div className="mx-auto max-w-5xl p-6">
       <h1 className="mb-6 text-xl font-semibold">{t("dashboard.title")}</h1>
 
-      {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
+      {error && <p className="mb-4 text-sm text-error">{error}</p>}
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         <StatCard
@@ -183,7 +183,7 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             {allProfiles.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t("clientsPage.noProfiles")}</p>
+              <p className="text-sm text-on-surface-variant">{t("clientsPage.noProfiles")}</p>
             ) : (
               <div className="flex flex-col gap-2">
                 {PROFILE_CORE_TYPES.map((ct) => {
@@ -191,10 +191,10 @@ export function DashboardPage() {
                   const pct = allProfiles.length > 0 ? (count / allProfiles.length) * 100 : 0
                   return (
                     <div key={ct} className="flex items-center gap-3 text-sm">
-                      <span className="w-20 shrink-0 text-muted-foreground">
+                      <span className="w-20 shrink-0 text-on-surface-variant">
                         {CORE_LABELS[ct]}
                       </span>
-                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-variant">
                         <div
                           className="h-full rounded-full bg-primary"
                           style={{ width: `${pct}%` }}
@@ -221,7 +221,7 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             {kernels === null ? (
-              <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+              <p className="text-sm text-on-surface-variant">{t("common.loading")}</p>
             ) : (
               kernels.map((k) => (
                 <div key={k.coreType} className="flex items-center justify-between text-sm">

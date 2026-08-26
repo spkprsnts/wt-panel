@@ -64,7 +64,7 @@ function useCallRooms(provider: RoomProvider): CallRoom[] {
 function VkCallHint() {
   const t = useT()
   return (
-    <p className="text-xs text-muted-foreground">
+    <p className="text-xs text-on-surface-variant">
       {t("profileForm.vkHint.line1")} <code>vk.com/call/join/ABC123xyz...</code> —{" "}
       {t("profileForm.vkHint.line1b")} <code>/join/</code>.
       <br />
@@ -78,7 +78,7 @@ function AdvancedFields({ label, children }: { label?: string; children: React.R
   const t = useT()
   return (
     <details className="rounded-md border p-3 text-sm">
-      <summary className="cursor-pointer font-medium text-muted-foreground">
+      <summary className="cursor-pointer font-medium text-on-surface-variant">
         {label ?? t("profileForm.advancedSettings")}
       </summary>
       <div className="mt-3 flex flex-col gap-3">{children}</div>
@@ -131,7 +131,7 @@ function KeyField({
           {generating ? "..." : t("profileForm.keyField.generate")}
         </Button>
       </div>
-      {genError && <p className="text-xs text-destructive">{genError}</p>}
+      {genError && <p className="text-xs text-error">{genError}</p>}
     </div>
   )
 }
@@ -882,7 +882,7 @@ export function ProfileForm({
               )}
             </div>
             {coreType === "freeturn" && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-on-surface-variant">
                 {t("profileForm.xray.freeturnNote")}
               </p>
             )}
@@ -1015,7 +1015,7 @@ export function ProfileForm({
           <Label htmlFor="profile-enabled">{t("profileForm.enabledLabel")}</Label>
           <Switch id="profile-enabled" checked={enabled} onCheckedChange={setEnabled} />
         </div>
-        <p className="text-xs text-muted-foreground">{t("profileForm.enabledHint")}</p>
+        <p className="text-xs text-on-surface-variant">{t("profileForm.enabledHint")}</p>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -1041,7 +1041,7 @@ export function ProfileForm({
           </SelectContent>
         </Select>
         {mode === "edit" && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-on-surface-variant">
             {t("profileForm.coreLockedNote")}
           </p>
         )}
@@ -1301,7 +1301,7 @@ export function ProfileForm({
               required
               noMatchesText={t("common.noMatches")}
             />
-            <p className="text-xs text-muted-foreground">{t(OLCRTC_ROOM_ID_HINT_KEYS[oc.provider])}</p>
+            <p className="text-xs text-on-surface-variant">{t(OLCRTC_ROOM_ID_HINT_KEYS[oc.provider])}</p>
           </div>
 
           {oc.provider === "wbstream" && (
@@ -1314,7 +1314,7 @@ export function ProfileForm({
                 placeholder={t("profileForm.olcrtc.authTokenPlaceholder")}
                 className="font-mono text-xs"
               />
-              <p className="text-xs text-muted-foreground">{t("profileForm.olcrtc.authTokenHint")}</p>
+              <p className="text-xs text-on-surface-variant">{t("profileForm.olcrtc.authTokenHint")}</p>
             </div>
           )}
 
@@ -1391,7 +1391,7 @@ export function ProfileForm({
                 onChange={(e) => setOc({ ...oc, maxSessionDuration: e.target.value })}
                 placeholder={t("profileForm.olcrtc.maxSessionDurationPlaceholder")}
               />
-              <p className="text-xs text-muted-foreground">{t("profileForm.olcrtc.maxSessionDurationHint")}</p>
+              <p className="text-xs text-on-surface-variant">{t("profileForm.olcrtc.maxSessionDurationHint")}</p>
             </div>
           </AdvancedFields>
 
@@ -1639,7 +1639,7 @@ export function ProfileForm({
                   onChange={(e) => setFt({ ...ft, obfTiming: e.target.value })}
                   placeholder={t("profileForm.freeturn.obfTimingPlaceholder")}
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-on-surface-variant">
                   {t("profileForm.freeturn.obfTimingNote")}
                 </p>
               </div>
@@ -1670,7 +1670,7 @@ export function ProfileForm({
                 {t("profileForm.webdav.connModeServer")}
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-on-surface-variant">
               {wd.connMode === "selfhosted"
                 ? t("profileForm.webdav.connModeSelfhostedNote")
                 : t("profileForm.webdav.connModeServerNote")}
@@ -1784,7 +1784,7 @@ export function ProfileForm({
                   </div>
                 ))}
               </div>
-              <p className="mt-3 text-xs text-muted-foreground">
+              <p className="mt-3 text-xs text-on-surface-variant">
                 {t("profileForm.webdav.backendsNote")}
               </p>
             </div>
@@ -1828,7 +1828,7 @@ export function ProfileForm({
                   <Button type="button" variant="outline" size="sm" onClick={handleUseWebdavPanelCert}>
                     {t("xray.usePanelCert")}
                   </Button>
-                  {webdavPanelCertError && <p className="text-xs text-destructive">{webdavPanelCertError}</p>}
+                  {webdavPanelCertError && <p className="text-xs text-error">{webdavPanelCertError}</p>}
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="webdav-tls-cert">{t("profileForm.webdav.tlsCertLabel")}</Label>
@@ -1848,7 +1848,7 @@ export function ProfileForm({
                     placeholder={t("profileForm.webdav.tlsKeyPlaceholder")}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-on-surface-variant">
                   {t("profileForm.webdav.tlsNote")}
                 </p>
               </div>
@@ -1953,7 +1953,7 @@ export function ProfileForm({
                 </div>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-on-surface-variant">
               {t("profileForm.webdav.tuningNote")}
             </p>
           </AdvancedFields>
@@ -1963,7 +1963,7 @@ export function ProfileForm({
           {(coreType === "olcrtc" || coreType === "webdav") && xrayBlock}
         </div>
       </form>
-      {error && <p className="px-6 text-sm text-destructive">{error}</p>}
+      {error && <p className="px-6 text-sm text-error">{error}</p>}
       <DialogFooter className="shrink-0 px-6">
         <Button type="submit" form={formId} disabled={loading}>
           {loading ? submittingLabel : submitLabel}

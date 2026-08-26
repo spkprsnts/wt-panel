@@ -1,8 +1,8 @@
 import * as React from "react"
-import { Pencil } from "lucide-react"
 
 import { api, type Client } from "@/lib/api"
 import { useT } from "@/lib/i18n"
+import { Icon } from "@/components/icon"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -57,7 +57,7 @@ export function EditClientDialog({
       <DialogTrigger
         render={
           <Button size="sm" variant="ghost" title={t("clientDialogs.editTooltip")}>
-            <Pencil className="size-4" />
+            <Icon name="edit" size={18} />
           </Button>
         }
       />

@@ -1,10 +1,10 @@
 import * as React from "react"
 import { Link } from "react-router-dom"
-import { Pencil, Trash2 } from "lucide-react"
 
 import { api, type Client, type KernelStatus, type XrayClient, type XrayInbound, type XrayProtocol } from "@/lib/api"
 import { useDialogPrompt } from "@/components/dialog-prompt"
 import { useT } from "@/lib/i18n"
+import { Icon } from "@/components/icon"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -94,7 +94,7 @@ function SwitchField({
 function AdvancedSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <details className="rounded-md border p-3 text-sm" open>
-      <summary className="cursor-pointer font-medium text-muted-foreground">{title}</summary>
+      <summary className="cursor-pointer font-medium text-on-surface-variant">{title}</summary>
       <div className="mt-3 flex flex-col gap-3">{children}</div>
     </details>
   )
@@ -643,7 +643,7 @@ function TlsFields({
         <Button type="button" variant="outline" size="sm" onClick={handleUsePanelCert}>
           {t("xray.usePanelCert")}
         </Button>
-        {panelCertError && <p className="text-xs text-destructive">{panelCertError}</p>}
+        {panelCertError && <p className="text-xs text-error">{panelCertError}</p>}
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="tls-sni">Server name (SNI)</Label>
@@ -850,7 +850,7 @@ function RealityFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
         <Label htmlFor="reality-maxtimediff">{t("xray.reality.maxTimediff")}</Label>
         <Input id="reality-maxtimediff" type="number" value={f.realityMaxTimediff} onChange={(e) => setF({ ...f, realityMaxTimediff: e.target.value })} />
       </div>
-      <p className="text-xs text-muted-foreground">{t("xray.reality.advancedNote")}</p>
+      <p className="text-xs text-on-surface-variant">{t("xray.reality.advancedNote")}</p>
     </AdvancedSection>
   )
 }
@@ -1041,7 +1041,7 @@ function NetworkFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
               </div>
             </div>
           )}
-          <p className="text-xs text-muted-foreground">{t("xray.network.antiDpiNote")}</p>
+          <p className="text-xs text-on-surface-variant">{t("xray.network.antiDpiNote")}</p>
         </>
       )
   }
@@ -1160,7 +1160,7 @@ function InboundFormDialog({
         render={
           existing ? (
             <Button variant="outline" size="sm" title={t("xray.inboundForm.editTrigger")}>
-              <Pencil className="size-4" />
+              <Icon name="edit" size={18} />
             </Button>
           ) : (
             <Button>{t("xray.inboundForm.addTrigger")}</Button>
@@ -1195,7 +1195,7 @@ function InboundFormDialog({
               </SelectContent>
             </Select>
             {existing && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-on-surface-variant">
                 {t("xray.inboundForm.protocolLocked")}
               </p>
             )}
@@ -1223,7 +1223,7 @@ function InboundFormDialog({
 
           {protocol === "hysteria2" && (
             <>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-on-surface-variant">
                 {t("xray.inboundForm.hysteria2Note")}
               </p>
               <TlsFields f={f} setF={setF} alpnDefault={["h3"]} />
@@ -1274,7 +1274,7 @@ function InboundFormDialog({
             )}
           </AdvancedSection>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-error">{error}</p>}
         </div>
         </form>
         <DialogFooter className="shrink-0 px-6">
@@ -1293,7 +1293,7 @@ function ClientIdentity({ config }: { config: string }) {
   try {
     parsed = JSON.parse(config)
   } catch {
-    return <span className="font-mono text-xs text-muted-foreground">{config}</span>
+    return <span className="font-mono text-xs text-on-surface-variant">{config}</span>
   }
   const identityKeys = ["id", "flow", "password", "auth", "privateKey", "publicKey"]
   const identity = identityKeys
@@ -1307,8 +1307,8 @@ function ClientIdentity({ config }: { config: string }) {
       : "—"
   return (
     <div className="flex flex-col">
-      <span className="font-mono text-xs text-muted-foreground">{identity || "—"}</span>
-      <span className="text-xs text-muted-foreground">
+      <span className="font-mono text-xs text-on-surface-variant">{identity || "—"}</span>
+      <span className="text-xs text-on-surface-variant">
         {t("xray.clientIdentity.traffic")}: {totalGB} · {t("xray.clientIdentity.ipLimit")}: {typeof parsed.limitIp === "number" && parsed.limitIp > 0 ? parsed.limitIp : "∞"} · {t("xray.clientIdentity.until")}: {expiry} ·{" "}
         {parsed.enable === false ? t("xray.clientIdentity.disabled") : t("xray.clientIdentity.enabled")}
       </span>
@@ -1394,7 +1394,7 @@ function InboundClientsDialog({ inbound, allClients, onChanged }: { inbound: Xra
         </DialogHeader>
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6">
           <div className="flex flex-col gap-2 rounded-md border p-3">
-            {attached.length === 0 && <p className="text-sm text-muted-foreground">{t("xray.inboundClients.none")}</p>}
+            {attached.length === 0 && <p className="text-sm text-on-surface-variant">{t("xray.inboundClients.none")}</p>}
             {attached.map((xc) => (
               <div key={xc.ID} className="flex items-center justify-between gap-2 text-sm">
                 <div className="flex flex-col">
@@ -1454,11 +1454,11 @@ function InboundClientsDialog({ inbound, allClients, onChanged }: { inbound: Xra
               </Button>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-on-surface-variant">
               {t("xray.inboundClients.allAttached")}
             </p>
           )}
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-error">{error}</p>}
         </div>
       </DialogContent>
     </Dialog>
@@ -1521,15 +1521,15 @@ function XrayLogsDialog() {
         </DialogHeader>
         <div className="flex items-center gap-2 text-sm">
           <Badge variant={running ? "default" : "secondary"}>{running ? t("profileLogs.running") : t("profileLogs.notRunning")}</Badge>
-          {running && pid > 0 && <span className="text-muted-foreground">PID {pid}</span>}
+          {running && pid > 0 && <span className="text-on-surface-variant">PID {pid}</span>}
           <Button size="sm" variant="outline" className="ml-auto" onClick={fetchAll} disabled={loading}>
             {t("profileLogs.refresh")}
           </Button>
         </div>
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm text-error">{error}</p>}
         <pre
           ref={logRef}
-          className="max-h-[55vh] overflow-auto rounded-md border bg-muted/30 p-3 text-xs whitespace-pre-wrap"
+          className="max-h-[55vh] overflow-auto rounded-md border bg-surface-variant/30 p-3 text-xs whitespace-pre-wrap"
         >
           {log || (loading ? t("common.loading") : t("profileLogs.empty"))}
         </pre>
@@ -1567,7 +1567,7 @@ function XrayStatusBadge() {
       {kernel?.installed ? (
         <Badge variant="outline">{kernel.version || t("xray.statusBadge.versionUnknown")}</Badge>
       ) : (
-        <Link to="/kernels" className="text-xs text-muted-foreground underline">
+        <Link to="/kernels" className="text-xs text-on-surface-variant underline">
           {t("xray.statusBadge.notInstalled")}
         </Link>
       )}
@@ -1614,7 +1614,7 @@ export function XrayPage() {
             <h1 className="text-xl font-semibold">Xray</h1>
             <XrayStatusBadge />
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-on-surface-variant">
             {t("xray.page.description")}
           </p>
         </div>
@@ -1624,7 +1624,7 @@ export function XrayPage() {
         </div>
       </div>
 
-      {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
+      {error && <p className="mb-4 text-sm text-error">{error}</p>}
 
       <div className="rounded-md border">
         <Table>
@@ -1643,7 +1643,7 @@ export function XrayPage() {
               <TableRow key={ib.ID}>
                 <TableCell>
                   <span
-                    className={`inline-block size-2 rounded-full ${ib.Enable ? "bg-green-500" : "bg-muted-foreground/40"}`}
+                    className={`inline-block size-2 rounded-full ${ib.Enable ? "bg-green-500" : "bg-on-surface-variant/40"}`}
                     title={ib.Enable ? t("xray.clientIdentity.enabled") : t("xray.clientIdentity.disabled")}
                   />
                 </TableCell>
@@ -1651,7 +1651,7 @@ export function XrayPage() {
                   <Badge variant="outline">{PROTOCOL_LABELS[ib.Protocol]}</Badge>
                 </TableCell>
                 <TableCell>{ib.Remark}</TableCell>
-                <TableCell className="font-mono text-xs text-muted-foreground">
+                <TableCell className="font-mono text-xs text-on-surface-variant">
                   {ib.Listen || "0.0.0.0"}:{ib.Port}
                 </TableCell>
                 <TableCell>
@@ -1661,7 +1661,7 @@ export function XrayPage() {
                   <div className="flex justify-end gap-2">
                     <InboundFormDialog existing={ib} onSaved={load} />
                     <Button size="sm" variant="destructive" title={t("common.delete")} onClick={() => handleDelete(ib.ID)}>
-                      <Trash2 className="size-4" />
+                      <Icon name="delete" size={18} />
                     </Button>
                   </div>
                 </TableCell>
@@ -1669,7 +1669,7 @@ export function XrayPage() {
             ))}
             {inbounds.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={6} className="text-center text-on-surface-variant">
                   {t("xray.page.empty")}
                 </TableCell>
               </TableRow>

@@ -1,10 +1,10 @@
 import * as React from "react"
-import { Pencil, Trash2 } from "lucide-react"
 
 import { useT } from "@/lib/i18n"
 import type { TranslationKey } from "@/i18n"
 import { api, type CallRoom, type RoomProvider } from "@/lib/api"
 import { useDialogPrompt } from "@/components/dialog-prompt"
+import { Icon } from "@/components/icon"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -88,7 +88,7 @@ function RoomDialog({
         render={
           room ? (
             <Button size="sm" variant="ghost" title={t("rooms.editTrigger")}>
-              <Pencil className="size-4" />
+              <Icon name="edit" size={18} />
             </Button>
           ) : (
             <Button>{t("rooms.addTrigger")}</Button>
@@ -119,7 +119,7 @@ function RoomDialog({
           <div className="flex flex-col gap-2">
             <Label htmlFor="room-id">{t("rooms.roomIdLabel")}</Label>
             <Input id="room-id" value={roomId} onChange={(e) => setRoomId(e.target.value)} required />
-            <p className="text-xs text-muted-foreground">{t(ROOM_ID_HINTS[provider])}</p>
+            <p className="text-xs text-on-surface-variant">{t(ROOM_ID_HINTS[provider])}</p>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -137,7 +137,7 @@ function RoomDialog({
             <Input id="room-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-error">{error}</p>}
           <DialogFooter>
             <Button type="submit" disabled={loading}>
               {loading ? t("common.saving") : t("common.save")}
@@ -177,14 +177,14 @@ export function CallRoomsPage() {
       <div className="mb-6 flex items-center justify-between">
         <div className="flex flex-col gap-2">
           <h1 className="text-xl font-semibold">{t("sidebar.nav.rooms")}</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-on-surface-variant">
             {t("rooms.pageDescription")}
           </p>
         </div>
         <RoomDialog onSaved={load} />
       </div>
 
-      {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
+      {error && <p className="mb-4 text-sm text-error">{error}</p>}
 
       <div className="rounded-md border">
         <Table>
@@ -216,7 +216,7 @@ export function CallRoomsPage() {
                   <div className="flex justify-end gap-2">
                     <RoomDialog room={room} onSaved={load} />
                     <Button size="sm" variant="destructive" title={t("common.delete")} onClick={() => handleDelete(room.ID)}>
-                      <Trash2 className="size-4" />
+                      <Icon name="delete" size={18} />
                     </Button>
                   </div>
                 </TableCell>
@@ -224,7 +224,7 @@ export function CallRoomsPage() {
             ))}
             {rooms.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                <TableCell colSpan={5} className="text-center text-on-surface-variant">
                   {t("rooms.empty")}
                 </TableCell>
               </TableRow>

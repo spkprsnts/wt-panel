@@ -112,8 +112,8 @@ export function QrDialog({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        {!error && !variants && <p className="text-sm text-muted-foreground">{t("common.loading")}</p>}
+        {error && <p className="text-sm text-error">{error}</p>}
+        {!error && !variants && <p className="text-sm text-on-surface-variant">{t("common.loading")}</p>}
 
         {variants && variants.length > 0 && (
           <div className="flex flex-col gap-3">
@@ -143,10 +143,10 @@ export function QrDialog({
                 <img src={dataUrl} alt={active?.label ?? "QR"} className="size-56" />
               </button>
             )}
-            <p className="text-center text-xs text-muted-foreground">
+            <p className="text-center text-xs text-on-surface-variant">
               {copied ? t("common.copied") : t("qrDialog.clickQrToCopy")}
             </p>
-            <code className="max-h-24 overflow-y-auto rounded-md border bg-muted p-2 text-xs break-all">
+            <code className="max-h-24 overflow-y-auto rounded-md border bg-surface-variant p-2 text-xs break-all">
               {activeContent}
             </code>
           </div>
@@ -154,7 +154,7 @@ export function QrDialog({
 
         {onDownload && (
           <DialogFooter className="flex-col items-stretch gap-1 sm:flex-col">
-            {downloadError && <p className="text-xs text-destructive">{downloadError}</p>}
+            {downloadError && <p className="text-xs text-error">{downloadError}</p>}
             <Button type="button" variant="outline" onClick={handleDownload} disabled={downloading}>
               {downloading ? t("common.downloading") : (downloadLabel ?? t("qrDialog.downloadDefault"))}
             </Button>

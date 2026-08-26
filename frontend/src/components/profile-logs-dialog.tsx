@@ -78,15 +78,15 @@ export function ProfileLogsDialog({
           <Badge variant={running ? "default" : "secondary"}>
             {running ? t("profileLogs.running") : t("profileLogs.notRunning")}
           </Badge>
-          {running && pid > 0 && <span className="text-muted-foreground">PID {pid}</span>}
+          {running && pid > 0 && <span className="text-on-surface-variant">PID {pid}</span>}
           <Button size="sm" variant="outline" className="ml-auto" onClick={fetchLogs} disabled={loading}>
             {t("profileLogs.refresh")}
           </Button>
         </div>
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm text-error">{error}</p>}
         <pre
           ref={logRef}
-          className="max-h-[55vh] overflow-auto rounded-md border bg-muted/30 p-3 text-xs whitespace-pre-wrap"
+          className="max-h-[55vh] overflow-auto rounded-md border bg-surface-variant/30 p-3 text-xs whitespace-pre-wrap"
         >
           {log || (loading ? t("common.loading") : t("profileLogs.empty"))}
         </pre>

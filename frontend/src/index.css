@@ -203,35 +203,6 @@
   --color-ring: var(--primary);
 
   --font-sans: "Roboto Flex Variable", ui-sans-serif, system-ui, sans-serif;
-
-  /*
-    Transitional aliases: components/layout, the overlay primitives
-    (dialog/select/dropdown-menu/combobox/multi-select) and the pages
-    haven't been reworked to the M3 role names yet (deferred to the next
-    pass) and still reference these shadcn-era names. Map them onto M3
-    roles so they render coherently in the meantime instead of going
-    unstyled. Drop this block once every call site migrates.
-  */
-  --color-foreground: var(--on-background);
-  --color-primary-foreground: var(--on-primary);
-  --color-secondary-foreground: var(--on-secondary);
-  --color-card: var(--surface-container-low);
-  --color-card-foreground: var(--on-surface);
-  --color-popover: var(--surface-container);
-  --color-popover-foreground: var(--on-surface);
-  --color-muted: var(--surface-variant);
-  --color-muted-foreground: var(--on-surface-variant);
-  --color-accent: var(--secondary-container);
-  --color-accent-foreground: var(--on-secondary-container);
-  --color-destructive: var(--error);
-  --color-destructive-foreground: var(--on-error);
-  --color-border: var(--outline-variant);
-  --color-input: var(--outline-variant);
-  --color-sidebar: var(--surface-container-low);
-  --color-sidebar-foreground: var(--on-surface);
-  --color-sidebar-accent: var(--secondary-container);
-  --color-sidebar-accent-foreground: var(--on-secondary-container);
-  --color-sidebar-border: var(--outline-variant);
 }
 
 /* M3 baseline type scale (Type.kt) — one utility class per style, each

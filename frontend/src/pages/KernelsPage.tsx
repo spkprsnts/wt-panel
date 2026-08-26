@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, RefreshCw } from "lucide-react"
+import { Icon } from "@/components/icon"
 
 // kernelJobPollTimeoutMs bounds each individual status poll request so a
 // single hung request can't stall the recursive poll() chain forever — see
@@ -34,14 +34,14 @@ function formatDate(iso?: string) {
 
 function StatusLine({ status }: { status?: KernelStatus }) {
   const t = useT()
-  if (!status) return <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+  if (!status) return <p className="text-sm text-on-surface-variant">{t("common.loading")}</p>
   if (!status.installed) {
     return <Badge variant="secondary">{t("kernels.notInstalled")}</Badge>
   }
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">
       <Badge>{status.version}</Badge>
-      <span className="text-muted-foreground">
+      <span className="text-on-surface-variant">
         {status.source === "build" ? t("kernels.sourceBuild") : t("kernels.sourceRelease")} · {formatDate(status.installedAt)}
       </span>
     </div>
@@ -124,11 +124,11 @@ function RefreshButton({ refreshing, onClick }: { refreshing: boolean; onClick: 
       type="button"
       variant="ghost"
       size="sm"
-      className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
+      className="h-7 gap-1.5 px-2 text-xs text-on-surface-variant"
       onClick={onClick}
       disabled={refreshing}
     >
-      <RefreshCw className={`size-3.5 ${refreshing ? "animate-spin" : ""}`} />
+      <Icon name="refresh" size={14} className={refreshing ? "animate-spin" : ""} />
       {t("kernels.refreshList")}
     </Button>
   )
@@ -146,12 +146,12 @@ function JobLog({ job }: { job: BuildJob | null }) {
   return (
     <div className="flex flex-col gap-2">
       <Badge variant={job.status === "failed" ? "destructive" : "secondary"} className="w-fit gap-1">
-        {job.status === "running" && <Loader2 className="size-3 animate-spin" />}
+        {job.status === "running" && <Icon name="progress_activity" size={12} className="animate-spin" />}
         {job.status === "running" ? t("kernels.jobRunning") : t("kernels.jobFailed")}
       </Badge>
       <pre
         ref={logRef}
-        className="max-h-64 overflow-auto rounded-md border bg-muted/30 p-3 text-xs whitespace-pre-wrap"
+        className="max-h-64 overflow-auto rounded-md border bg-surface-variant/30 p-3 text-xs whitespace-pre-wrap"
       >
         {job.log || "..."}
       </pre>
@@ -225,9 +225,9 @@ function ReleaseKernelCard({
             <RefreshButton refreshing={refreshing} onClick={handleRefresh} />
           </div>
           {releases === null ? (
-            <p className="text-sm text-muted-foreground">{t("kernels.loadingReleases")}</p>
+            <p className="text-sm text-on-surface-variant">{t("kernels.loadingReleases")}</p>
           ) : releases.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("kernels.noReleases")}</p>
+            <p className="text-sm text-on-surface-variant">{t("kernels.noReleases")}</p>
           ) : (
             <Select value={selected} onValueChange={(v) => setSelected(v ?? "")}>
               <SelectTrigger className="w-full">
@@ -250,10 +250,10 @@ function ReleaseKernelCard({
           )}
         </div>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm text-error">{error}</p>}
 
         <Button onClick={handleInstall} disabled={running || !selected}>
-          {running && <Loader2 className="size-4 animate-spin" />}
+          {running && <Icon name="progress_activity" size={16} className="animate-spin" />}
           {running ? t("kernels.installing") : t("kernels.install")}
         </Button>
 
@@ -318,7 +318,7 @@ function OlcrtcKernelCard({ status, onInstalled }: { status?: KernelStatus; onIn
             <RefreshButton refreshing={refreshing} onClick={handleRefresh} />
           </div>
           {commits === null ? (
-            <p className="text-sm text-muted-foreground">{t("kernels.olcrtc.loadingCommits")}</p>
+            <p className="text-sm text-on-surface-variant">{t("kernels.olcrtc.loadingCommits")}</p>
           ) : (
             <Select value={selected} onValueChange={(v) => setSelected(v ?? "")}>
               <SelectTrigger className="w-full">
@@ -350,12 +350,12 @@ function OlcrtcKernelCard({ status, onInstalled }: { status?: KernelStatus; onIn
           />
         </div>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm text-error">{error}</p>}
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm text-error">{error}</p>}
 
         <Button onClick={handleBuild} disabled={building}>
-          {building && <Loader2 className="size-4 animate-spin" />}
+          {building && <Icon name="progress_activity" size={16} className="animate-spin" />}
           {building ? t("kernels.olcrtc.building") : t("kernels.olcrtc.build")}
         </Button>
 

@@ -61,7 +61,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-svh items-center justify-center bg-muted/30 p-4">
+    <div className="relative flex min-h-svh items-center justify-center bg-surface-variant/30 p-4">
       <div className="absolute top-4 right-4 flex items-center gap-1">
         <LanguageToggle />
         <ThemeToggle />
@@ -113,12 +113,12 @@ export function LoginPage() {
                 />
               </div>
             )}
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p className="text-sm text-error">{error}</p>}
             <Button type="submit" disabled={loading}>
               {loading ? t("login.submitting") : t("login.submit")}
             </Button>
             {step === "totp" && (
-              <button type="button" onClick={handleBack} className="text-sm text-muted-foreground hover:underline">
+              <button type="button" onClick={handleBack} className="text-sm text-on-surface-variant hover:underline">
                 {t("login.back")}
               </button>
             )}
