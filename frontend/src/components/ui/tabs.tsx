@@ -20,7 +20,7 @@ function TabsList({ className, ...props }: TabsPrimitive.List.Props) {
     <TabsPrimitive.List
       data-slot="tabs-list"
       className={cn(
-        "relative flex w-fit max-w-full items-center overflow-x-auto border-b border-outline-variant",
+        "no-scrollbar relative flex w-fit max-w-full items-center overflow-x-auto overflow-y-hidden border-b border-outline-variant",
         className
       )}
       {...props}

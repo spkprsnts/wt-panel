@@ -350,6 +350,24 @@
 @layer base {
   * {
     @apply border-outline-variant outline-ring/50;
+    /* Thin rounded thumb, no track, everywhere — not just the dialog it
+       started on. Only visible once something actually overflows, so
+       it's harmless applied unconditionally to every element. */
+    scrollbar-width: thin;
+    scrollbar-color: var(--outline-variant) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--outline-variant);
+    border-radius: 9999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
   }
   body {
     @apply bg-background text-on-background text-body-large;
@@ -357,23 +375,13 @@
 }
 
 @layer utilities {
-  /* Thin rounded thumb, no track — replaces the OS-stock scrollbar on
-     scrollable dialog content. Only visible once something actually
-     overflows, so it's harmless to apply unconditionally. */
-  .thin-scrollbar {
-    scrollbar-width: thin;
-    scrollbar-color: var(--outline-variant) transparent;
+  /* For rows that scroll but shouldn't show scrollbar chrome (M3 scrollable
+     tabs) — wheel/touch/drag scrolling still works, just without a visible
+     track, so a stray sub-pixel overflow doesn't paint a spurious sliver. */
+  .no-scrollbar {
+    scrollbar-width: none;
   }
-  .thin-scrollbar::-webkit-scrollbar {
-    width: 10px;
-  }
-  .thin-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .thin-scrollbar::-webkit-scrollbar-thumb {
-    background-color: var(--outline-variant);
-    border-radius: 9999px;
-    border: 3px solid transparent;
-    background-clip: content-box;
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }
