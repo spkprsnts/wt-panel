@@ -6,16 +6,20 @@ import { api, clearToken } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
 import { Icon } from "@/components/icon"
+import { XrayIcon } from "@/components/xray-icon"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogClose, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
 import type { TranslationKey } from "@/i18n"
 
+// "xray-brand" is a sentinel, not a Material Symbols glyph name — Xray-core
+// has its own four-blade pinwheel mark (see xray-icon.tsx), not a generic
+// shield glyph, matching what WireTurn itself points at this feature with.
 const NAV_ITEMS: { to: string; labelKey: TranslationKey; icon: string }[] = [
   { to: "/dashboard", labelKey: "sidebar.nav.dashboard", icon: "dashboard" },
   { to: "/clients", labelKey: "sidebar.nav.clients", icon: "group" },
-  { to: "/xray", labelKey: "sidebar.nav.xray", icon: "verified_user" },
+  { to: "/xray", labelKey: "sidebar.nav.xray", icon: "xray-brand" },
   { to: "/rooms", labelKey: "sidebar.nav.rooms", icon: "videocam" },
   { to: "/kernels", labelKey: "sidebar.nav.kernels", icon: "deployed_code" },
   { to: "/settings", labelKey: "sidebar.nav.settings", icon: "settings" },
@@ -45,7 +49,8 @@ function SidebarBody({
           onClick={onNavigate}
           className={({ isActive }) =>
             cn(
-              "state-layer flex items-center gap-3 rounded-full px-3 py-2.5 text-label-large transition-colors",
+              "state-layer flex items-center gap-3 rounded-full py-2.5 text-label-large transition-colors",
+              collapsed ? "justify-center px-0" : "px-3",
               isActive
                 ? "bg-secondary-container text-on-secondary-container"
                 : "text-on-surface-variant"
@@ -53,7 +58,11 @@ function SidebarBody({
           }
           title={collapsed ? t(labelKey) : undefined}
         >
-          <Icon name={icon} size={20} className="shrink-0" />
+          {icon === "xray-brand" ? (
+            <XrayIcon size={20} className="shrink-0" />
+          ) : (
+            <Icon name={icon} size={20} className="shrink-0" />
+          )}
           {!collapsed && <span className="truncate">{t(labelKey)}</span>}
         </NavLink>
       ))}
