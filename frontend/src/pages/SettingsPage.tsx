@@ -8,14 +8,8 @@ import { Icon } from "@/components/icon"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { CardDescription, CardTitle } from "@/components/ui/card"
+import { SectionGroup, SectionItem, LabelGroup, SwitchRow, TextFieldRow } from "@/components/ui/section"
 import {
   Dialog,
   DialogContent,
@@ -253,70 +247,67 @@ function AccountCard() {
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <div className="flex flex-col gap-6">
+      <div>
         <CardTitle>{t("settings.account.title")}</CardTitle>
         <CardDescription>
           {username ? `${t("settings.account.loggedInAs")} ${username}` : t("common.loading")}
         </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="flex max-w-sm flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="current-password">{t("settings.account.currentPassword")}</Label>
-            <Input
-              id="current-password"
+      </div>
+      <form onSubmit={handleSubmit} className="flex max-w-sm flex-col gap-4">
+        <SectionGroup>
+          <SectionItem position="top">
+            <TextFieldRow
+              label={t("settings.account.currentPassword")}
               type="password"
               value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
+              onChange={setCurrentPassword}
               required
             />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="new-password">{t("settings.account.newPassword")}</Label>
-            <Input
-              id="new-password"
+          </SectionItem>
+          <SectionItem position="middle">
+            <TextFieldRow
+              label={t("settings.account.newPassword")}
               type="password"
               value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
+              onChange={setNewPassword}
               required
               minLength={8}
             />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="confirm-password">{t("settings.account.confirmPassword")}</Label>
-            <Input
-              id="confirm-password"
+          </SectionItem>
+          <SectionItem position="bottom">
+            <TextFieldRow
+              label={t("settings.account.confirmPassword")}
               type="password"
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={setConfirmPassword}
               required
             />
-          </div>
-          {error && <p className="text-sm text-error">{error}</p>}
-          {success && <p className="text-sm text-green-600">{t("settings.account.changed")}</p>}
-          <Button type="submit" disabled={loading}>
-            {loading ? t("common.saving") : t("settings.account.changePassword")}
-          </Button>
-        </form>
+          </SectionItem>
+        </SectionGroup>
+        {error && <p className="text-sm text-error">{error}</p>}
+        {success && <p className="text-sm text-green-600">{t("settings.account.changed")}</p>}
+        <Button type="submit" disabled={loading}>
+          {loading ? t("common.saving") : t("settings.account.changePassword")}
+        </Button>
+      </form>
 
-        <div className="mt-6 flex max-w-sm flex-col gap-2 border-t pt-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">{t("settings.account.totp.title")}</p>
-              <p className="text-xs text-on-surface-variant">
-                {totpEnabled ? t("settings.account.totp.statusOn") : t("settings.account.totp.statusOff")}
-              </p>
-            </div>
+      <SectionGroup className="max-w-lg">
+        <SectionItem position="single">
+          <div className="flex w-full items-center justify-between gap-3">
+            <LabelGroup
+              label={t("settings.account.totp.title")}
+              supportingText={totpEnabled ? t("settings.account.totp.statusOn") : t("settings.account.totp.statusOff")}
+            />
             {totpEnabled ? (
               <TotpDisableDialog onDisabled={loadAccount} />
             ) : (
               <TotpEnableDialog onEnabled={loadAccount} />
             )}
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </SectionItem>
+      </SectionGroup>
+    </div>
   )
 }
 
@@ -450,115 +441,112 @@ function PanelNetworkCard() {
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <div className="flex flex-col gap-4">
+      <div>
         <CardTitle>{t("settings.network.title")}</CardTitle>
         <CardDescription>{t("settings.network.description")}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {isInsecureConnection() && (
-          <div className="mb-4 flex items-start gap-2 rounded-md border border-error/50 bg-error/10 p-3 text-sm text-error">
-            <Icon name="warning" size={18} className="mt-0.5 shrink-0" />
-            <span>{t("settings.network.insecureWarning")}</span>
-          </div>
-        )}
-        <PanelRestartDialog
-          open={restarting}
-          beforeBootId={beforeBootId}
-          title={t("settings.network.restartDialogTitle")}
-          message={t("settings.network.restartDialogMessage")}
-          targetUrl={targetUrl}
-        />
-        {!loaded ? (
-          <p className="text-sm text-on-surface-variant">{t("common.loading")}</p>
-        ) : (
-          <form onSubmit={handleSubmit} className="flex max-w-sm flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="panel-public-ip">{t("settings.network.publicIpLabel")}</Label>
-              <Input
-                id="panel-public-ip"
+      </div>
+      {isInsecureConnection() && (
+        <div className="flex items-start gap-2 rounded-md border border-error/50 bg-error/10 p-3 text-sm text-error">
+          <Icon name="warning" size={18} className="mt-0.5 shrink-0" />
+          <span>{t("settings.network.insecureWarning")}</span>
+        </div>
+      )}
+      <PanelRestartDialog
+        open={restarting}
+        beforeBootId={beforeBootId}
+        title={t("settings.network.restartDialogTitle")}
+        message={t("settings.network.restartDialogMessage")}
+        targetUrl={targetUrl}
+      />
+      {!loaded ? (
+        <p className="text-sm text-on-surface-variant">{t("common.loading")}</p>
+      ) : (
+        <form onSubmit={handleSubmit} className="flex max-w-sm flex-col gap-4">
+          <SectionGroup>
+            <SectionItem position="top">
+              <TextFieldRow
+                label={t("settings.network.publicIpLabel")}
                 value={publicIp}
-                onChange={(e) => setPublicIp(e.target.value)}
+                onChange={setPublicIp}
                 placeholder={t("settings.network.publicIpPlaceholder")}
+                supportingText={t("settings.network.publicIpHelp")}
               />
-              <p className="text-xs text-on-surface-variant">{t("settings.network.publicIpHelp")}</p>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="panel-webdav-public-host">{t("settings.network.webdavPublicHostLabel")}</Label>
-              <Input
-                id="panel-webdav-public-host"
+            </SectionItem>
+            <SectionItem position="middle">
+              <TextFieldRow
+                label={t("settings.network.webdavPublicHostLabel")}
                 value={webdavPublicHost}
-                onChange={(e) => setWebdavPublicHost(e.target.value)}
+                onChange={setWebdavPublicHost}
                 placeholder={t("settings.network.webdavPublicHostPlaceholder")}
+                supportingText={t("settings.network.webdavPublicHostHelp")}
               />
-              <p className="text-xs text-on-surface-variant">{t("settings.network.webdavPublicHostHelp")}</p>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="panel-listen-ip">{t("settings.network.listenIpLabel")}</Label>
-              <Input
-                id="panel-listen-ip"
+            </SectionItem>
+            <SectionItem position="middle">
+              <TextFieldRow
+                label={t("settings.network.listenIpLabel")}
                 value={listenIp}
-                onChange={(e) => setListenIp(e.target.value)}
+                onChange={setListenIp}
                 placeholder={t("settings.network.listenIpPlaceholder")}
               />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="panel-listen-domain">{t("settings.network.listenDomainLabel")}</Label>
-              <Input
-                id="panel-listen-domain"
+            </SectionItem>
+            <SectionItem position="middle">
+              <TextFieldRow
+                label={t("settings.network.listenDomainLabel")}
                 value={listenDomain}
-                onChange={(e) => setListenDomain(e.target.value)}
+                onChange={setListenDomain}
                 placeholder={t("settings.network.listenDomainPlaceholder")}
               />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="panel-listen-port">{t("settings.network.listenPortLabel")}</Label>
-              <Input
-                id="panel-listen-port"
+            </SectionItem>
+            <SectionItem position="middle">
+              <TextFieldRow
+                label={t("settings.network.listenPortLabel")}
                 type="number"
                 value={listenPort}
-                onChange={(e) => setListenPort(e.target.value)}
+                onChange={setListenPort}
                 placeholder={t("settings.network.listenPortPlaceholder")}
+                supportingText={t("settings.network.listenPortHelp")}
               />
-              <p className="text-xs text-on-surface-variant">{t("settings.network.listenPortHelp")}</p>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="panel-base-path">{t("settings.network.basePathLabel")}</Label>
-              <Input id="panel-base-path" value={basePath} onChange={(e) => setBasePath(e.target.value)} required />
-              <p className="text-xs text-on-surface-variant">{t("settings.network.basePathHelp")}</p>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="panel-tls-cert">{t("settings.network.tlsCertLabel")}</Label>
-              <Input
-                id="panel-tls-cert"
+            </SectionItem>
+            <SectionItem position="middle">
+              <TextFieldRow
+                label={t("settings.network.basePathLabel")}
+                value={basePath}
+                onChange={setBasePath}
+                required
+                supportingText={t("settings.network.basePathHelp")}
+              />
+            </SectionItem>
+            <SectionItem position="middle">
+              <TextFieldRow
+                label={t("settings.network.tlsCertLabel")}
                 value={tlsCertFile}
-                onChange={(e) => setTlsCertFile(e.target.value)}
+                onChange={setTlsCertFile}
                 placeholder={t("settings.network.pathPlaceholder")}
               />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="panel-tls-key">{t("settings.network.tlsKeyLabel")}</Label>
-              <Input
-                id="panel-tls-key"
+            </SectionItem>
+            <SectionItem position="bottom">
+              <TextFieldRow
+                label={t("settings.network.tlsKeyLabel")}
                 value={tlsKeyFile}
-                onChange={(e) => setTlsKeyFile(e.target.value)}
+                onChange={setTlsKeyFile}
                 placeholder={t("settings.network.pathPlaceholder")}
               />
-            </div>
-            {error && <p className="text-sm text-error">{error}</p>}
-            {saved && <p className="text-sm text-green-600">{t("settings.network.saved")}</p>}
-            <div className="flex gap-2">
-              <Button type="submit" disabled={loading}>
-                {loading ? t("common.saving") : t("common.save")}
-              </Button>
-              <Button type="button" variant="destructive" onClick={handleRestart}>
-                {t("settings.network.restartButton")}
-              </Button>
-            </div>
-          </form>
-        )}
-      </CardContent>
-    </Card>
+            </SectionItem>
+          </SectionGroup>
+          {error && <p className="text-sm text-error">{error}</p>}
+          {saved && <p className="text-sm text-green-600">{t("settings.network.saved")}</p>}
+          <div className="flex gap-2">
+            <Button type="submit" disabled={loading}>
+              {loading ? t("common.saving") : t("common.save")}
+            </Button>
+            <Button type="button" variant="destructive" onClick={handleRestart}>
+              {t("settings.network.restartButton")}
+            </Button>
+          </div>
+        </form>
+      )}
+    </div>
   )
 }
 
@@ -776,51 +764,49 @@ function PanelUpdateCard() {
   const isDev = version === "dev"
 
   return (
-    <Card>
-      <CardHeader>
+    <div className="flex flex-col gap-4">
+      <div>
         <CardTitle>{t("settings.update.title")}</CardTitle>
         <CardDescription>{t("settings.update.description")}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <PanelRestartDialog
-          open={updating}
-          beforeBootId={beforeBootId}
-          title={t("settings.update.dialogTitle")}
-          message={t("settings.update.dialogMessage")}
-        />
-        {isDev ? (
-          <p className="text-sm text-on-surface-variant">{t("settings.update.devBuild")}</p>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <p className="text-sm text-on-surface-variant">
-              {t("settings.update.currentVersion")} <span className="font-mono">{version ?? "..."}</span>
-            </p>
-            {latestVersion !== null && (
-              <p className="text-sm">
-                {updateAvailable ? (
-                  <>
-                    {t("settings.update.versionAvailable")} <span className="font-mono">v{latestVersion}</span>
-                  </>
-                ) : (
-                  t("settings.update.upToDate")
-                )}
-              </p>
-            )}
-            {error && <p className="text-sm text-error">{error}</p>}
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={handleCheck} disabled={checking}>
-                {checking ? t("settings.update.checking") : t("settings.update.check")}
-              </Button>
-              {updateAvailable && (
-                <Button type="button" onClick={handleUpdate}>
-                  {t("settings.update.button")}
-                </Button>
+      </div>
+      <PanelRestartDialog
+        open={updating}
+        beforeBootId={beforeBootId}
+        title={t("settings.update.dialogTitle")}
+        message={t("settings.update.dialogMessage")}
+      />
+      {isDev ? (
+        <p className="text-sm text-on-surface-variant">{t("settings.update.devBuild")}</p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-on-surface-variant">
+            {t("settings.update.currentVersion")} <span className="font-mono">{version ?? "..."}</span>
+          </p>
+          {latestVersion !== null && (
+            <p className="text-sm">
+              {updateAvailable ? (
+                <>
+                  {t("settings.update.versionAvailable")} <span className="font-mono">v{latestVersion}</span>
+                </>
+              ) : (
+                t("settings.update.upToDate")
               )}
-            </div>
+            </p>
+          )}
+          {error && <p className="text-sm text-error">{error}</p>}
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={handleCheck} disabled={checking}>
+              {checking ? t("settings.update.checking") : t("settings.update.check")}
+            </Button>
+            {updateAvailable && (
+              <Button type="button" onClick={handleUpdate}>
+                {t("settings.update.button")}
+              </Button>
+            )}
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -896,53 +882,51 @@ function PanelBackupCard() {
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <div className="flex flex-col gap-4">
+      <div>
         <CardTitle>{t("settings.backup.title")}</CardTitle>
         <CardDescription>{t("settings.backup.description")}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <PanelRestartDialog
-          open={restoring}
-          beforeBootId={beforeBootId}
-          title={t("settings.backup.restoreDialogTitle")}
-          message={t("settings.backup.restoreDialogMessage")}
+      </div>
+      <PanelRestartDialog
+        open={restoring}
+        beforeBootId={beforeBootId}
+        title={t("settings.backup.restoreDialogTitle")}
+        message={t("settings.backup.restoreDialogMessage")}
+      />
+      {error && <p className="text-sm text-error">{error}</p>}
+      <SectionGroup className="max-w-lg">
+        <SectionItem
+          position="single"
+          onClick={() => setRestoreNetworkSettings(!restoreNetworkSettings)}
+        >
+          <SwitchRow
+            label={t("settings.backup.restoreNetworkSettingsLabel")}
+            checked={restoreNetworkSettings}
+            onCheckedChange={setRestoreNetworkSettings}
+            supportingText={
+              restoreNetworkSettings
+                ? t("settings.backup.restoreNetworkSettingsOnHint")
+                : t("settings.backup.restoreNetworkSettingsOffHint")
+            }
+          />
+        </SectionItem>
+      </SectionGroup>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="outline" onClick={handleDownload} disabled={downloading}>
+          {downloading ? t("common.downloading") : t("settings.backup.downloadButton")}
+        </Button>
+        <Button type="button" variant="destructive" onClick={handlePickFile}>
+          {t("settings.backup.restoreButton")}
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".db"
+          className="hidden"
+          onChange={handleFileChosen}
         />
-        <div className="flex flex-col gap-3">
-          {error && <p className="text-sm text-error">{error}</p>}
-          <div className="flex items-center gap-2">
-            <Switch
-              id="restore-network-settings"
-              checked={restoreNetworkSettings}
-              onCheckedChange={setRestoreNetworkSettings}
-            />
-            <Label htmlFor="restore-network-settings" className="text-sm font-normal">
-              {t("settings.backup.restoreNetworkSettingsLabel")}
-            </Label>
-          </div>
-          <p className="text-xs text-on-surface-variant">
-            {restoreNetworkSettings
-              ? t("settings.backup.restoreNetworkSettingsOnHint")
-              : t("settings.backup.restoreNetworkSettingsOffHint")}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={handleDownload} disabled={downloading}>
-              {downloading ? t("common.downloading") : t("settings.backup.downloadButton")}
-            </Button>
-            <Button type="button" variant="destructive" onClick={handlePickFile}>
-              {t("settings.backup.restoreButton")}
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".db"
-              className="hidden"
-              onChange={handleFileChosen}
-            />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 
@@ -954,31 +938,43 @@ function ConfigCard() {
     api.getSettings().then(setSettings).catch(() => {})
   }, [])
 
+  const entries = settings
+    ? Object.entries(settings).filter(([key]) => key !== "version" && key !== "bootId")
+    : []
+
   return (
-    <Card>
-      <CardHeader>
+    <div className="flex flex-col gap-4">
+      <div>
         <CardTitle>{t("settings.config.title")}</CardTitle>
         <CardDescription>{t("settings.config.description")}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {settings === null ? (
-          <p className="text-sm text-on-surface-variant">{t("common.loading")}</p>
-        ) : (
-          <div className="flex flex-col gap-2 text-sm">
-            {Object.entries(settings)
-              .filter(([key]) => key !== "version" && key !== "bootId")
-              .map(([key, value]) => (
-                <div key={key} className="flex items-center justify-between gap-4 border-b py-1.5 last:border-0">
-                  <span className="text-on-surface-variant">
-                    {SETTINGS_LABEL_KEYS[key] ? t(SETTINGS_LABEL_KEYS[key]) : key}
-                  </span>
-                  <span className="truncate font-mono text-xs">{value || "—"}</span>
-                </div>
-              ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      </div>
+      {settings === null ? (
+        <p className="text-sm text-on-surface-variant">{t("common.loading")}</p>
+      ) : (
+        <SectionGroup>
+          {entries.map(([key, value], index) => (
+            <SectionItem
+              key={key}
+              position={
+                entries.length === 1
+                  ? "single"
+                  : index === 0
+                    ? "top"
+                    : index === entries.length - 1
+                      ? "bottom"
+                      : "middle"
+              }
+              className="justify-between gap-4"
+            >
+              <span className="text-body-medium text-on-surface-variant">
+                {SETTINGS_LABEL_KEYS[key] ? t(SETTINGS_LABEL_KEYS[key]) : key}
+              </span>
+              <span className="truncate font-mono text-body-small">{value || "—"}</span>
+            </SectionItem>
+          ))}
+        </SectionGroup>
+      )}
+    </div>
   )
 }
 

@@ -2,10 +2,8 @@ import * as React from "react"
 
 import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { DialogFooter } from "@/components/ui/dialog"
+import { SectionGroup, SectionItem, TextFieldRow } from "@/components/ui/section"
 
 export interface ClientFormInitialValues {
   name: string
@@ -73,57 +71,45 @@ export function ClientForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="client-name">{t("clientForm.name")}</Label>
-        <Input
-          id="client-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          autoFocus
-        />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="client-description">{t("clientForm.description")}</Label>
-        <Textarea
-          id="client-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={3}
-          placeholder={t("clientForm.descriptionPlaceholder")}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-2">
-          {/* min-h-10 (~2 lines of text-sm) keeps this Input aligned with
-              updateInterval's below even though this label wraps to 2
-              lines on typical dialog widths and the other one doesn't. */}
-          <Label htmlFor="client-traffic" className="min-h-10">
-            {t("clientForm.trafficLimit")}
-          </Label>
-          <Input
-            id="client-traffic"
+      <SectionGroup>
+        <SectionItem position="top">
+          <TextFieldRow
+            label={t("clientForm.name")}
+            value={name}
+            onChange={setName}
+            required
+            autoFocus
+          />
+        </SectionItem>
+        <SectionItem position="middle">
+          <TextFieldRow
+            label={t("clientForm.description")}
+            value={description}
+            onChange={setDescription}
+            multiline
+            rows={3}
+            placeholder={t("clientForm.descriptionPlaceholder")}
+          />
+        </SectionItem>
+        <SectionItem position="middle">
+          <TextFieldRow
+            label={t("clientForm.trafficLimit")}
             type="number"
             min={0}
             value={trafficLimitGb}
-            onChange={(e) => setTrafficLimitGb(e.target.value)}
+            onChange={setTrafficLimitGb}
           />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="client-refresh" className="min-h-10">
-            {t("clientForm.updateInterval")}
-          </Label>
-          <Input
-            id="client-refresh"
+        </SectionItem>
+        <SectionItem position="bottom">
+          <TextFieldRow
+            label={t("clientForm.updateInterval")}
             type="number"
             min={1}
             value={updateIntervalMinutes}
-            onChange={(e) => setUpdateIntervalMinutes(e.target.value)}
+            onChange={setUpdateIntervalMinutes}
           />
-        </div>
-      </div>
+        </SectionItem>
+      </SectionGroup>
 
       {error && <p className="text-sm text-error">{error}</p>}
       <DialogFooter>

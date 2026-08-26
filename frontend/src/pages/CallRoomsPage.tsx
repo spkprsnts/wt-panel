@@ -7,8 +7,8 @@ import { useDialogPrompt } from "@/components/dialog-prompt"
 import { Icon } from "@/components/icon"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { SectionGroup, SectionItem, TextFieldRow } from "@/components/ui/section"
 import {
   Select,
   SelectContent,
@@ -100,42 +100,45 @@ function RoomDialog({
           <DialogTitle>{room ? t("rooms.editTitle") : t("rooms.createTitle")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label>{t("rooms.providerLabel")}</Label>
-            <Select value={provider} onValueChange={(v) => setProvider(v as RoomProvider)}>
-              <SelectTrigger className="w-full">
-                <SelectValue>{(v: RoomProvider | null) => (v ? t(PROVIDER_LABELS[v]) : null)}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(PROVIDER_LABELS) as RoomProvider[]).map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {t(PROVIDER_LABELS[p])}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="room-id">{t("rooms.roomIdLabel")}</Label>
-            <Input id="room-id" value={roomId} onChange={(e) => setRoomId(e.target.value)} required />
-            <p className="text-xs text-on-surface-variant">{t(ROOM_ID_HINTS[provider])}</p>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="room-label">{t("rooms.labelField")}</Label>
-            <Input
-              id="room-label"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder={t("rooms.labelPlaceholder")}
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="room-notes">{t("rooms.notesLabel")}</Label>
-            <Input id="room-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
-          </div>
+          <SectionGroup>
+            <SectionItem position="top">
+              <div className="flex w-full flex-col gap-1">
+                <Label>{t("rooms.providerLabel")}</Label>
+                <Select value={provider} onValueChange={(v) => setProvider(v as RoomProvider)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue>{(v: RoomProvider | null) => (v ? t(PROVIDER_LABELS[v]) : null)}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(PROVIDER_LABELS) as RoomProvider[]).map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {t(PROVIDER_LABELS[p])}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </SectionItem>
+            <SectionItem position="middle">
+              <TextFieldRow
+                label={t("rooms.roomIdLabel")}
+                value={roomId}
+                onChange={setRoomId}
+                required
+                supportingText={t(ROOM_ID_HINTS[provider])}
+              />
+            </SectionItem>
+            <SectionItem position="middle">
+              <TextFieldRow
+                label={t("rooms.labelField")}
+                value={label}
+                onChange={setLabel}
+                placeholder={t("rooms.labelPlaceholder")}
+              />
+            </SectionItem>
+            <SectionItem position="bottom">
+              <TextFieldRow label={t("rooms.notesLabel")} value={notes} onChange={setNotes} />
+            </SectionItem>
+          </SectionGroup>
 
           {error && <p className="text-sm text-error">{error}</p>}
           <DialogFooter>

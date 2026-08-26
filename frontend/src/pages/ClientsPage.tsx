@@ -27,6 +27,7 @@ import { EditProfileDialog } from "@/components/edit-profile-dialog"
 import { ProfileLogsDialog } from "@/components/profile-logs-dialog"
 import { QrDialog } from "@/components/qr-dialog"
 import { Icon } from "@/components/icon"
+import { SectionGroup, SectionItem } from "@/components/ui/section"
 
 // parseCoreConfigJSON is the shared best-effort JSON.parse both
 // profileSummaryBadges and profilePort need — a profile saved before a
@@ -332,10 +333,20 @@ export function ClientsPage() {
                             {t("clientsPage.noProfiles")}
                           </p>
                         )}
-                        {(client.Profiles ?? []).map((profile) => (
-                          <div
+                        <SectionGroup>
+                        {(client.Profiles ?? []).map((profile, index, profiles) => (
+                          <SectionItem
                             key={profile.ID}
-                            className="flex items-center gap-3 rounded-md bg-background p-2 text-sm"
+                            position={
+                              profiles.length === 1
+                                ? "single"
+                                : index === 0
+                                  ? "top"
+                                  : index === profiles.length - 1
+                                    ? "bottom"
+                                    : "middle"
+                            }
+                            className="flex-wrap gap-3 text-sm"
                           >
                             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                               <span
@@ -433,8 +444,9 @@ export function ClientsPage() {
                               open={logsProfileId === profile.ID}
                               onOpenChange={(o) => setLogsProfileId(o ? profile.ID : null)}
                             />
-                          </div>
+                          </SectionItem>
                         ))}
+                        </SectionGroup>
                       </div>
                     </TableCell>
                   </TableRow>
