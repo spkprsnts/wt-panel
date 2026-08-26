@@ -71,7 +71,7 @@ function SidebarFooter({ collapsed, version }: { collapsed: boolean; version: st
   }
 
   return (
-    <div className="flex flex-col gap-1 border-t border-outline-variant p-2">
+    <div className="flex flex-col gap-1 p-2">
       <ThemeToggle
         showLabel={!collapsed}
         className={cn(collapsed && "w-full justify-center px-0")}
@@ -156,11 +156,11 @@ export function AppSidebar({
     <>
       <aside
         className={cn(
-          "hidden h-svh flex-col border-r border-outline-variant bg-surface text-on-surface transition-[width] duration-150 md:flex",
+          "hidden h-svh flex-col bg-surface text-on-surface transition-[width] duration-150 md:flex",
           collapsed ? "w-14" : "w-60"
         )}
       >
-        <div className="flex h-14 items-center justify-between border-b border-outline-variant px-3">
+        <div className="flex h-14 items-center justify-between px-3">
           {!collapsed && <span className="truncate text-title-large">wt-panel</span>}
           <Button
             variant="ghost"
@@ -180,10 +180,10 @@ export function AppSidebar({
         <DialogPortal>
           <DialogOverlay />
           <DialogPrimitive.Popup
-            className="fixed inset-y-0 left-0 z-50 flex h-svh w-72 flex-col rounded-r-lg border-r border-outline-variant bg-surface text-on-surface shadow-lg transition-all duration-200 ease-[cubic-bezier(0.2,0,0,1)] data-ending-style:-translate-x-full data-starting-style:-translate-x-full"
+            className="fixed inset-y-0 left-0 z-50 flex h-svh w-72 flex-col rounded-r-lg bg-surface text-on-surface shadow-lg transition-all duration-200 ease-[cubic-bezier(0.2,0,0,1)] data-ending-style:-translate-x-full data-starting-style:-translate-x-full"
           >
             <DialogTitle className="sr-only">wt-panel</DialogTitle>
-            <div className="flex h-14 items-center justify-between border-b border-outline-variant px-3">
+            <div className="flex h-14 items-center justify-between px-3">
               <span className="truncate text-title-large">wt-panel</span>
               <DialogClose
                 render={<Button variant="ghost" size="icon" title={t("common.close")} />}

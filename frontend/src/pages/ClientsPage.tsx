@@ -336,7 +336,7 @@ export function ClientsPage() {
                         {(client.Profiles ?? []).map((profile) => (
                           <div
                             key={profile.ID}
-                            className="flex items-center gap-3 rounded-md border bg-background p-2 text-sm"
+                            className="flex items-center gap-3 rounded-md bg-background p-2 text-sm"
                           >
                             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                               <span
