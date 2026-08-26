@@ -1,6 +1,5 @@
-import { Languages } from "lucide-react"
-
 import { cn } from "@/lib/utils"
+import { Icon } from "@/components/icon"
 import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/lib/i18n"
 
@@ -31,7 +30,7 @@ export function LanguageToggle({
       onClick={toggle}
       title={label}
     >
-      <Languages className="size-4 shrink-0" />
+      <Icon name="translate" size={20} className="shrink-0" />
       {showLabel && label}
     </Button>
   )

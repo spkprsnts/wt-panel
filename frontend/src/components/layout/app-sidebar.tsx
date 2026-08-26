@@ -1,35 +1,24 @@
 import * as React from "react"
 import { NavLink, useNavigate } from "react-router-dom"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
-import {
-  LayoutDashboard,
-  Users,
-  ShieldCheck,
-  Video,
-  Boxes,
-  Settings,
-  LogOut,
-  PanelLeftClose,
-  PanelLeftOpen,
-  X,
-} from "lucide-react"
 
 import { api, clearToken } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
+import { Icon } from "@/components/icon"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogClose, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
 import type { TranslationKey } from "@/i18n"
 
-const NAV_ITEMS: { to: string; labelKey: TranslationKey; icon: typeof LayoutDashboard }[] = [
-  { to: "/dashboard", labelKey: "sidebar.nav.dashboard", icon: LayoutDashboard },
-  { to: "/clients", labelKey: "sidebar.nav.clients", icon: Users },
-  { to: "/xray", labelKey: "sidebar.nav.xray", icon: ShieldCheck },
-  { to: "/rooms", labelKey: "sidebar.nav.rooms", icon: Video },
-  { to: "/kernels", labelKey: "sidebar.nav.kernels", icon: Boxes },
-  { to: "/settings", labelKey: "sidebar.nav.settings", icon: Settings },
+const NAV_ITEMS: { to: string; labelKey: TranslationKey; icon: string }[] = [
+  { to: "/dashboard", labelKey: "sidebar.nav.dashboard", icon: "dashboard" },
+  { to: "/clients", labelKey: "sidebar.nav.clients", icon: "group" },
+  { to: "/xray", labelKey: "sidebar.nav.xray", icon: "verified_user" },
+  { to: "/rooms", labelKey: "sidebar.nav.rooms", icon: "videocam" },
+  { to: "/kernels", labelKey: "sidebar.nav.kernels", icon: "deployed_code" },
+  { to: "/settings", labelKey: "sidebar.nav.settings", icon: "settings" },
 ]
 
 const COLLAPSE_KEY = "wtpanel_sidebar_collapsed"
@@ -49,22 +38,22 @@ function SidebarBody({
   const t = useT()
   return (
     <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
-      {NAV_ITEMS.map(({ to, labelKey, icon: Icon }) => (
+      {NAV_ITEMS.map(({ to, labelKey, icon }) => (
         <NavLink
           key={to}
           to={to}
           onClick={onNavigate}
           className={({ isActive }) =>
             cn(
-              "flex items-center gap-3 rounded-md px-2.5 py-2 text-sm font-medium transition-colors",
+              "state-layer flex items-center gap-3 rounded-full px-3 py-2.5 text-label-large transition-colors",
               isActive
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                ? "bg-secondary-container text-on-secondary-container"
+                : "text-on-surface-variant"
             )
           }
           title={collapsed ? t(labelKey) : undefined}
         >
-          <Icon className="size-4 shrink-0" />
+          <Icon name={icon} size={20} className="shrink-0" />
           {!collapsed && <span className="truncate">{t(labelKey)}</span>}
         </NavLink>
       ))}
@@ -82,7 +71,7 @@ function SidebarFooter({ collapsed, version }: { collapsed: boolean; version: st
   }
 
   return (
-    <div className="flex flex-col gap-1 border-t border-sidebar-border p-2">
+    <div className="flex flex-col gap-1 border-t border-outline-variant p-2">
       <ThemeToggle
         showLabel={!collapsed}
         className={cn(collapsed && "w-full justify-center px-0")}
@@ -96,12 +85,12 @@ function SidebarFooter({ collapsed, version }: { collapsed: boolean; version: st
         className={cn("w-full justify-start gap-3", collapsed && "justify-center px-0")}
         onClick={handleLogout}
       >
-        <LogOut className="size-4 shrink-0" />
+        <Icon name="logout" size={20} className="shrink-0" />
         {!collapsed && t("sidebar.logout")}
       </Button>
       {version && !collapsed && (
         <div
-          className="truncate px-2.5 pt-1 text-xs text-sidebar-foreground/50"
+          className="truncate px-3 pt-1 text-body-small text-on-surface-variant"
           title={`${t("sidebar.versionTitle")} ${version}`}
         >
           v{version}
@@ -120,6 +109,10 @@ function SidebarFooter({ collapsed, version }: { collapsed: boolean; version: st
 // makes sense as a way to reclaim desktop screen width, and closes itself
 // the moment a nav link is picked (see SidebarBody's onNavigate) since
 // there's no reason to leave it open over the page it just navigated to.
+//
+// The collapse (icon rail) / expand (labeled drawer) toggle on desktop and
+// the mobile off-canvas drawer are M3's "navigation rail" and "navigation
+// drawer" — same adaptive pattern, just re-skinned below.
 export function AppSidebar({
   mobileOpen,
   onMobileOpenChange,
@@ -163,20 +156,20 @@ export function AppSidebar({
     <>
       <aside
         className={cn(
-          "hidden h-svh flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-150 md:flex",
+          "hidden h-svh flex-col border-r border-outline-variant bg-surface text-on-surface transition-[width] duration-150 md:flex",
           collapsed ? "w-14" : "w-60"
         )}
       >
-        <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-3">
-          {!collapsed && <span className="truncate font-semibold">wt-panel</span>}
+        <div className="flex h-14 items-center justify-between border-b border-outline-variant px-3">
+          {!collapsed && <span className="truncate text-title-large">wt-panel</span>}
           <Button
             variant="ghost"
             size="icon"
-            className="ml-auto size-8"
+            className="ml-auto"
             onClick={toggleCollapsed}
             title={collapsed ? t("sidebar.expand") : t("sidebar.collapse")}
           >
-            {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+            <Icon name={collapsed ? "left_panel_open" : "left_panel_close"} size={20} />
           </Button>
         </div>
         <SidebarBody collapsed={collapsed} />
@@ -187,15 +180,15 @@ export function AppSidebar({
         <DialogPortal>
           <DialogOverlay />
           <DialogPrimitive.Popup
-            className="fixed inset-y-0 left-0 z-50 flex h-svh w-72 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-200 data-ending-style:-translate-x-full data-starting-style:-translate-x-full"
+            className="fixed inset-y-0 left-0 z-50 flex h-svh w-72 flex-col rounded-r-lg border-r border-outline-variant bg-surface text-on-surface shadow-lg transition-all duration-200 ease-[cubic-bezier(0.2,0,0,1)] data-ending-style:-translate-x-full data-starting-style:-translate-x-full"
           >
             <DialogTitle className="sr-only">wt-panel</DialogTitle>
-            <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-3">
-              <span className="truncate font-semibold">wt-panel</span>
+            <div className="flex h-14 items-center justify-between border-b border-outline-variant px-3">
+              <span className="truncate text-title-large">wt-panel</span>
               <DialogClose
-                render={<Button variant="ghost" size="icon" className="size-8" title={t("common.close")} />}
+                render={<Button variant="ghost" size="icon" title={t("common.close")} />}
               >
-                <X className="size-4" />
+                <Icon name="close" size={20} />
               </DialogClose>
             </div>
             <SidebarBody collapsed={false} onNavigate={() => onMobileOpenChange(false)} />

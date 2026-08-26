@@ -91,10 +91,10 @@ function Combobox({
         <PopoverPrimitive.Positioner anchor={inputRef} align="start" sideOffset={4}>
           <PopoverPrimitive.Popup
             initialFocus={false}
-            className="bg-popover text-popover-foreground z-50 max-h-64 w-(--anchor-width) overflow-y-auto rounded-md border p-1 shadow-md"
+            className="z-50 max-h-64 w-(--anchor-width) overflow-y-auto rounded-xs bg-surface-container p-1 text-on-surface shadow-md"
           >
             {filtered.length === 0 ? (
-              <p className="text-muted-foreground px-2 py-1.5 text-sm">{noMatchesText}</p>
+              <p className="px-3 py-2 text-body-medium text-on-surface-variant">{noMatchesText}</p>
             ) : (
               filtered.map((o) => (
                 <button
@@ -104,7 +104,7 @@ function Combobox({
                     onChange(o.value)
                     setOpen(false)
                   }}
-                  className="hover:bg-accent hover:text-accent-foreground flex w-full items-center rounded-sm px-2 py-1.5 text-left text-sm"
+                  className="state-layer flex w-full items-center rounded-xs px-3 py-2 text-left text-body-large"
                 >
                   {o.label}
                 </button>

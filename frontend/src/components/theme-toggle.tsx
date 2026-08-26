@@ -1,8 +1,8 @@
 import * as React from "react"
-import { Moon, Sun } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
+import { Icon } from "@/components/icon"
 import { Button } from "@/components/ui/button"
 import { getEffectiveTheme, setTheme, type Theme } from "@/lib/theme"
 
@@ -26,7 +26,7 @@ export function ThemeToggle({
     setThemeState(next)
   }
 
-  const Icon = theme === "dark" ? Sun : Moon
+  const iconName = theme === "dark" ? "light_mode" : "dark_mode"
   const label = theme === "dark" ? t("themeToggle.light") : t("themeToggle.dark")
 
   return (
@@ -38,7 +38,7 @@ export function ThemeToggle({
       onClick={toggle}
       title={label}
     >
-      <Icon className="size-4 shrink-0" />
+      <Icon name={iconName} size={20} className="shrink-0" />
       {showLabel && label}
     </Button>
   )

@@ -1,8 +1,8 @@
 import * as React from "react"
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
-import { Check, ChevronDown, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { Icon } from "@/components/icon"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
@@ -15,7 +15,10 @@ export interface MultiSelectOption {
 // trigger — matches 3x-ui's ALPN picker (antd Select mode="multiple").
 // Base UI has no multi-select primitive, so this is Popover + a plain
 // checkable list rather than an extension of ./select.tsx (that one wraps
-// @base-ui/react/select, which is single-value by design).
+// @base-ui/react/select, which is single-value by design). No M3 spec
+// covers this control either; the trigger borrows Input's filled-field
+// visual language and the popup matches select.tsx/dropdown-menu.tsx's
+// M3 menu styling, with M3 input chips for the selected tags.
 //
 // allowCustom (default true) additionally shows a text input at the top of
 // the popover so a value that isn't in `options` can be added too — the
@@ -64,21 +67,23 @@ function MultiSelect({
           <button
             type="button"
             className={cn(
-              "border-input focus-visible:border-ring focus-visible:ring-ring/50 flex min-h-9 w-full flex-wrap items-center gap-1 rounded-md border bg-transparent px-2 py-1.5 text-sm shadow-xs outline-none focus-visible:ring-[3px]",
+              "flex min-h-14 w-full flex-wrap items-center gap-1.5 rounded-t-xs border-b-2 border-outline bg-surface-container-highest px-4 py-2.5 text-body-large text-on-surface transition-colors outline-none focus-visible:border-primary",
               className
             )}
           />
         }
       >
-        {value.length === 0 && <span className="text-muted-foreground">{placeholder}</span>}
+        {value.length === 0 && <span className="text-on-surface-variant">{placeholder}</span>}
         {value.map((v) => (
           <span
             key={v}
-            className="bg-secondary text-secondary-foreground flex items-center gap-1 rounded px-1.5 py-0.5 text-xs"
+            className="flex items-center gap-1 rounded-sm bg-secondary-container px-2 py-1 text-label-large text-on-secondary-container"
           >
             {options.find((o) => o.value === v)?.label ?? v}
-            <X
-              className="size-3 cursor-pointer"
+            <Icon
+              name="close"
+              size={16}
+              className="cursor-pointer"
               onClick={(e) => {
                 e.stopPropagation()
                 toggle(v)
@@ -86,11 +91,11 @@ function MultiSelect({
             />
           </span>
         ))}
-        <ChevronDown className="ml-auto size-4 opacity-50" />
+        <Icon name="keyboard_arrow_down" className="ml-auto text-on-surface-variant" />
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Positioner align="start" sideOffset={4}>
-          <PopoverPrimitive.Popup className="bg-popover text-popover-foreground z-50 w-(--anchor-width) min-w-32 rounded-md border p-1 shadow-md">
+          <PopoverPrimitive.Popup className="z-50 w-(--anchor-width) min-w-32 rounded-xs bg-surface-container p-1 text-on-surface shadow-md">
             {allowCustom && (
               <div className="flex gap-1 p-1">
                 <Input
@@ -103,10 +108,10 @@ function MultiSelect({
                     }
                   }}
                   placeholder={customValuePlaceholder}
-                  className="h-8 text-sm"
+                  className="h-10"
                 />
-                <Button type="button" size="sm" className="h-8" onClick={addCustom}>
-                  +
+                <Button type="button" size="sm" className="h-10" onClick={addCustom}>
+                  <Icon name="add" size={18} />
                 </Button>
               </div>
             )}
@@ -115,10 +120,10 @@ function MultiSelect({
                 type="button"
                 key={o.value}
                 onClick={() => toggle(o.value)}
-                className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm"
+                className="state-layer flex w-full items-center gap-2 rounded-xs px-3 py-2 text-left text-body-large"
               >
-                <span className="flex size-4 items-center justify-center">
-                  {value.includes(o.value) && <Check className="size-4" />}
+                <span className="flex size-4 items-center justify-center text-primary">
+                  {value.includes(o.value) && <Icon name="check" size={18} />}
                 </span>
                 {o.label}
               </button>
