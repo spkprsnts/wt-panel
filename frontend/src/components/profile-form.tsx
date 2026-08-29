@@ -1230,7 +1230,6 @@ export function ProfileForm({
             onChange={(v) => setTn({ ...tn, pubKey: v })}
             placeholder={t("profileForm.keyField.placeholder")}
             generateLabel={t("profileForm.keyField.generate")}
-            generatingLabel="..."
             generateFailedLabel={t("profileForm.keyField.generateFailed")}
             onGenerate={() =>
               api.keygenTurnable().then(({ pubKey, privKey }) =>
@@ -1311,7 +1310,6 @@ export function ProfileForm({
             onChange={(v) => setOc({ ...oc, cryptoKey: v })}
             placeholder={t("profileForm.keyField.placeholder")}
             generateLabel={t("profileForm.keyField.generate")}
-            generatingLabel="..."
             generateFailedLabel={t("profileForm.keyField.generateFailed")}
             onGenerate={() => api.keygenHex32().then(({ key }) => setOc((s) => ({ ...s, cryptoKey: key })))}
           />
@@ -1612,7 +1610,6 @@ export function ProfileForm({
               onChange={(v) => setFt({ ...ft, obfKey: v })}
               placeholder={t("profileForm.keyField.placeholder")}
               generateLabel={t("profileForm.keyField.generate")}
-              generatingLabel="..."
               generateFailedLabel={t("profileForm.keyField.generateFailed")}
               onGenerate={() => api.keygenHex32().then(({ key }) => setFt((s) => ({ ...s, obfKey: key })))}
             />

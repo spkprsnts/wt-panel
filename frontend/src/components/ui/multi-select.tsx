@@ -113,8 +113,8 @@ function MultiSelect({
         <Icon name="keyboard_arrow_down" className="ml-auto text-on-surface-variant" />
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Positioner align="start" sideOffset={4}>
-          <PopoverPrimitive.Popup className={cn(POPUP_SURFACE, "z-50 w-(--anchor-width) min-w-32 p-1")}>
+        <PopoverPrimitive.Positioner align="start" sideOffset={4} className="z-50">
+          <PopoverPrimitive.Popup className={cn(POPUP_SURFACE, "w-(--anchor-width) min-w-32 p-1")}>
             {allowCustom && (
               <div className="flex gap-1 p-1">
                 <Input

@@ -245,7 +245,7 @@ function emptyForm(defaultRemark = ""): InboundFormState {
     wgPublicKey: "",
     wgAddress: "10.0.0.1/24",
     wgMtu: "1280",
-    sniffingEnabled: true,
+    sniffingEnabled: false,
     sniffingDestOverride: "http,tls",
   }
 }
@@ -762,7 +762,6 @@ function RealityFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
         value={f.realityPrivateKey}
         onChange={(v) => setF({ ...f, realityPrivateKey: v })}
         generateLabel={t("common.generate")}
-        generatingLabel="..."
         generateFailedLabel={t("common.generateFailed")}
         onGenerate={() =>
           api.keygenReality().then(({ privateKey, publicKey }) =>
@@ -776,22 +775,25 @@ function RealityFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="reality-shortids">{t("xray.reality.shortIds")}</Label>
-        <div className="flex gap-2">
+        <div className="relative">
           <Input
             id="reality-shortids"
             value={f.realityShortIds}
             onChange={(e) => setF({ ...f, realityShortIds: e.target.value })}
-            className="font-mono text-xs"
+            className="pr-12 font-mono text-xs"
           />
           <Button
             type="button"
-            variant="outline"
-            size="sm"
+            variant="ghost"
+            size="icon"
+            className="absolute top-1/2 right-1 -translate-y-1/2"
+            title={t("xray.reality.resetShortIds")}
+            aria-label={t("xray.reality.resetShortIds")}
             onClick={() =>
               api.keygenShortIds().then(({ shortIds }) => setF((s) => ({ ...s, realityShortIds: shortIds.join(",") })))
             }
           >
-            {t("xray.reality.resetShortIds")}
+            <Icon name="refresh" size={20} />
           </Button>
         </div>
       </div>
@@ -1205,7 +1207,6 @@ function InboundFormDialog({
                 value={f.wgSecretKey}
                 onChange={(v) => setF({ ...f, wgSecretKey: v })}
                 generateLabel={t("common.generate")}
-                generatingLabel="..."
                 generateFailedLabel={t("common.generateFailed")}
                 onGenerate={() =>
                   api.keygenWireGuard().then(({ privateKey, publicKey }) =>

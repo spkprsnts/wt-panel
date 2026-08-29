@@ -51,7 +51,7 @@ function SelectContent({
           )}
           {...props}
         >
-          <SelectPrimitive.List className="h-(--anchor-height) w-full min-w-(--anchor-width) scroll-my-1 p-1">
+          <SelectPrimitive.List className="w-full min-w-(--anchor-width) scroll-my-1 p-1">
             {children}
           </SelectPrimitive.List>
         </SelectPrimitive.Popup>
@@ -69,16 +69,11 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "state-layer relative flex w-full cursor-default items-center gap-2 rounded-xs py-2 pr-8 pl-3 text-body-large outline-hidden select-none data-selected:bg-tertiary-container data-selected:text-on-tertiary-container data-disabled:pointer-events-none data-disabled:opacity-[0.38]",
+        "state-layer relative flex w-full cursor-default items-center gap-2 rounded-xs px-3 py-2 text-body-large outline-hidden select-none data-selected:bg-tertiary-container data-selected:text-on-tertiary-container data-disabled:pointer-events-none data-disabled:opacity-[0.38]",
         className
       )}
       {...props}
     >
-      <span className="absolute right-2 flex size-4 items-center justify-center">
-        <SelectPrimitive.ItemIndicator>
-          <Icon name="check" size={18} />
-        </SelectPrimitive.ItemIndicator>
-      </span>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
     </SelectPrimitive.Item>
   )

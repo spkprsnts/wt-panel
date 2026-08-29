@@ -95,12 +95,12 @@ function Combobox({
         placeholder={placeholder}
       />
       <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Positioner anchor={inputRef} align="start" sideOffset={4}>
+        <PopoverPrimitive.Positioner anchor={inputRef} align="start" sideOffset={4} className="z-50">
           <PopoverPrimitive.Popup
             initialFocus={false}
             id={listboxId}
             role="listbox"
-            className={cn(POPUP_SURFACE, "z-50 max-h-64 w-(--anchor-width) overflow-y-auto p-1")}
+            className={cn(POPUP_SURFACE, "max-h-64 w-(--anchor-width) overflow-y-auto p-1")}
           >
             {filtered.length === 0 ? (
               <p className="px-3 py-2 text-body-medium text-on-surface-variant">{noMatchesText}</p>
