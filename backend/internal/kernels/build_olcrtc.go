@@ -384,7 +384,24 @@ func (m *JobManager) runOlcRTCBuild(job *Job, ref, destPath, dataDir string, onS
 		m.finish(job, JobFailed, resolvedSHA)
 		return
 	}
-	if err := os.WriteFile(destPath, data, 0o755); err != nil {
+	// Writing straight to destPath fails with "text file busy" whenever the
+	// previously-installed olcrtc binary is currently running (the panel
+	// execs kernel binaries as long-lived child processes) — a regular
+	// open-for-write can't touch a file the kernel has mapped as a running
+	// process's text segment. Every other install path in this package
+	// (DownloadBinary, DownloadZipEntry, DownloadTarGzEntry) already avoids
+	// this by writing to a same-directory temp file and renaming it into
+	// place; rename() only swaps the directory entry, so an already-running
+	// process keeps its old inode open and is unaffected, matching those
+	// functions' own doc comments.
+	tmp := destPath + ".download"
+	if err := os.WriteFile(tmp, data, 0o755); err != nil {
+		m.appendLog(job, "write "+tmp+": "+err.Error())
+		m.finish(job, JobFailed, resolvedSHA)
+		return
+	}
+	if err := os.Rename(tmp, destPath); err != nil {
+		os.Remove(tmp)
 		m.appendLog(job, "install built binary to "+destPath+": "+err.Error())
 		m.finish(job, JobFailed, resolvedSHA)
 		return
