@@ -10,11 +10,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { MultiSelect } from "@/components/ui/multi-select"
 import { KeyField } from "@/components/ui/key-field"
 import { Disclosure } from "@/components/ui/disclosure"
-import { Switch } from "@/components/ui/switch"
 import {
   Select,
   SelectContent,
@@ -22,6 +20,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  SectionGroup,
+  SectionItem,
+  TextFieldRow,
+  SwitchRow,
+} from "@/components/ui/section"
 import {
   Table,
   TableBody,
@@ -73,25 +77,6 @@ function splitList(s: string): string[] {
 }
 function splitLines(s: string): string[] {
   return s.split("\n").map((x) => x.trim()).filter(Boolean)
-}
-
-function SwitchField({
-  id,
-  label,
-  checked,
-  onChange,
-}: {
-  id: string
-  label: string
-  checked: boolean
-  onChange: (v: boolean) => void
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <Switch id={id} checked={checked} onCheckedChange={onChange} />
-      <Label htmlFor={id}>{label}</Label>
-    </div>
-  )
 }
 
 interface FallbackRow {
@@ -603,111 +588,178 @@ function TlsFields({
         </Button>
         {panelCertError && <p className="text-xs text-error">{panelCertError}</p>}
       </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="tls-sni">Server name (SNI)</Label>
-        <Input id="tls-sni" value={f.tlsServerName} onChange={(e) => setF({ ...f, tlsServerName: e.target.value })} />
-      </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-2">
-          <Label>Min version</Label>
-          <Select value={f.tlsMinVersion} onValueChange={(v) => setF({ ...f, tlsMinVersion: v as InboundFormState["tlsMinVersion"] })}>
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TLS_VERSIONS.map((v) => (
-                <SelectItem key={v} value={v}>
-                  {v}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label>Max version</Label>
-          <Select value={f.tlsMaxVersion} onValueChange={(v) => setF({ ...f, tlsMaxVersion: v as InboundFormState["tlsMaxVersion"] })}>
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TLS_VERSIONS.map((v) => (
-                <SelectItem key={v} value={v}>
-                  {v}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label>ALPN</Label>
-        <MultiSelect
-          options={ALPN_OPTIONS}
-          value={f.tlsAlpn}
-          onChange={(v) => setF({ ...f, tlsAlpn: v })}
-          placeholder={`${t("xray.alpnDefaultPrefix")}: ${alpnDefault.join(", ")}`}
-          customValuePlaceholder={t("common.customValue")}
-          removeOptionLabel={(label) => `${t("common.remove")}: ${label}`}
-          addCustomValueLabel={t("common.add")}
-        />
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label>uTLS fingerprint</Label>
-        <Select value={f.tlsFingerprint} onValueChange={(v) => setF({ ...f, tlsFingerprint: v ?? "" })}>
-          <SelectTrigger className="w-full">
-            <SelectValue>{(v: string | null) => v || "None"}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {FINGERPRINTS.map((fp) => (
-              <SelectItem key={fp || "none"} value={fp}>
-                {fp || "None"}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label>{t("xray.certificateLabel")}</Label>
-        <Select value={f.tlsCertMode} onValueChange={(v) => setF({ ...f, tlsCertMode: v as InboundFormState["tlsCertMode"] })}>
-          <SelectTrigger className="w-full">
-            <SelectValue>
-              {(v: string | null) => (v === "file" ? t("xray.certModeFile") : v === "inline" ? t("xray.certModeInline") : v)}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="file">{t("xray.certModeFile")}</SelectItem>
-            <SelectItem value="inline">{t("xray.certModeInline")}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      {f.tlsCertMode === "file" ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="tls-cert-file">{t("xray.certFileLabel")}</Label>
-            <Input id="tls-cert-file" value={f.tlsCertFile} onChange={(e) => setF({ ...f, tlsCertFile: e.target.value })} placeholder="/etc/ssl/certs/example.crt" />
+      <SectionGroup>
+        <SectionItem position="top">
+          <TextFieldRow
+            id="tls-sni"
+            label="Server name (SNI)"
+            value={f.tlsServerName}
+            onChange={(v) => setF({ ...f, tlsServerName: v })}
+          />
+        </SectionItem>
+        <SectionItem position="middle">
+          <div className="flex w-full flex-col gap-1">
+            <label className="text-title-medium text-on-surface">Min version</label>
+            <Select value={f.tlsMinVersion} onValueChange={(v) => setF({ ...f, tlsMinVersion: v as InboundFormState["tlsMinVersion"] })}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TLS_VERSIONS.map((v) => (
+                  <SelectItem key={v} value={v}>
+                    {v}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="tls-key-file">{t("xray.keyFileLabel")}</Label>
-            <Input id="tls-key-file" value={f.tlsKeyFile} onChange={(e) => setF({ ...f, tlsKeyFile: e.target.value })} placeholder="/etc/ssl/private/example.key" />
+        </SectionItem>
+        <SectionItem position="middle">
+          <div className="flex w-full flex-col gap-1">
+            <label className="text-title-medium text-on-surface">Max version</label>
+            <Select value={f.tlsMaxVersion} onValueChange={(v) => setF({ ...f, tlsMaxVersion: v as InboundFormState["tlsMaxVersion"] })}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TLS_VERSIONS.map((v) => (
+                  <SelectItem key={v} value={v}>
+                    {v}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </div>
-      ) : (
-        <>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="tls-cert-inline">{t("xray.certInlineLabel")}</Label>
-            <Textarea id="tls-cert-inline" value={f.tlsCertInline} onChange={(e) => setF({ ...f, tlsCertInline: e.target.value })} className="font-mono text-xs" rows={4} />
+        </SectionItem>
+        <SectionItem position="middle">
+          <div className="flex w-full flex-col gap-1">
+            <label className="text-title-medium text-on-surface">ALPN</label>
+            <MultiSelect
+              options={ALPN_OPTIONS}
+              value={f.tlsAlpn}
+              onChange={(v) => setF({ ...f, tlsAlpn: v })}
+              placeholder={`${t("xray.alpnDefaultPrefix")}: ${alpnDefault.join(", ")}`}
+              customValuePlaceholder={t("common.customValue")}
+              removeOptionLabel={(label) => `${t("common.remove")}: ${label}`}
+              addCustomValueLabel={t("common.add")}
+            />
           </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="tls-key-inline">{t("xray.keyInlineLabel")}</Label>
-            <Textarea id="tls-key-inline" value={f.tlsKeyInline} onChange={(e) => setF({ ...f, tlsKeyInline: e.target.value })} className="font-mono text-xs" rows={4} />
+        </SectionItem>
+        <SectionItem position="middle">
+          <div className="flex w-full flex-col gap-1">
+            <label className="text-title-medium text-on-surface">uTLS fingerprint</label>
+            <Select value={f.tlsFingerprint} onValueChange={(v) => setF({ ...f, tlsFingerprint: v ?? "" })}>
+              <SelectTrigger className="w-full">
+                <SelectValue>{(v: string | null) => v || "None"}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {FINGERPRINTS.map((fp) => (
+                  <SelectItem key={fp || "none"} value={fp}>
+                    {fp || "None"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </>
-      )}
-
-      <SwitchField id="tls-reject-unknown-sni" label="rejectUnknownSni" checked={f.tlsRejectUnknownSni} onChange={(v) => setF({ ...f, tlsRejectUnknownSni: v })} />
-      <SwitchField id="tls-disable-system-root" label="disableSystemRoot" checked={f.tlsDisableSystemRoot} onChange={(v) => setF({ ...f, tlsDisableSystemRoot: v })} />
-      <SwitchField id="tls-session-resumption" label="enableSessionResumption" checked={f.tlsEnableSessionResumption} onChange={(v) => setF({ ...f, tlsEnableSessionResumption: v })} />
+        </SectionItem>
+        <SectionItem position="middle">
+          <div className="flex w-full flex-col gap-1">
+            <label className="text-title-medium text-on-surface">{t("xray.certificateLabel")}</label>
+            <Select value={f.tlsCertMode} onValueChange={(v) => setF({ ...f, tlsCertMode: v as InboundFormState["tlsCertMode"] })}>
+              <SelectTrigger className="w-full">
+                <SelectValue>
+                  {(v: string | null) => (v === "file" ? t("xray.certModeFile") : v === "inline" ? t("xray.certModeInline") : v)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="file">{t("xray.certModeFile")}</SelectItem>
+                <SelectItem value="inline">{t("xray.certModeInline")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </SectionItem>
+        {f.tlsCertMode === "file" ? (
+          <>
+            <SectionItem position="middle">
+              <TextFieldRow
+                id="tls-cert-file"
+                label={t("xray.certFileLabel")}
+                value={f.tlsCertFile}
+                onChange={(v) => setF({ ...f, tlsCertFile: v })}
+                placeholder="/etc/ssl/certs/example.crt"
+              />
+            </SectionItem>
+            <SectionItem position="middle">
+              <TextFieldRow
+                id="tls-key-file"
+                label={t("xray.keyFileLabel")}
+                value={f.tlsKeyFile}
+                onChange={(v) => setF({ ...f, tlsKeyFile: v })}
+                placeholder="/etc/ssl/private/example.key"
+              />
+            </SectionItem>
+          </>
+        ) : (
+          <>
+            <SectionItem position="middle">
+              <TextFieldRow
+                id="tls-cert-inline"
+                label={t("xray.certInlineLabel")}
+                value={f.tlsCertInline}
+                onChange={(v) => setF({ ...f, tlsCertInline: v })}
+                multiline
+                rows={4}
+              />
+            </SectionItem>
+            <SectionItem position="middle">
+              <TextFieldRow
+                id="tls-key-inline"
+                label={t("xray.keyInlineLabel")}
+                value={f.tlsKeyInline}
+                onChange={(v) => setF({ ...f, tlsKeyInline: v })}
+                multiline
+                rows={4}
+              />
+            </SectionItem>
+          </>
+        )}
+        <SectionItem
+          position="middle"
+          role="switch"
+          aria-checked={f.tlsRejectUnknownSni}
+          onClick={() => setF({ ...f, tlsRejectUnknownSni: !f.tlsRejectUnknownSni })}
+        >
+          <SwitchRow
+            label="rejectUnknownSni"
+            checked={f.tlsRejectUnknownSni}
+            onCheckedChange={(v) => setF({ ...f, tlsRejectUnknownSni: v })}
+          />
+        </SectionItem>
+        <SectionItem
+          position="middle"
+          role="switch"
+          aria-checked={f.tlsDisableSystemRoot}
+          onClick={() => setF({ ...f, tlsDisableSystemRoot: !f.tlsDisableSystemRoot })}
+        >
+          <SwitchRow
+            label="disableSystemRoot"
+            checked={f.tlsDisableSystemRoot}
+            onCheckedChange={(v) => setF({ ...f, tlsDisableSystemRoot: v })}
+          />
+        </SectionItem>
+        <SectionItem
+          position="bottom"
+          role="switch"
+          aria-checked={f.tlsEnableSessionResumption}
+          onClick={() => setF({ ...f, tlsEnableSessionResumption: !f.tlsEnableSessionResumption })}
+        >
+          <SwitchRow
+            label="enableSessionResumption"
+            checked={f.tlsEnableSessionResumption}
+            onCheckedChange={(v) => setF({ ...f, tlsEnableSessionResumption: v })}
+          />
+        </SectionItem>
+      </SectionGroup>
     </Disclosure>
   )
 }
@@ -733,89 +785,131 @@ function RealityFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
   }, [])
   return (
     <Disclosure defaultOpen title={t("xray.reality.title")}>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="reality-target">{t("xray.reality.target")}</Label>
-        <Input id="reality-target" value={f.realityTarget} onChange={(e) => setF({ ...f, realityTarget: e.target.value })} placeholder="example.com:443" />
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="reality-sni">{t("xray.reality.serverNames")}</Label>
-        <Input id="reality-sni" value={f.realityServerNames} onChange={(e) => setF({ ...f, realityServerNames: e.target.value })} />
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label>uTLS fingerprint</Label>
-        <Select value={f.realityFingerprint} onValueChange={(v) => setF({ ...f, realityFingerprint: v ?? "" })}>
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {FINGERPRINTS.filter((fp) => fp).map((fp) => (
-              <SelectItem key={fp} value={fp}>
-                {fp}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <KeyField
-        id="reality-priv"
-        label={t("xray.reality.privateKey")}
-        value={f.realityPrivateKey}
-        onChange={(v) => setF({ ...f, realityPrivateKey: v })}
-        generateLabel={t("common.generate")}
-        generateFailedLabel={t("common.generateFailed")}
-        onGenerate={() =>
-          api.keygenReality().then(({ privateKey, publicKey }) =>
-            setF((s) => ({ ...s, realityPrivateKey: privateKey, realityPublicKey: publicKey }))
-          )
-        }
-      />
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="reality-pub">{t("xray.reality.publicKey")}</Label>
-        <Input id="reality-pub" value={f.realityPublicKey} onChange={(e) => setF({ ...f, realityPublicKey: e.target.value })} className="font-mono text-xs" />
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="reality-shortids">{t("xray.reality.shortIds")}</Label>
-        <div className="relative">
-          <Input
-            id="reality-shortids"
-            value={f.realityShortIds}
-            onChange={(e) => setF({ ...f, realityShortIds: e.target.value })}
-            className="pr-12 font-mono text-xs"
+      <SectionGroup>
+        <SectionItem position="top">
+          <TextFieldRow
+            id="reality-target"
+            label={t("xray.reality.target")}
+            value={f.realityTarget}
+            onChange={(v) => setF({ ...f, realityTarget: v })}
+            placeholder="example.com:443"
           />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="absolute top-1/2 right-1 -translate-y-1/2"
-            title={t("xray.reality.resetShortIds")}
-            aria-label={t("xray.reality.resetShortIds")}
-            onClick={() =>
-              api.keygenShortIds().then(({ shortIds }) => setF((s) => ({ ...s, realityShortIds: shortIds.join(",") })))
+        </SectionItem>
+        <SectionItem position="middle">
+          <TextFieldRow
+            id="reality-sni"
+            label={t("xray.reality.serverNames")}
+            value={f.realityServerNames}
+            onChange={(v) => setF({ ...f, realityServerNames: v })}
+          />
+        </SectionItem>
+        <SectionItem position="middle">
+          <div className="flex w-full flex-col gap-1">
+            <label className="text-title-medium text-on-surface">uTLS fingerprint</label>
+            <Select value={f.realityFingerprint} onValueChange={(v) => setF({ ...f, realityFingerprint: v ?? "" })}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FINGERPRINTS.filter((fp) => fp).map((fp) => (
+                  <SelectItem key={fp} value={fp}>
+                    {fp}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </SectionItem>
+        <SectionItem position="middle">
+          <KeyField
+            id="reality-priv"
+            label={t("xray.reality.privateKey")}
+            value={f.realityPrivateKey}
+            onChange={(v) => setF({ ...f, realityPrivateKey: v })}
+            generateLabel={t("common.generate")}
+            generateFailedLabel={t("common.generateFailed")}
+            onGenerate={() =>
+              api.keygenReality().then(({ privateKey, publicKey }) =>
+                setF((s) => ({ ...s, realityPrivateKey: privateKey, realityPublicKey: publicKey }))
+              )
             }
-          >
-            <Icon name="refresh" size={20} />
-          </Button>
-        </div>
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="reality-spiderx">SpiderX</Label>
-        <Input id="reality-spiderx" value={f.realitySpiderX} onChange={(e) => setF({ ...f, realitySpiderX: e.target.value })} />
-      </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="reality-min-ver">Min client version</Label>
-          <Input id="reality-min-ver" value={f.realityMinClientVer} onChange={(e) => setF({ ...f, realityMinClientVer: e.target.value })} placeholder="26.3.27" />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="reality-max-ver">Max client version</Label>
-          <Input id="reality-max-ver" value={f.realityMaxClientVer} onChange={(e) => setF({ ...f, realityMaxClientVer: e.target.value })} placeholder="x.y.z" />
-        </div>
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="reality-maxtimediff">{t("xray.reality.maxTimediff")}</Label>
-        <Input id="reality-maxtimediff" type="number" value={f.realityMaxTimediff} onChange={(e) => setF({ ...f, realityMaxTimediff: e.target.value })} />
-      </div>
-      <p className="text-xs text-on-surface-variant">{t("xray.reality.advancedNote")}</p>
+          />
+        </SectionItem>
+        <SectionItem position="middle">
+          <TextFieldRow
+            id="reality-pub"
+            label={t("xray.reality.publicKey")}
+            value={f.realityPublicKey}
+            onChange={(v) => setF({ ...f, realityPublicKey: v })}
+          />
+        </SectionItem>
+        <SectionItem position="middle">
+          <div className="flex w-full flex-col gap-1">
+            <label htmlFor="reality-shortids" className="text-title-medium text-on-surface">{t("xray.reality.shortIds")}</label>
+            <div className="relative">
+              <input
+                id="reality-shortids"
+                value={f.realityShortIds}
+                onChange={(e) => setF({ ...f, realityShortIds: e.target.value })}
+                className="peer w-full truncate bg-transparent py-4 pr-12 pl-4 text-body-large text-on-surface outline-none placeholder:text-on-surface-variant"
+              />
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-px rounded-full bg-outline-variant transition-[height,background-color] peer-focus:h-0.5 peer-focus:bg-primary"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute top-1/2 right-0 -translate-y-1/2"
+                title={t("xray.reality.resetShortIds")}
+                aria-label={t("xray.reality.resetShortIds")}
+                onClick={() =>
+                  api.keygenShortIds().then(({ shortIds }) => setF((s) => ({ ...s, realityShortIds: shortIds.join(",") })))
+                }
+              >
+                <Icon name="refresh" size={20} />
+              </Button>
+            </div>
+          </div>
+        </SectionItem>
+        <SectionItem position="middle">
+          <TextFieldRow
+            id="reality-spiderx"
+            label="SpiderX"
+            value={f.realitySpiderX}
+            onChange={(v) => setF({ ...f, realitySpiderX: v })}
+          />
+        </SectionItem>
+        <SectionItem position="middle">
+          <TextFieldRow
+            id="reality-min-ver"
+            label="Min client version"
+            value={f.realityMinClientVer}
+            onChange={(v) => setF({ ...f, realityMinClientVer: v })}
+            placeholder="26.3.27"
+          />
+        </SectionItem>
+        <SectionItem position="middle">
+          <TextFieldRow
+            id="reality-max-ver"
+            label="Max client version"
+            value={f.realityMaxClientVer}
+            onChange={(v) => setF({ ...f, realityMaxClientVer: v })}
+            placeholder="x.y.z"
+          />
+        </SectionItem>
+        <SectionItem position="bottom">
+          <TextFieldRow
+            id="reality-maxtimediff"
+            label={t("xray.reality.maxTimediff")}
+            type="number"
+            value={f.realityMaxTimediff}
+            onChange={(v) => setF({ ...f, realityMaxTimediff: v })}
+            supportingText={t("xray.reality.advancedNote")}
+          />
+        </SectionItem>
+      </SectionGroup>
     </Disclosure>
   )
 }
@@ -868,145 +962,234 @@ function NetworkFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
   switch (f.network) {
     case "tcp":
       return (
-        <>
-          <div className="flex flex-col gap-2">
-            <Label>Header type</Label>
-            <Select value={f.tcpHeaderType} onValueChange={(v) => setF({ ...f, tcpHeaderType: v as InboundFormState["tcpHeaderType"] })}>
-              <SelectTrigger className="w-full">
-                <SelectValue>
-                  {(v: string | null) => (v === "none" ? "None" : v === "http" ? "HTTP (camouflage)" : v)}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                <SelectItem value="http">HTTP (camouflage)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <SwitchField id="tcp-proxy-proto" label="acceptProxyProtocol" checked={f.tcpAcceptProxyProtocol} onChange={(v) => setF({ ...f, tcpAcceptProxyProtocol: v })} />
-        </>
+        <SectionGroup>
+          <SectionItem position="top">
+            <div className="flex w-full flex-col gap-1">
+              <label className="text-title-medium text-on-surface">Header type</label>
+              <Select value={f.tcpHeaderType} onValueChange={(v) => setF({ ...f, tcpHeaderType: v as InboundFormState["tcpHeaderType"] })}>
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {(v: string | null) => (v === "none" ? "None" : v === "http" ? "HTTP (camouflage)" : v)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="http">HTTP (camouflage)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </SectionItem>
+          <SectionItem
+            position="bottom"
+            role="switch"
+            aria-checked={f.tcpAcceptProxyProtocol}
+            onClick={() => setF({ ...f, tcpAcceptProxyProtocol: !f.tcpAcceptProxyProtocol })}
+          >
+            <SwitchRow
+              label="acceptProxyProtocol"
+              checked={f.tcpAcceptProxyProtocol}
+              onCheckedChange={(v) => setF({ ...f, tcpAcceptProxyProtocol: v })}
+            />
+          </SectionItem>
+        </SectionGroup>
       )
     case "ws":
       return (
-        <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="ws-path">Path</Label>
-              <Input id="ws-path" value={f.wsPath} onChange={(e) => setF({ ...f, wsPath: e.target.value })} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="ws-host">Host</Label>
-              <Input id="ws-host" value={f.wsHost} onChange={(e) => setF({ ...f, wsHost: e.target.value })} />
-            </div>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="ws-heartbeat">{t("xray.network.heartbeatPeriod")}</Label>
-            <Input id="ws-heartbeat" type="number" value={f.wsHeartbeatPeriod} onChange={(e) => setF({ ...f, wsHeartbeatPeriod: e.target.value })} />
-          </div>
-          <SwitchField id="ws-proxy-proto" label="acceptProxyProtocol" checked={f.wsAcceptProxyProtocol} onChange={(v) => setF({ ...f, wsAcceptProxyProtocol: v })} />
-        </>
+        <SectionGroup>
+          <SectionItem position="top">
+            <TextFieldRow id="ws-path" label="Path" value={f.wsPath} onChange={(v) => setF({ ...f, wsPath: v })} />
+          </SectionItem>
+          <SectionItem position="middle">
+            <TextFieldRow id="ws-host" label="Host" value={f.wsHost} onChange={(v) => setF({ ...f, wsHost: v })} />
+          </SectionItem>
+          <SectionItem position="middle">
+            <TextFieldRow
+              id="ws-heartbeat"
+              label={t("xray.network.heartbeatPeriod")}
+              type="number"
+              value={f.wsHeartbeatPeriod}
+              onChange={(v) => setF({ ...f, wsHeartbeatPeriod: v })}
+            />
+          </SectionItem>
+          <SectionItem
+            position="bottom"
+            role="switch"
+            aria-checked={f.wsAcceptProxyProtocol}
+            onClick={() => setF({ ...f, wsAcceptProxyProtocol: !f.wsAcceptProxyProtocol })}
+          >
+            <SwitchRow
+              label="acceptProxyProtocol"
+              checked={f.wsAcceptProxyProtocol}
+              onCheckedChange={(v) => setF({ ...f, wsAcceptProxyProtocol: v })}
+            />
+          </SectionItem>
+        </SectionGroup>
       )
     case "grpc":
       return (
-        <>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="grpc-service">Service name</Label>
-            <Input id="grpc-service" value={f.grpcServiceName} onChange={(e) => setF({ ...f, grpcServiceName: e.target.value })} />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="grpc-authority">Authority</Label>
-            <Input id="grpc-authority" value={f.grpcAuthority} onChange={(e) => setF({ ...f, grpcAuthority: e.target.value })} />
-          </div>
-          <SwitchField id="grpc-multimode" label="multiMode" checked={f.grpcMultiMode} onChange={(v) => setF({ ...f, grpcMultiMode: v })} />
-        </>
+        <SectionGroup>
+          <SectionItem position="top">
+            <TextFieldRow
+              id="grpc-service"
+              label="Service name"
+              value={f.grpcServiceName}
+              onChange={(v) => setF({ ...f, grpcServiceName: v })}
+            />
+          </SectionItem>
+          <SectionItem position="middle">
+            <TextFieldRow
+              id="grpc-authority"
+              label="Authority"
+              value={f.grpcAuthority}
+              onChange={(v) => setF({ ...f, grpcAuthority: v })}
+            />
+          </SectionItem>
+          <SectionItem
+            position="bottom"
+            role="switch"
+            aria-checked={f.grpcMultiMode}
+            onClick={() => setF({ ...f, grpcMultiMode: !f.grpcMultiMode })}
+          >
+            <SwitchRow
+              label="multiMode"
+              checked={f.grpcMultiMode}
+              onCheckedChange={(v) => setF({ ...f, grpcMultiMode: v })}
+            />
+          </SectionItem>
+        </SectionGroup>
       )
     case "kcp":
       return (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="kcp-mtu">MTU</Label>
-            <Input id="kcp-mtu" type="number" value={f.kcpMtu} onChange={(e) => setF({ ...f, kcpMtu: e.target.value })} />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="kcp-tti">TTI</Label>
-            <Input id="kcp-tti" type="number" value={f.kcpTti} onChange={(e) => setF({ ...f, kcpTti: e.target.value })} />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="kcp-up">Uplink capacity</Label>
-            <Input id="kcp-up" type="number" value={f.kcpUplinkCapacity} onChange={(e) => setF({ ...f, kcpUplinkCapacity: e.target.value })} />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="kcp-down">Downlink capacity</Label>
-            <Input id="kcp-down" type="number" value={f.kcpDownlinkCapacity} onChange={(e) => setF({ ...f, kcpDownlinkCapacity: e.target.value })} />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="kcp-cwnd">cwndMultiplier</Label>
-            <Input id="kcp-cwnd" type="number" value={f.kcpCwndMultiplier} onChange={(e) => setF({ ...f, kcpCwndMultiplier: e.target.value })} />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="kcp-window">maxSendingWindow</Label>
-            <Input id="kcp-window" type="number" value={f.kcpMaxSendingWindow} onChange={(e) => setF({ ...f, kcpMaxSendingWindow: e.target.value })} />
-          </div>
-        </div>
+        <SectionGroup>
+          <SectionItem position="top">
+            <TextFieldRow id="kcp-mtu" label="MTU" type="number" value={f.kcpMtu} onChange={(v) => setF({ ...f, kcpMtu: v })} />
+          </SectionItem>
+          <SectionItem position="middle">
+            <TextFieldRow id="kcp-tti" label="TTI" type="number" value={f.kcpTti} onChange={(v) => setF({ ...f, kcpTti: v })} />
+          </SectionItem>
+          <SectionItem position="middle">
+            <TextFieldRow
+              id="kcp-up"
+              label="Uplink capacity"
+              type="number"
+              value={f.kcpUplinkCapacity}
+              onChange={(v) => setF({ ...f, kcpUplinkCapacity: v })}
+            />
+          </SectionItem>
+          <SectionItem position="middle">
+            <TextFieldRow
+              id="kcp-down"
+              label="Downlink capacity"
+              type="number"
+              value={f.kcpDownlinkCapacity}
+              onChange={(v) => setF({ ...f, kcpDownlinkCapacity: v })}
+            />
+          </SectionItem>
+          <SectionItem position="middle">
+            <TextFieldRow
+              id="kcp-cwnd"
+              label="cwndMultiplier"
+              type="number"
+              value={f.kcpCwndMultiplier}
+              onChange={(v) => setF({ ...f, kcpCwndMultiplier: v })}
+            />
+          </SectionItem>
+          <SectionItem position="bottom">
+            <TextFieldRow
+              id="kcp-window"
+              label="maxSendingWindow"
+              type="number"
+              value={f.kcpMaxSendingWindow}
+              onChange={(v) => setF({ ...f, kcpMaxSendingWindow: v })}
+            />
+          </SectionItem>
+        </SectionGroup>
       )
     case "httpupgrade":
       return (
-        <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="hu-path">Path</Label>
-              <Input id="hu-path" value={f.httpupgradePath} onChange={(e) => setF({ ...f, httpupgradePath: e.target.value })} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="hu-host">Host</Label>
-              <Input id="hu-host" value={f.httpupgradeHost} onChange={(e) => setF({ ...f, httpupgradeHost: e.target.value })} />
-            </div>
-          </div>
-          <SwitchField id="hu-proxy-proto" label="acceptProxyProtocol" checked={f.httpupgradeAcceptProxyProtocol} onChange={(v) => setF({ ...f, httpupgradeAcceptProxyProtocol: v })} />
-        </>
+        <SectionGroup>
+          <SectionItem position="top">
+            <TextFieldRow id="hu-path" label="Path" value={f.httpupgradePath} onChange={(v) => setF({ ...f, httpupgradePath: v })} />
+          </SectionItem>
+          <SectionItem position="middle">
+            <TextFieldRow id="hu-host" label="Host" value={f.httpupgradeHost} onChange={(v) => setF({ ...f, httpupgradeHost: v })} />
+          </SectionItem>
+          <SectionItem
+            position="bottom"
+            role="switch"
+            aria-checked={f.httpupgradeAcceptProxyProtocol}
+            onClick={() => setF({ ...f, httpupgradeAcceptProxyProtocol: !f.httpupgradeAcceptProxyProtocol })}
+          >
+            <SwitchRow
+              label="acceptProxyProtocol"
+              checked={f.httpupgradeAcceptProxyProtocol}
+              onCheckedChange={(v) => setF({ ...f, httpupgradeAcceptProxyProtocol: v })}
+            />
+          </SectionItem>
+        </SectionGroup>
       )
     case "xhttp":
       return (
         <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="xhttp-path">Path</Label>
-              <Input id="xhttp-path" value={f.xhttpPath} onChange={(e) => setF({ ...f, xhttpPath: e.target.value })} />
+        <SectionGroup>
+          <SectionItem position="top">
+            <TextFieldRow id="xhttp-path" label="Path" value={f.xhttpPath} onChange={(v) => setF({ ...f, xhttpPath: v })} />
+          </SectionItem>
+          <SectionItem position="middle">
+            <TextFieldRow id="xhttp-host" label="Host" value={f.xhttpHost} onChange={(v) => setF({ ...f, xhttpHost: v })} />
+          </SectionItem>
+          <SectionItem position="middle">
+            <div className="flex w-full flex-col gap-1">
+              <label className="text-title-medium text-on-surface">Mode</label>
+              <Select value={f.xhttpMode} onValueChange={(v) => setF({ ...f, xhttpMode: v as InboundFormState["xhttpMode"] })}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {XHTTP_MODES.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {m}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="xhttp-host">Host</Label>
-              <Input id="xhttp-host" value={f.xhttpHost} onChange={(e) => setF({ ...f, xhttpHost: e.target.value })} />
-            </div>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label>Mode</Label>
-            <Select value={f.xhttpMode} onValueChange={(v) => setF({ ...f, xhttpMode: v as InboundFormState["xhttpMode"] })}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {XHTTP_MODES.map((m) => (
-                  <SelectItem key={m} value={m}>
-                    {m}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <SwitchField id="xhttp-xmux" label={t("xray.network.xhttpXmuxLabel")} checked={f.xhttpEnableXmux} onChange={(v) => setF({ ...f, xhttpEnableXmux: v })} />
+          </SectionItem>
+          <SectionItem
+            position={f.xhttpEnableXmux ? "middle" : "bottom"}
+            role="switch"
+            aria-checked={f.xhttpEnableXmux}
+            onClick={() => setF({ ...f, xhttpEnableXmux: !f.xhttpEnableXmux })}
+          >
+            <SwitchRow
+              label={t("xray.network.xhttpXmuxLabel")}
+              checked={f.xhttpEnableXmux}
+              onCheckedChange={(v) => setF({ ...f, xhttpEnableXmux: v })}
+              supportingText={t("xray.network.xhttpXmuxHint")}
+            />
+          </SectionItem>
           {f.xhttpEnableXmux && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 rounded border p-2">
-              <div className="flex flex-col gap-1">
-                <Label className="text-xs">maxConcurrency</Label>
-                <Input value={f.xhttpMaxConcurrency} onChange={(e) => setF({ ...f, xhttpMaxConcurrency: e.target.value })} placeholder="16-32" />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label className="text-xs">maxConnections</Label>
-                <Input value={f.xhttpMaxConnections} onChange={(e) => setF({ ...f, xhttpMaxConnections: e.target.value })} placeholder="0" />
-              </div>
-            </div>
+            <>
+              <SectionItem position="middle">
+                <TextFieldRow
+                  label="maxConcurrency"
+                  value={f.xhttpMaxConcurrency}
+                  onChange={(v) => setF({ ...f, xhttpMaxConcurrency: v })}
+                  placeholder="16-32"
+                />
+              </SectionItem>
+              <SectionItem position="bottom">
+                <TextFieldRow
+                  label="maxConnections"
+                  value={f.xhttpMaxConnections}
+                  onChange={(v) => setF({ ...f, xhttpMaxConnections: v })}
+                  placeholder="0"
+                />
+              </SectionItem>
+            </>
           )}
-          <p className="text-xs text-on-surface-variant">{t("xray.network.antiDpiNote")}</p>
+        </SectionGroup>
+        <p className="text-body-small text-on-surface-variant">{t("xray.network.antiDpiNote")}</p>
         </>
       )
   }
@@ -1022,40 +1205,44 @@ function NetworkSecurityFields({
   const t = useT()
   return (
     <>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-2">
-          <Label>{t("xray.networkSecurity.transport")}</Label>
-          <Select value={f.network} onValueChange={(v) => setF({ ...f, network: v as Network })}>
-            <SelectTrigger className="w-full">
-              <SelectValue>{(v: Network | null) => (v ? NETWORK_LABELS[v] : null)}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.keys(NETWORK_LABELS) as Network[]).map((n) => (
-                <SelectItem key={n} value={n}>
-                  {NETWORK_LABELS[n]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label>{t("xray.networkSecurity.security")}</Label>
-          <Select value={f.security} onValueChange={(v) => setF({ ...f, security: v as InboundFormState["security"] })}>
-            <SelectTrigger className="w-full">
-              <SelectValue>
-                {(v: string | null) =>
-                  v === "none" ? "None" : v === "tls" ? "TLS" : v === "reality" ? "Reality" : v
-                }
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">None</SelectItem>
-              <SelectItem value="tls">TLS</SelectItem>
-              <SelectItem value="reality">Reality</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      <SectionGroup>
+        <SectionItem position="top">
+          <div className="flex w-full flex-col gap-1">
+            <label className="text-title-medium text-on-surface">{t("xray.networkSecurity.transport")}</label>
+            <Select value={f.network} onValueChange={(v) => setF({ ...f, network: v as Network })}>
+              <SelectTrigger className="w-full">
+                <SelectValue>{(v: Network | null) => (v ? NETWORK_LABELS[v] : null)}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(NETWORK_LABELS) as Network[]).map((n) => (
+                  <SelectItem key={n} value={n}>
+                    {NETWORK_LABELS[n]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </SectionItem>
+        <SectionItem position="bottom">
+          <div className="flex w-full flex-col gap-1">
+            <label className="text-title-medium text-on-surface">{t("xray.networkSecurity.security")}</label>
+            <Select value={f.security} onValueChange={(v) => setF({ ...f, security: v as InboundFormState["security"] })}>
+              <SelectTrigger className="w-full">
+                <SelectValue>
+                  {(v: string | null) =>
+                    v === "none" ? "None" : v === "tls" ? "TLS" : v === "reality" ? "Reality" : v
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="tls">TLS</SelectItem>
+                <SelectItem value="reality">Reality</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </SectionItem>
+      </SectionGroup>
 
       <NetworkFields f={f} setF={setF} />
 
@@ -1142,51 +1329,72 @@ function InboundFormDialog({
         </DialogHeader>
         <form id={formId} onSubmit={handleSubmit} className="contents">
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6">
-          <SwitchField id="inbound-enable" label={t("xray.inboundForm.enabled")} checked={f.enable} onChange={(v) => setF({ ...f, enable: v })} />
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="inbound-remark">{t("xray.inboundForm.remark")}</Label>
-            <Input id="inbound-remark" value={f.remark} onChange={(e) => setF({ ...f, remark: e.target.value })} required autoFocus />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label>{t("xray.inboundForm.protocol")}</Label>
-            <Select value={protocol} onValueChange={(v) => setProtocol(v as XrayProtocol)} disabled={!!existing}>
-              <SelectTrigger className="w-full">
-                <SelectValue>{(v: XrayProtocol | null) => (v ? PROTOCOL_LABELS[v] : null)}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(PROTOCOL_LABELS) as XrayProtocol[]).map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {PROTOCOL_LABELS[p]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {existing && (
-              <p className="text-xs text-on-surface-variant">
-                {t("xray.inboundForm.protocolLocked")}
-              </p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="inbound-listen">{t("xray.inboundForm.listen")}</Label>
-              <Input id="inbound-listen" value={f.listen} onChange={(e) => setF({ ...f, listen: e.target.value })} placeholder="0.0.0.0" />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="inbound-port">{t("xray.inboundForm.port")}</Label>
-              <Input
+          <SectionGroup>
+            <SectionItem
+              position="top"
+              role="switch"
+              aria-checked={f.enable}
+              onClick={() => setF({ ...f, enable: !f.enable })}
+            >
+              <SwitchRow
+                label={t("xray.inboundForm.enabled")}
+                checked={f.enable}
+                onCheckedChange={(v) => setF({ ...f, enable: v })}
+              />
+            </SectionItem>
+            <SectionItem position="middle">
+              <TextFieldRow
+                id="inbound-remark"
+                label={t("xray.inboundForm.remark")}
+                value={f.remark}
+                onChange={(v) => setF({ ...f, remark: v })}
+                required
+                autoFocus
+              />
+            </SectionItem>
+            <SectionItem position="middle">
+              <div className="flex w-full flex-col gap-1">
+                <label className="text-title-medium text-on-surface">{t("xray.inboundForm.protocol")}</label>
+                <Select value={protocol} onValueChange={(v) => setProtocol(v as XrayProtocol)} disabled={!!existing}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue>{(v: XrayProtocol | null) => (v ? PROTOCOL_LABELS[v] : null)}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(PROTOCOL_LABELS) as XrayProtocol[]).map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {PROTOCOL_LABELS[p]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {existing && (
+                  <p className="text-body-small text-on-surface-variant">
+                    {t("xray.inboundForm.protocolLocked")}
+                  </p>
+                )}
+              </div>
+            </SectionItem>
+            <SectionItem position="middle">
+              <TextFieldRow
+                id="inbound-listen"
+                label={t("xray.inboundForm.listen")}
+                value={f.listen}
+                onChange={(v) => setF({ ...f, listen: v })}
+                placeholder="0.0.0.0"
+              />
+            </SectionItem>
+            <SectionItem position="bottom">
+              <TextFieldRow
                 id="inbound-port"
+                label={t("xray.inboundForm.port")}
                 type="number"
                 value={f.port}
-                onChange={(e) => setF({ ...f, port: e.target.value })}
+                onChange={(v) => setF({ ...f, port: v })}
                 required
                 placeholder="443"
               />
-            </div>
-          </div>
+            </SectionItem>
+          </SectionGroup>
 
           {(protocol === "vless" || protocol === "trojan") && <NetworkSecurityFields f={f} setF={setF} />}
 
@@ -1200,50 +1408,80 @@ function InboundFormDialog({
           )}
 
           {protocol === "wireguard" && (
-            <>
-              <KeyField
-                id="wg-secret"
-                label={t("xray.inboundForm.wgSecretKey")}
-                value={f.wgSecretKey}
-                onChange={(v) => setF({ ...f, wgSecretKey: v })}
-                generateLabel={t("common.generate")}
-                generateFailedLabel={t("common.generateFailed")}
-                onGenerate={() =>
-                  api.keygenWireGuard().then(({ privateKey, publicKey }) =>
-                    setF((s) => ({ ...s, wgSecretKey: privateKey, wgPublicKey: publicKey }))
-                  )
-                }
-              />
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="wg-pub">{t("xray.inboundForm.wgPublicKey")}</Label>
-                <Input id="wg-pub" value={f.wgPublicKey} onChange={(e) => setF({ ...f, wgPublicKey: e.target.value })} className="font-mono text-xs" />
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="wg-address">{t("xray.inboundForm.wgAddress")}</Label>
-                  <Input id="wg-address" value={f.wgAddress} onChange={(e) => setF({ ...f, wgAddress: e.target.value })} />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="wg-mtu">MTU</Label>
-                  <Input id="wg-mtu" type="number" value={f.wgMtu} onChange={(e) => setF({ ...f, wgMtu: e.target.value })} />
-                </div>
-              </div>
-            </>
+            <SectionGroup>
+              <SectionItem position="top">
+                <KeyField
+                  id="wg-secret"
+                  label={t("xray.inboundForm.wgSecretKey")}
+                  value={f.wgSecretKey}
+                  onChange={(v) => setF({ ...f, wgSecretKey: v })}
+                  generateLabel={t("common.generate")}
+                  generateFailedLabel={t("common.generateFailed")}
+                  onGenerate={() =>
+                    api.keygenWireGuard().then(({ privateKey, publicKey }) =>
+                      setF((s) => ({ ...s, wgSecretKey: privateKey, wgPublicKey: publicKey }))
+                    )
+                  }
+                />
+              </SectionItem>
+              <SectionItem position="middle">
+                <TextFieldRow
+                  id="wg-pub"
+                  label={t("xray.inboundForm.wgPublicKey")}
+                  value={f.wgPublicKey}
+                  onChange={(v) => setF({ ...f, wgPublicKey: v })}
+                />
+              </SectionItem>
+              <SectionItem position="middle">
+                <TextFieldRow
+                  id="wg-address"
+                  label={t("xray.inboundForm.wgAddress")}
+                  value={f.wgAddress}
+                  onChange={(v) => setF({ ...f, wgAddress: v })}
+                />
+              </SectionItem>
+              <SectionItem position="bottom">
+                <TextFieldRow
+                  id="wg-mtu"
+                  label="MTU"
+                  type="number"
+                  value={f.wgMtu}
+                  onChange={(v) => setF({ ...f, wgMtu: v })}
+                />
+              </SectionItem>
+            </SectionGroup>
           )}
 
-          <Disclosure defaultOpen title="Sniffing">
-            <SwitchField id="sniffing-enabled" label={t("xray.inboundForm.sniffingEnable")} checked={f.sniffingEnabled} onChange={(v) => setF({ ...f, sniffingEnabled: v })} />
+          {/* Unlike TLS/Reality (a long, genuinely optional/advanced run of
+              fields that's worth collapsing away by default), Sniffing is
+              just one toggle plus an optional field the operator adjusts
+              often — a collapsible Disclosure was unnecessary chrome for
+              that little content, so this is a plain titled SectionGroup
+              instead, same as Turnable's "Route" / WebDAV's "TLS" boxes. */}
+          <SectionGroup title="Sniffing">
+            <SectionItem
+              position={f.sniffingEnabled ? "top" : "single"}
+              role="switch"
+              aria-checked={f.sniffingEnabled}
+              onClick={() => setF({ ...f, sniffingEnabled: !f.sniffingEnabled })}
+            >
+              <SwitchRow
+                label={t("xray.inboundForm.sniffingEnable")}
+                checked={f.sniffingEnabled}
+                onCheckedChange={(v) => setF({ ...f, sniffingEnabled: v })}
+              />
+            </SectionItem>
             {f.sniffingEnabled && (
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="sniffing-dest">{t("xray.inboundForm.sniffingDestOverride")}</Label>
-                <Input
+              <SectionItem position="bottom">
+                <TextFieldRow
                   id="sniffing-dest"
+                  label={t("xray.inboundForm.sniffingDestOverride")}
                   value={f.sniffingDestOverride}
-                  onChange={(e) => setF({ ...f, sniffingDestOverride: e.target.value })}
+                  onChange={(v) => setF({ ...f, sniffingDestOverride: v })}
                 />
-              </div>
+              </SectionItem>
             )}
-          </Disclosure>
+          </SectionGroup>
 
           {error && <p className="text-sm text-error">{error}</p>}
         </div>

@@ -28,7 +28,8 @@ export const xray = {
     "xray.fallbacks.add": "+ Fallback",
 
     "xray.network.heartbeatPeriod": "Heartbeat period, сек (0 = выкл)",
-    "xray.network.xhttpXmuxLabel": "Настроить XMUX (мультиплексирование соединений)",
+    "xray.network.xhttpXmuxLabel": "Настроить XMUX",
+    "xray.network.xhttpXmuxHint": "Мультиплексирование соединений",
     "xray.network.antiDpiNote":
       "Anti-DPI padding/session-ID поля (xPadding*, sessionID*, seq*, uplinkData*) сознательно не включены — узкоспециальные настройки для обхода конкретных блокировок; xray-core сам использует разумные значения по умолчанию.",
 
@@ -125,7 +126,8 @@ export const xray = {
     "xray.fallbacks.add": "+ Fallback",
 
     "xray.network.heartbeatPeriod": "Heartbeat period, sec (0 = off)",
-    "xray.network.xhttpXmuxLabel": "Configure XMUX (connection multiplexing)",
+    "xray.network.xhttpXmuxLabel": "Configure XMUX",
+    "xray.network.xhttpXmuxHint": "Connection multiplexing",
     "xray.network.antiDpiNote":
       "Anti-DPI padding/session-ID fields (xPadding*, sessionID*, seq*, uplinkData*) are deliberately not exposed — highly specialized settings for evading specific blocking methods; xray-core's own defaults are sensible.",
 

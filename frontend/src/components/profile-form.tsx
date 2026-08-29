@@ -18,8 +18,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { DialogFooter } from "@/components/ui/dialog"
-import { Switch } from "@/components/ui/switch"
-import { Textarea } from "@/components/ui/textarea"
+import {
+  SectionGroup,
+  SectionItem,
+  TextFieldRow,
+  SwitchRow,
+} from "@/components/ui/section"
 
 const CORE_LABELS: Record<CoreType, TranslationKey> = {
   turnable: "profileForm.core.turnable",
@@ -836,145 +840,167 @@ export function ProfileForm({
   }
 
   // xrayBlock sits above the "Route"/"-connect" box for Turnable/FreeTurn.
+  // Dual Route is its own separate SectionGroup (not nested inside a
+  // SectionItem of the main one) — a SectionItem is a single joined-corner
+  // row, not a container meant to host another whole grouped list inside
+  // it; keeping them as sibling groups is what the corner-radius joining is
+  // actually designed for.
   const xrayBlock = (
-    <div className="flex flex-col gap-4 rounded-md border p-3">
-      <div className="flex items-center justify-between">
-        <Label htmlFor="xray-enabled">{t("profileForm.xray.overlayLabel")}</Label>
-        <Switch id="xray-enabled" checked={xrayEnabled} onCheckedChange={setXrayEnabled} />
-      </div>
-      {xrayEnabled && (
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="xray-inbound">{t("profileForm.xray.inboundLabel")}</Label>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <Select value={xrayInboundId} onValueChange={(v) => handlePickInbound(v ?? "")}>
-                  <SelectTrigger id="xray-inbound" className="w-full">
-                    <SelectValue placeholder={t("profileForm.xray.inboundPlaceholder")}>
-                      {(v: string | null) => {
-                        const ib = visibleInbounds.find((ib) => String(ib.ID) === v)
-                        return ib ? `${ib.Remark} — ${ib.Protocol} :${ib.Port}` : v
-                      }}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {visibleInbounds.map((ib) => (
-                      <SelectItem key={ib.ID} value={String(ib.ID)}>
-                        {ib.Remark} — {ib.Protocol} :{ib.Port}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+    <>
+      <SectionGroup>
+        <SectionItem
+          position={xrayEnabled ? "top" : "single"}
+          role="switch"
+          aria-checked={xrayEnabled}
+          onClick={() => setXrayEnabled(!xrayEnabled)}
+        >
+          <SwitchRow
+            label={t("profileForm.xray.overlayLabel")}
+            checked={xrayEnabled}
+            onCheckedChange={setXrayEnabled}
+          />
+        </SectionItem>
+        {xrayEnabled && (
+          <>
+            <SectionItem position={xrayInboundId ? "bottom" : "middle"}>
+            <div className="flex w-full flex-col gap-2">
+              <label htmlFor="xray-inbound" className="text-title-medium text-on-surface">{t("profileForm.xray.inboundLabel")}</label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <Select value={xrayInboundId} onValueChange={(v) => handlePickInbound(v ?? "")}>
+                    <SelectTrigger id="xray-inbound" className="w-full">
+                      <SelectValue placeholder={t("profileForm.xray.inboundPlaceholder")}>
+                        {(v: string | null) => {
+                          const ib = visibleInbounds.find((ib) => String(ib.ID) === v)
+                          return ib ? `${ib.Remark} — ${ib.Protocol} :${ib.Port}` : v
+                        }}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {visibleInbounds.map((ib) => (
+                        <SelectItem key={ib.ID} value={String(ib.ID)}>
+                          {ib.Remark} — {ib.Protocol} :{ib.Port}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* Picking an inbound used to be a one-way door — nothing
+                    ever cleared xrayInboundId back to "", so the manual
+                    fallback below stayed hidden forever after. */}
+                {xrayInboundId && (
+                  <Button type="button" variant="outline" size="sm" onClick={() => setXrayInboundId("")}>
+                    {t("profileForm.xray.reset")}
+                  </Button>
+                )}
               </div>
-              {/* Picking an inbound used to be a one-way door — nothing
-                  ever cleared xrayInboundId back to "", so the manual
-                  fallback below stayed hidden forever after. */}
-              {xrayInboundId && (
-                <Button type="button" variant="outline" size="sm" onClick={() => setXrayInboundId("")}>
-                  {t("profileForm.xray.reset")}
-                </Button>
+              {coreType === "freeturn" && (
+                <p className="text-body-small text-on-surface-variant">
+                  {t("profileForm.xray.freeturnNote")}
+                </p>
               )}
             </div>
-            {coreType === "freeturn" && (
-              <p className="text-xs text-on-surface-variant">
-                {t("profileForm.xray.freeturnNote")}
-              </p>
-            )}
-          </div>
+          </SectionItem>
           {!xrayInboundId && (
-            <div className="flex flex-col gap-2">
-              {supportsWireGuardManual && (
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={xrayManualMode === "uri" ? "default" : "outline"}
-                    onClick={() => setXrayManualMode("uri")}
-                  >
-                    URI
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={xrayManualMode === "wireguard" ? "default" : "outline"}
-                    onClick={() => setXrayManualMode("wireguard")}
-                  >
-                    {t("profileForm.xray.wireguardConfig")}
-                  </Button>
-                </div>
-              )}
-              {(!supportsWireGuardManual || xrayManualMode === "uri") && (
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="xray-manual-uri">{t("profileForm.xray.manualUriLabel")}</Label>
-                  <Input
+            <SectionItem position="bottom">
+              <div className="flex w-full flex-col gap-2">
+                {supportsWireGuardManual && (
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={xrayManualMode === "uri" ? "default" : "outline"}
+                      onClick={() => setXrayManualMode("uri")}
+                    >
+                      URI
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={xrayManualMode === "wireguard" ? "default" : "outline"}
+                      onClick={() => setXrayManualMode("wireguard")}
+                    >
+                      {t("profileForm.xray.wireguardConfig")}
+                    </Button>
+                  </div>
+                )}
+                {(!supportsWireGuardManual || xrayManualMode === "uri") && (
+                  <TextFieldRow
                     id="xray-manual-uri"
+                    label={t("profileForm.xray.manualUriLabel")}
                     value={xrayManualUri}
-                    onChange={(e) => setXrayManualUri(e.target.value)}
+                    onChange={setXrayManualUri}
                     placeholder={coreType === "freeturn" ? "hysteria2://..." : t("profileForm.xray.manualUriPlaceholder")}
                   />
-                </div>
-              )}
-              {supportsWireGuardManual && xrayManualMode === "wireguard" && (
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="xray-manual-wg">{t("profileForm.xray.wireguardConfig")}</Label>
-                  <Textarea
+                )}
+                {supportsWireGuardManual && xrayManualMode === "wireguard" && (
+                  <TextFieldRow
                     id="xray-manual-wg"
+                    label={t("profileForm.xray.wireguardConfig")}
                     value={xrayManualWireGuard}
-                    onChange={(e) => setXrayManualWireGuard(e.target.value)}
+                    onChange={setXrayManualWireGuard}
+                    multiline
                     rows={6}
-                    className="font-mono text-xs"
                     placeholder={"[Interface]\nPrivateKey = ...\nAddress = ...\n\n[Peer]\nPublicKey = ...\nEndpoint = ...\nAllowedIPs = ..."}
                   />
-                </div>
-              )}
-            </div>
-          )}
-          {showDualRoute && (
-            <div className="flex flex-col gap-3 rounded-md border p-3">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="xray-dual-route">{t("profileForm.xray.dualRouteLabel")}</Label>
-                <Switch id="xray-dual-route" checked={xrayDualRoute} onCheckedChange={setXrayDualRoute} />
+                )}
               </div>
-              {xrayDualRoute && (
-                <div className="flex flex-col gap-3">
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="xray-direct-address">{t("profileForm.xray.directAddressLabel")}</Label>
-                    <Input
-                      id="xray-direct-address"
-                      value={xrayDirectAddress}
-                      onChange={(e) => setXrayDirectAddress(e.target.value)}
-                      placeholder="1.2.3.4:443"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="flex flex-col gap-2">
-                      <Label htmlFor="xray-hc-interval">{t("profileForm.xray.hcIntervalLabel")}</Label>
-                      <Input
-                        id="xray-hc-interval"
-                        type="number"
-                        value={xrayHcInterval}
-                        onChange={(e) => setXrayHcInterval(e.target.value)}
-                        placeholder="30"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <Label htmlFor="xray-mux">{t("profileForm.xray.muxLabel")}</Label>
-                      <Input
-                        id="xray-mux"
-                        type="number"
-                        value={xrayMux}
-                        onChange={(e) => setXrayMux(e.target.value)}
-                        placeholder="0"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            </SectionItem>
           )}
-        </div>
+        </>
       )}
-    </div>
+      </SectionGroup>
+      {xrayEnabled && showDualRoute && (
+        <SectionGroup>
+          <SectionItem
+            position={xrayDualRoute ? "top" : "single"}
+            role="switch"
+            aria-checked={xrayDualRoute}
+            onClick={() => setXrayDualRoute(!xrayDualRoute)}
+          >
+            <SwitchRow
+              label={t("profileForm.xray.dualRouteLabel")}
+              checked={xrayDualRoute}
+              onCheckedChange={setXrayDualRoute}
+              supportingText={t("profileForm.xray.dualRouteHint")}
+            />
+          </SectionItem>
+          {xrayDualRoute && (
+            <>
+              <SectionItem position="middle">
+                <TextFieldRow
+                  id="xray-direct-address"
+                  label={t("profileForm.xray.directAddressLabel")}
+                  value={xrayDirectAddress}
+                  onChange={setXrayDirectAddress}
+                  placeholder="1.2.3.4:443"
+                />
+              </SectionItem>
+              <SectionItem position="middle">
+                <TextFieldRow
+                  id="xray-hc-interval"
+                  label={t("profileForm.xray.hcIntervalLabel")}
+                  type="number"
+                  value={xrayHcInterval}
+                  onChange={setXrayHcInterval}
+                  placeholder="30"
+                />
+              </SectionItem>
+              <SectionItem position="bottom">
+                <TextFieldRow
+                  id="xray-mux"
+                  label={t("profileForm.xray.muxLabel")}
+                  type="number"
+                  value={xrayMux}
+                  onChange={setXrayMux}
+                  placeholder="0"
+                />
+              </SectionItem>
+            </>
+          )}
+        </SectionGroup>
+      )}
+    </>
   )
 
   return (
@@ -993,521 +1019,587 @@ export function ProfileForm({
             padding — the content itself still gets the same inset via this
             div's own padding, just without dragging the scrollbar in with it. */}
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="profile-name">{t("profileForm.name")}</Label>
-        <Input
-          id="profile-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          autoFocus
-        />
-      </div>
-
-      <div className="flex flex-col gap-2 rounded-md border p-3">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="profile-enabled">{t("profileForm.enabledLabel")}</Label>
-          <Switch id="profile-enabled" checked={enabled} onCheckedChange={setEnabled} />
-        </div>
-        <p className="text-xs text-on-surface-variant">{t("profileForm.enabledHint")}</p>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label>{t("profileForm.coreLabel")}</Label>
-        <Select
-          value={coreType}
-          onValueChange={(v) => {
-            const ct = v as CoreType
-            setCoreType(ct)
-            if (mode === "create") setXrayEnabled(defaultXrayEnabledForCore(ct))
-            // The picked inbound may no longer be a valid target for the new
-            // core (e.g. a wireguard inbound is never valid for olcRTC/WebDAV) —
-            // clear it rather than silently keeping a filtered-out selection
-            // that would show as a bare ID and still get submitted.
-            if (xrayInboundId && !visibleInboundsFor(ct, inbounds).some((ib) => String(ib.ID) === xrayInboundId)) {
-              setXrayInboundId("")
-            }
-          }}
-          disabled={mode === "edit"}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue>{(v: CoreType | null) => (v ? t(CORE_LABELS[v]) : null)}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {(Object.keys(CORE_LABELS) as (keyof typeof CORE_LABELS)[]).map((ct) => (
-              <SelectItem key={ct} value={ct}>
-                {t(CORE_LABELS[ct])}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {mode === "edit" && (
-          <p className="text-xs text-on-surface-variant">
-            {t("profileForm.coreLockedNote")}
-          </p>
-        )}
-      </div>
+          <SectionGroup>
+            <SectionItem position="top">
+              <TextFieldRow
+                label={t("profileForm.name")}
+                value={name}
+                onChange={setName}
+                required
+                autoFocus
+              />
+            </SectionItem>
+            <SectionItem
+              position="middle"
+              role="switch"
+              aria-checked={enabled}
+              onClick={() => setEnabled(!enabled)}
+            >
+              <SwitchRow
+                label={t("profileForm.enabledLabel")}
+                checked={enabled}
+                onCheckedChange={setEnabled}
+                supportingText={t("profileForm.enabledHint")}
+              />
+            </SectionItem>
+            <SectionItem position="bottom">
+              <div className="flex w-full flex-col gap-1">
+                <label className="text-title-medium text-on-surface">{t("profileForm.coreLabel")}</label>
+                <Select
+                  value={coreType}
+                  onValueChange={(v) => {
+                    const ct = v as CoreType
+                    setCoreType(ct)
+                    if (mode === "create") setXrayEnabled(defaultXrayEnabledForCore(ct))
+                    // The picked inbound may no longer be a valid target for the new
+                    // core (e.g. a wireguard inbound is never valid for olcRTC/WebDAV) —
+                    // clear it rather than silently keeping a filtered-out selection
+                    // that would show as a bare ID and still get submitted.
+                    if (xrayInboundId && !visibleInboundsFor(ct, inbounds).some((ib) => String(ib.ID) === xrayInboundId)) {
+                      setXrayInboundId("")
+                    }
+                  }}
+                  disabled={mode === "edit"}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue>{(v: CoreType | null) => (v ? t(CORE_LABELS[v]) : null)}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(CORE_LABELS) as (keyof typeof CORE_LABELS)[]).map((ct) => (
+                      <SelectItem key={ct} value={ct}>
+                        {t(CORE_LABELS[ct])}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {mode === "edit" && (
+                  <p className="text-body-small text-on-surface-variant">
+                    {t("profileForm.coreLockedNote")}
+                  </p>
+                )}
+              </div>
+            </SectionItem>
+          </SectionGroup>
 
       {coreType === "turnable" && (
         <>
-          <div className="flex flex-col gap-2">
-            <Label>{t("profileForm.turnable.connectionType")}</Label>
-            <Select
-              value={tn.connectionType}
-              onValueChange={(v) => setTn({ ...tn, connectionType: v as TurnableState["connectionType"] })}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue>
-                  {(v: TurnableState["connectionType"] | null) => labelFor(connectionTypeLabels, v)}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(connectionTypeLabels).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label>{t("profileForm.turnable.protocol")}</Label>
-            <Select value={tn.proto} onValueChange={(v) => setTn({ ...tn, proto: v as TurnableState["proto"] })}>
-              <SelectTrigger className="w-full">
-                <SelectValue>{(v: TurnableState["proto"] | null) => labelFor(protoLabels, v)}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(protoLabels).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label>{t("profileForm.turnable.platform")}</Label>
-            <Select value={tn.platformId} onValueChange={(v) => setTn({ ...tn, platformId: v ?? "" })}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="vk.com">vk.com</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="peers">{t("profileForm.turnable.peersLabel")}</Label>
-            <Input
-              id="peers"
-              type="number"
-              min={1}
-              value={tn.peers}
-              onChange={(e) => setTn({ ...tn, peers: e.target.value })}
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="tn-listen-port">{t("profileForm.listenPortLabel")}</Label>
-            <Input
-              id="tn-listen-port"
-              type="number"
-              value={tn.port}
-              onChange={(e) => setTn({ ...tn, port: e.target.value })}
-              placeholder={t("profileForm.listenPortPlaceholder")}
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="call-id">{t("profileForm.turnable.callIdLabel")}</Label>
-            <Combobox
-              id="call-id"
-              options={vkRoomOptions}
-              value={tn.callId}
-              onChange={(v) => setTn({ ...tn, callId: v })}
-              placeholder={t("profileForm.callIdComboPlaceholder")}
-              required
-              noMatchesText={t("common.noMatches")}
-            />
-            <VkCallHint />
-          </div>
+          <SectionGroup>
+            <SectionItem position="top">
+              <div className="flex w-full flex-col gap-1">
+                <label className="text-title-medium text-on-surface">{t("profileForm.turnable.connectionType")}</label>
+                <Select
+                  value={tn.connectionType}
+                  onValueChange={(v) => setTn({ ...tn, connectionType: v as TurnableState["connectionType"] })}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue>
+                      {(v: TurnableState["connectionType"] | null) => labelFor(connectionTypeLabels, v)}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(connectionTypeLabels).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </SectionItem>
+            <SectionItem position="middle">
+              <div className="flex w-full flex-col gap-1">
+                <label className="text-title-medium text-on-surface">{t("profileForm.turnable.protocol")}</label>
+                <Select value={tn.proto} onValueChange={(v) => setTn({ ...tn, proto: v as TurnableState["proto"] })}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue>{(v: TurnableState["proto"] | null) => labelFor(protoLabels, v)}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(protoLabels).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </SectionItem>
+            <SectionItem position="middle">
+              <div className="flex w-full flex-col gap-1">
+                <label className="text-title-medium text-on-surface">{t("profileForm.turnable.platform")}</label>
+                <Select value={tn.platformId} onValueChange={(v) => setTn({ ...tn, platformId: v ?? "" })}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="vk.com">vk.com</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </SectionItem>
+            <SectionItem position="middle">
+              <TextFieldRow
+                id="peers"
+                label={t("profileForm.turnable.peersLabel")}
+                type="number"
+                min={1}
+                value={tn.peers}
+                onChange={(v) => setTn({ ...tn, peers: v })}
+              />
+            </SectionItem>
+            <SectionItem position="middle">
+              <TextFieldRow
+                id="tn-listen-port"
+                label={t("profileForm.listenPortLabel")}
+                type="number"
+                value={tn.port}
+                onChange={(v) => setTn({ ...tn, port: v })}
+                placeholder={t("profileForm.listenPortPlaceholder")}
+              />
+            </SectionItem>
+            <SectionItem position="bottom">
+              <div className="flex w-full flex-col gap-1">
+                <label htmlFor="call-id" className="text-title-medium text-on-surface">{t("profileForm.turnable.callIdLabel")}</label>
+                <Combobox
+                  id="call-id"
+                  options={vkRoomOptions}
+                  value={tn.callId}
+                  onChange={(v) => setTn({ ...tn, callId: v })}
+                  placeholder={t("profileForm.callIdComboPlaceholder")}
+                  required
+                  noMatchesText={t("common.noMatches")}
+                />
+                <VkCallHint />
+              </div>
+            </SectionItem>
+          </SectionGroup>
 
           {xrayBlock}
 
-          <div className="rounded-md border p-3">
-            <p className="mb-3 text-sm font-medium">{t("profileForm.turnable.routeTitle")}</p>
-            <div className="flex flex-col gap-3">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="route-host">{t("profileForm.hostLabel")}</Label>
-                  <Input
-                    id="route-host"
-                    value={tn.routeHost}
-                    onChange={(e) => setTn({ ...tn, routeHost: e.target.value })}
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="route-port">{t("profileForm.portLabel")}</Label>
-                  <Input
-                    id="route-port"
-                    type="number"
-                    value={tn.routePort}
-                    onChange={(e) => setTn({ ...tn, routePort: e.target.value })}
-                    required
-                    placeholder="51820"
-                  />
-                </div>
+          <SectionGroup title={t("profileForm.turnable.routeTitle")}>
+            <SectionItem position="top">
+              <TextFieldRow
+                id="route-host"
+                label={t("profileForm.hostLabel")}
+                value={tn.routeHost}
+                onChange={(v) => setTn({ ...tn, routeHost: v })}
+              />
+            </SectionItem>
+            <SectionItem position="middle">
+              <TextFieldRow
+                id="route-port"
+                label={t("profileForm.portLabel")}
+                type="number"
+                value={tn.routePort}
+                onChange={(v) => setTn({ ...tn, routePort: v })}
+                required
+                placeholder="51820"
+              />
+            </SectionItem>
+            <SectionItem position="middle">
+              <div className="flex w-full flex-col gap-1">
+                <label className="text-title-medium text-on-surface">{t("profileForm.turnable.socketType")}</label>
+                <Select
+                  value={tn.routeSocket}
+                  onValueChange={(v) => {
+                    const routeSocket = v as TurnableState["routeSocket"]
+                    setTn({ ...tn, routeSocket, routeTransport: routeSocket === "udp" ? "none" : "kcp" })
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue>{(v: string | null) => v?.toUpperCase()}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="udp">UDP</SelectItem>
+                    <SelectItem value="tcp">TCP</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <Label>{t("profileForm.turnable.socketType")}</Label>
-                  <Select
-                    value={tn.routeSocket}
-                    onValueChange={(v) => {
-                      const routeSocket = v as TurnableState["routeSocket"]
-                      setTn({ ...tn, routeSocket, routeTransport: routeSocket === "udp" ? "none" : "kcp" })
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue>{(v: string | null) => v?.toUpperCase()}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="udp">UDP</SelectItem>
-                      <SelectItem value="tcp">TCP</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label>{t("profileForm.turnable.routeTransportLabel")}</Label>
-                  <Select
-                    value={tn.routeTransport}
-                    onValueChange={(v) => setTn({ ...tn, routeTransport: v as TurnableState["routeTransport"] })}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue>
-                        {(v: TurnableState["routeTransport"] | null) => labelFor(routeTransportLabels, v)}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(routeTransportLabels).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+            </SectionItem>
+            <SectionItem position="bottom">
+              <div className="flex w-full flex-col gap-1">
+                <label className="text-title-medium text-on-surface">{t("profileForm.turnable.routeTransportLabel")}</label>
+                <Select
+                  value={tn.routeTransport}
+                  onValueChange={(v) => setTn({ ...tn, routeTransport: v as TurnableState["routeTransport"] })}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue>
+                      {(v: TurnableState["routeTransport"] | null) => labelFor(routeTransportLabels, v)}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(routeTransportLabels).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-          </div>
+            </SectionItem>
+          </SectionGroup>
 
-          <div className="flex flex-col gap-2">
-            <Label>{t("profileForm.turnable.encryptionLabel")}</Label>
-            <Select
-              value={tn.encryption}
-              onValueChange={(v) => setTn({ ...tn, encryption: v as TurnableState["encryption"] })}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue>{(v: TurnableState["encryption"] | null) => labelFor(encryptionLabels, v)}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(encryptionLabels).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <KeyField
-            id="pub-key"
-            label={t("profileForm.turnable.pubKeyLabel")}
-            value={tn.pubKey}
-            onChange={(v) => setTn({ ...tn, pubKey: v })}
-            placeholder={t("profileForm.keyField.placeholder")}
-            generateLabel={t("profileForm.keyField.generate")}
-            generateFailedLabel={t("profileForm.keyField.generateFailed")}
-            onGenerate={() =>
-              api.keygenTurnable().then(({ pubKey, privKey }) =>
-                setTn((s) => ({ ...s, pubKey, privKey }))
-              )
-            }
-          />
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="priv-key">{t("profileForm.turnable.privKeyLabel")}</Label>
-            <Input
-              id="priv-key"
-              value={tn.privKey}
-              onChange={(e) => setTn({ ...tn, privKey: e.target.value })}
-              placeholder={t("profileForm.turnable.privKeyPlaceholder")}
-              className="font-mono text-xs"
-            />
-          </div>
+          <SectionGroup>
+            <SectionItem position="top">
+              <div className="flex w-full flex-col gap-1">
+                <label className="text-title-medium text-on-surface">{t("profileForm.turnable.encryptionLabel")}</label>
+                <Select
+                  value={tn.encryption}
+                  onValueChange={(v) => setTn({ ...tn, encryption: v as TurnableState["encryption"] })}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue>{(v: TurnableState["encryption"] | null) => labelFor(encryptionLabels, v)}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(encryptionLabels).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </SectionItem>
+            <SectionItem position="middle">
+              <KeyField
+                id="pub-key"
+                label={t("profileForm.turnable.pubKeyLabel")}
+                value={tn.pubKey}
+                onChange={(v) => setTn({ ...tn, pubKey: v })}
+                placeholder={t("profileForm.keyField.placeholder")}
+                generateLabel={t("profileForm.keyField.generate")}
+                generateFailedLabel={t("profileForm.keyField.generateFailed")}
+                onGenerate={() =>
+                  api.keygenTurnable().then(({ pubKey, privKey }) =>
+                    setTn((s) => ({ ...s, pubKey, privKey }))
+                  )
+                }
+              />
+            </SectionItem>
+            <SectionItem position="bottom">
+              <TextFieldRow
+                id="priv-key"
+                label={t("profileForm.turnable.privKeyLabel")}
+                value={tn.privKey}
+                onChange={(v) => setTn({ ...tn, privKey: v })}
+                placeholder={t("profileForm.turnable.privKeyPlaceholder")}
+              />
+            </SectionItem>
+          </SectionGroup>
         </>
       )}
 
       {coreType === "olcrtc" && (
         <>
-          <div className="flex flex-col gap-2">
-            <Label>{t("profileForm.olcrtc.provider")}</Label>
-            <Select
-              value={oc.provider}
-              onValueChange={(v) => setOc({ ...oc, provider: v as OlcrtcState["provider"] })}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue>
-                  {(v: string | null) =>
-                    ({ jitsi: "Jitsi", telemost: "Telemost", wbstream: "WB Stream" })[v ?? ""] ?? v
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="jitsi">Jitsi</SelectItem>
-                <SelectItem value="telemost">Telemost</SelectItem>
-                <SelectItem value="wbstream">WB Stream</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="room-id">
-              {oc.provider === "jitsi" ? t("profileForm.olcrtc.roomUrlLabel") : t("profileForm.olcrtc.roomIdLabel")}
-            </Label>
-            <Combobox
-              id="room-id"
-              options={olcrtcRoomOptions}
-              value={oc.roomId}
-              onChange={(v) => setOc({ ...oc, roomId: v })}
-              placeholder={oc.provider === "jitsi" ? "https://meet.example.org/myroom" : ""}
-              required
-              noMatchesText={t("common.noMatches")}
-            />
-            <p className="text-xs text-on-surface-variant">{t(OLCRTC_ROOM_ID_HINT_KEYS[oc.provider])}</p>
-          </div>
-
-          {oc.provider === "wbstream" && (
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="olcrtc-auth-token">{t("profileForm.olcrtc.authTokenLabel")}</Label>
-              <Input
-                id="olcrtc-auth-token"
-                value={oc.authToken}
-                onChange={(e) => setOc({ ...oc, authToken: e.target.value })}
-                placeholder={t("profileForm.olcrtc.authTokenPlaceholder")}
-                className="font-mono text-xs"
+          <SectionGroup>
+            <SectionItem position="top">
+              <div className="flex w-full flex-col gap-1">
+                <label className="text-title-medium text-on-surface">{t("profileForm.olcrtc.provider")}</label>
+                <Select
+                  value={oc.provider}
+                  onValueChange={(v) => setOc({ ...oc, provider: v as OlcrtcState["provider"] })}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue>
+                      {(v: string | null) =>
+                        ({ jitsi: "Jitsi", telemost: "Telemost", wbstream: "WB Stream" })[v ?? ""] ?? v
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="jitsi">Jitsi</SelectItem>
+                    <SelectItem value="telemost">Telemost</SelectItem>
+                    <SelectItem value="wbstream">WB Stream</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </SectionItem>
+            <SectionItem position="middle">
+              <div className="flex w-full flex-col gap-1">
+                <label htmlFor="room-id" className="text-title-medium text-on-surface">
+                  {oc.provider === "jitsi" ? t("profileForm.olcrtc.roomUrlLabel") : t("profileForm.olcrtc.roomIdLabel")}
+                </label>
+                <Combobox
+                  id="room-id"
+                  options={olcrtcRoomOptions}
+                  value={oc.roomId}
+                  onChange={(v) => setOc({ ...oc, roomId: v })}
+                  placeholder={oc.provider === "jitsi" ? "https://meet.example.org/myroom" : ""}
+                  required
+                  noMatchesText={t("common.noMatches")}
+                />
+                <p className="text-body-small text-on-surface-variant">{t(OLCRTC_ROOM_ID_HINT_KEYS[oc.provider])}</p>
+              </div>
+            </SectionItem>
+            {oc.provider === "wbstream" && (
+              <SectionItem position="middle">
+                <TextFieldRow
+                  id="olcrtc-auth-token"
+                  label={t("profileForm.olcrtc.authTokenLabel")}
+                  value={oc.authToken}
+                  onChange={(v) => setOc({ ...oc, authToken: v })}
+                  placeholder={t("profileForm.olcrtc.authTokenPlaceholder")}
+                  supportingText={t("profileForm.olcrtc.authTokenHint")}
+                />
+              </SectionItem>
+            )}
+            <SectionItem position="middle">
+              <KeyField
+                id="crypto-key"
+                label={t("profileForm.olcrtc.cryptoKeyLabel")}
+                value={oc.cryptoKey}
+                onChange={(v) => setOc({ ...oc, cryptoKey: v })}
+                placeholder={t("profileForm.keyField.placeholder")}
+                generateLabel={t("profileForm.keyField.generate")}
+                generateFailedLabel={t("profileForm.keyField.generateFailed")}
+                onGenerate={() => api.keygenHex32().then(({ key }) => setOc((s) => ({ ...s, cryptoKey: key })))}
               />
-              <p className="text-xs text-on-surface-variant">{t("profileForm.olcrtc.authTokenHint")}</p>
-            </div>
-          )}
-
-          <KeyField
-            id="crypto-key"
-            label={t("profileForm.olcrtc.cryptoKeyLabel")}
-            value={oc.cryptoKey}
-            onChange={(v) => setOc({ ...oc, cryptoKey: v })}
-            placeholder={t("profileForm.keyField.placeholder")}
-            generateLabel={t("profileForm.keyField.generate")}
-            generateFailedLabel={t("profileForm.keyField.generateFailed")}
-            onGenerate={() => api.keygenHex32().then(({ key }) => setOc((s) => ({ ...s, cryptoKey: key })))}
-          />
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="dns">DNS</Label>
-            <Input id="dns" value={oc.dns} onChange={(e) => setOc({ ...oc, dns: e.target.value })} />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="olcrtc-proxy">{t("profileForm.olcrtc.proxyLabel")}</Label>
-            <Input
-              id="olcrtc-proxy"
-              value={oc.proxyUpstream}
-              onChange={(e) => setOc({ ...oc, proxyUpstream: e.target.value })}
-              placeholder={t("profileForm.olcrtc.proxyPlaceholder")}
-            />
-          </div>
+            </SectionItem>
+            <SectionItem position="middle">
+              <TextFieldRow id="dns" label="DNS" value={oc.dns} onChange={(v) => setOc({ ...oc, dns: v })} />
+            </SectionItem>
+            <SectionItem position="bottom">
+              <TextFieldRow
+                id="olcrtc-proxy"
+                label={t("profileForm.olcrtc.proxyLabel")}
+                value={oc.proxyUpstream}
+                onChange={(v) => setOc({ ...oc, proxyUpstream: v })}
+                placeholder={t("profileForm.olcrtc.proxyPlaceholder")}
+              />
+            </SectionItem>
+          </SectionGroup>
 
           <Disclosure title={t("profileForm.advancedSettings")}>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="flex flex-col gap-2">
-                {/* min-h-10 (~2 lines of text-sm) reserves the same label
-                    height across all three columns regardless of which
-                    ones actually wrap — a plain flex-col here would let a
-                    shorter one-line label (e.g. "Таймаут ответа") pull its
-                    Input up above the two-line labels' Inputs beside it. */}
-                <Label htmlFor="olcrtc-liveness-interval" className="min-h-10">
-                  {t("profileForm.olcrtc.livenessIntervalLabel")}
-                </Label>
-                <Input
+            <SectionGroup>
+              <SectionItem position="top">
+                <TextFieldRow
                   id="olcrtc-liveness-interval"
+                  label={t("profileForm.olcrtc.livenessIntervalLabel")}
                   value={oc.livenessInterval}
-                  onChange={(e) => setOc({ ...oc, livenessInterval: e.target.value })}
+                  onChange={(v) => setOc({ ...oc, livenessInterval: v })}
                   placeholder="10s"
                 />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="olcrtc-liveness-timeout" className="min-h-10">
-                  {t("profileForm.olcrtc.livenessTimeoutLabel")}
-                </Label>
-                <Input
+              </SectionItem>
+              <SectionItem position="middle">
+                <TextFieldRow
                   id="olcrtc-liveness-timeout"
+                  label={t("profileForm.olcrtc.livenessTimeoutLabel")}
                   value={oc.livenessTimeout}
-                  onChange={(e) => setOc({ ...oc, livenessTimeout: e.target.value })}
+                  onChange={(v) => setOc({ ...oc, livenessTimeout: v })}
                   placeholder="15s"
                 />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="olcrtc-liveness-failures" className="min-h-10">
-                  {t("profileForm.olcrtc.livenessFailuresLabel")}
-                </Label>
-                <Input
+              </SectionItem>
+              <SectionItem position="middle">
+                <TextFieldRow
                   id="olcrtc-liveness-failures"
+                  label={t("profileForm.olcrtc.livenessFailuresLabel")}
                   type="number"
                   value={oc.livenessFailures}
-                  onChange={(e) => setOc({ ...oc, livenessFailures: e.target.value })}
+                  onChange={(v) => setOc({ ...oc, livenessFailures: v })}
                   placeholder="4"
                 />
-              </div>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="olcrtc-max-session">{t("profileForm.olcrtc.maxSessionDurationLabel")}</Label>
-              <Input
-                id="olcrtc-max-session"
-                value={oc.maxSessionDuration}
-                onChange={(e) => setOc({ ...oc, maxSessionDuration: e.target.value })}
-                placeholder={t("profileForm.olcrtc.maxSessionDurationPlaceholder")}
-              />
-              <p className="text-xs text-on-surface-variant">{t("profileForm.olcrtc.maxSessionDurationHint")}</p>
-            </div>
+              </SectionItem>
+              <SectionItem position="bottom">
+                <TextFieldRow
+                  id="olcrtc-max-session"
+                  label={t("profileForm.olcrtc.maxSessionDurationLabel")}
+                  value={oc.maxSessionDuration}
+                  onChange={(v) => setOc({ ...oc, maxSessionDuration: v })}
+                  placeholder={t("profileForm.olcrtc.maxSessionDurationPlaceholder")}
+                  supportingText={t("profileForm.olcrtc.maxSessionDurationHint")}
+                />
+              </SectionItem>
+            </SectionGroup>
           </Disclosure>
 
-          <div className="flex flex-col gap-2">
-            <Label>{t("profileForm.olcrtc.transportLabel")}</Label>
-            <Select
-              value={oc.transport}
-              onValueChange={(v) => setOc({ ...oc, transport: v as OlcrtcState["transport"] })}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue>
-                  {(v: string | null) =>
-                    ({
-                      datachannel: "DataChannel",
-                      vp8channel: "VP8Channel",
-                      seichannel: "SEIChannel",
-                      videochannel: "VideoChannel",
-                    })[v ?? ""] ?? v
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="datachannel">DataChannel</SelectItem>
-                <SelectItem value="vp8channel">VP8Channel</SelectItem>
-                <SelectItem value="seichannel">SEIChannel</SelectItem>
-                <SelectItem value="videochannel">VideoChannel</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <SectionGroup>
+            <SectionItem position="single">
+              <div className="flex w-full flex-col gap-1">
+                <label className="text-title-medium text-on-surface">{t("profileForm.olcrtc.transportLabel")}</label>
+                <Select
+                  value={oc.transport}
+                  onValueChange={(v) => setOc({ ...oc, transport: v as OlcrtcState["transport"] })}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue>
+                      {(v: string | null) =>
+                        ({
+                          datachannel: "DataChannel",
+                          vp8channel: "VP8Channel",
+                          seichannel: "SEIChannel",
+                          videochannel: "VideoChannel",
+                        })[v ?? ""] ?? v
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="datachannel">DataChannel</SelectItem>
+                    <SelectItem value="vp8channel">VP8Channel</SelectItem>
+                    <SelectItem value="seichannel">SEIChannel</SelectItem>
+                    <SelectItem value="videochannel">VideoChannel</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </SectionItem>
+          </SectionGroup>
 
           {oc.transport === "vp8channel" && (
             <Disclosure title={t("profileForm.advancedTransportSettings")}>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="vp8-fps">VP8 stream FPS</Label>
-                  <Input id="vp8-fps" type="number" value={oc.vp8Fps} onChange={(e) => setOc({ ...oc, vp8Fps: e.target.value })} />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="vp8-batch">Frames per tick</Label>
-                  <Input id="vp8-batch" type="number" value={oc.vp8Batch} onChange={(e) => setOc({ ...oc, vp8Batch: e.target.value })} />
-                </div>
-              </div>
+              <SectionGroup>
+                <SectionItem position="top">
+                  <TextFieldRow
+                    id="vp8-fps"
+                    label="VP8 stream FPS"
+                    type="number"
+                    value={oc.vp8Fps}
+                    onChange={(v) => setOc({ ...oc, vp8Fps: v })}
+                  />
+                </SectionItem>
+                <SectionItem position="bottom">
+                  <TextFieldRow
+                    id="vp8-batch"
+                    label="Frames per tick"
+                    type="number"
+                    value={oc.vp8Batch}
+                    onChange={(v) => setOc({ ...oc, vp8Batch: v })}
+                  />
+                </SectionItem>
+              </SectionGroup>
             </Disclosure>
           )}
 
           {oc.transport === "seichannel" && (
             <Disclosure title={t("profileForm.advancedTransportSettings")}>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="sei-fps">H264 stream FPS</Label>
-                  <Input id="sei-fps" type="number" value={oc.seiFps} onChange={(e) => setOc({ ...oc, seiFps: e.target.value })} />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="sei-batch">Frames per tick</Label>
-                  <Input id="sei-batch" type="number" value={oc.seiBatch} onChange={(e) => setOc({ ...oc, seiBatch: e.target.value })} />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="sei-frag">Fragment size (bytes)</Label>
-                  <Input id="sei-frag" type="number" value={oc.seiFrag} onChange={(e) => setOc({ ...oc, seiFrag: e.target.value })} />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="sei-ack">ACK timeout (ms)</Label>
-                  <Input id="sei-ack" type="number" value={oc.seiAck} onChange={(e) => setOc({ ...oc, seiAck: e.target.value })} />
-                </div>
-              </div>
+              <SectionGroup>
+                <SectionItem position="top">
+                  <TextFieldRow
+                    id="sei-fps"
+                    label="H264 stream FPS"
+                    type="number"
+                    value={oc.seiFps}
+                    onChange={(v) => setOc({ ...oc, seiFps: v })}
+                  />
+                </SectionItem>
+                <SectionItem position="middle">
+                  <TextFieldRow
+                    id="sei-batch"
+                    label="Frames per tick"
+                    type="number"
+                    value={oc.seiBatch}
+                    onChange={(v) => setOc({ ...oc, seiBatch: v })}
+                  />
+                </SectionItem>
+                <SectionItem position="middle">
+                  <TextFieldRow
+                    id="sei-frag"
+                    label="Fragment size (bytes)"
+                    type="number"
+                    value={oc.seiFrag}
+                    onChange={(v) => setOc({ ...oc, seiFrag: v })}
+                  />
+                </SectionItem>
+                <SectionItem position="bottom">
+                  <TextFieldRow
+                    id="sei-ack"
+                    label="ACK timeout (ms)"
+                    type="number"
+                    value={oc.seiAck}
+                    onChange={(v) => setOc({ ...oc, seiAck: v })}
+                  />
+                </SectionItem>
+              </SectionGroup>
             </Disclosure>
           )}
 
           {oc.transport === "videochannel" && (
             <Disclosure title={t("profileForm.advancedTransportSettings")}>
-              <div className="flex flex-col gap-2">
-                <Label>Codec</Label>
-                <Select
-                  value={oc.videoCodec}
-                  onValueChange={(v) => setOc({ ...oc, videoCodec: v as OlcrtcState["videoCodec"] })}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="qrcode">qrcode</SelectItem>
-                    <SelectItem value="tile">tile</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="video-width">Width (px)</Label>
-                  <Input id="video-width" type="number" value={oc.videoWidth} onChange={(e) => setOc({ ...oc, videoWidth: e.target.value })} />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="video-height">Height (px)</Label>
-                  <Input id="video-height" type="number" value={oc.videoHeight} onChange={(e) => setOc({ ...oc, videoHeight: e.target.value })} />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="video-fps">FPS</Label>
-                  <Input id="video-fps" type="number" value={oc.videoFps} onChange={(e) => setOc({ ...oc, videoFps: e.target.value })} />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label>QR error correction</Label>
-                  <Select
-                    value={oc.videoQrRecovery}
-                    onValueChange={(v) => setOc({ ...oc, videoQrRecovery: v as OlcrtcState["videoQrRecovery"] })}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">low</SelectItem>
-                      <SelectItem value="medium">medium</SelectItem>
-                      <SelectItem value="high">high</SelectItem>
-                      <SelectItem value="highest">highest</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              {oc.videoCodec === "tile" && (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="video-tile-module">Tile size (px)</Label>
-                    <Input id="video-tile-module" type="number" value={oc.videoTileModule} onChange={(e) => setOc({ ...oc, videoTileModule: e.target.value })} />
+              <SectionGroup>
+                <SectionItem position="top">
+                  <div className="flex w-full flex-col gap-1">
+                    <label className="text-title-medium text-on-surface">Codec</label>
+                    <Select
+                      value={oc.videoCodec}
+                      onValueChange={(v) => setOc({ ...oc, videoCodec: v as OlcrtcState["videoCodec"] })}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="qrcode">qrcode</SelectItem>
+                        <SelectItem value="tile">tile</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="video-tile-rs">Reed-Solomon parity (%)</Label>
-                    <Input id="video-tile-rs" type="number" value={oc.videoTileRs} onChange={(e) => setOc({ ...oc, videoTileRs: e.target.value })} />
+                </SectionItem>
+                <SectionItem position="middle">
+                  <TextFieldRow
+                    id="video-width"
+                    label="Width (px)"
+                    type="number"
+                    value={oc.videoWidth}
+                    onChange={(v) => setOc({ ...oc, videoWidth: v })}
+                  />
+                </SectionItem>
+                <SectionItem position="middle">
+                  <TextFieldRow
+                    id="video-height"
+                    label="Height (px)"
+                    type="number"
+                    value={oc.videoHeight}
+                    onChange={(v) => setOc({ ...oc, videoHeight: v })}
+                  />
+                </SectionItem>
+                <SectionItem position="middle">
+                  <TextFieldRow
+                    id="video-fps"
+                    label="FPS"
+                    type="number"
+                    value={oc.videoFps}
+                    onChange={(v) => setOc({ ...oc, videoFps: v })}
+                  />
+                </SectionItem>
+                <SectionItem position={oc.videoCodec === "tile" ? "middle" : "bottom"}>
+                  <div className="flex w-full flex-col gap-1">
+                    <label className="text-title-medium text-on-surface">QR error correction</label>
+                    <Select
+                      value={oc.videoQrRecovery}
+                      onValueChange={(v) => setOc({ ...oc, videoQrRecovery: v as OlcrtcState["videoQrRecovery"] })}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">low</SelectItem>
+                        <SelectItem value="medium">medium</SelectItem>
+                        <SelectItem value="high">high</SelectItem>
+                        <SelectItem value="highest">highest</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                </div>
-              )}
+                </SectionItem>
+                {oc.videoCodec === "tile" && (
+                  <>
+                    <SectionItem position="middle">
+                      <TextFieldRow
+                        id="video-tile-module"
+                        label="Tile size (px)"
+                        type="number"
+                        value={oc.videoTileModule}
+                        onChange={(v) => setOc({ ...oc, videoTileModule: v })}
+                      />
+                    </SectionItem>
+                    <SectionItem position="bottom">
+                      <TextFieldRow
+                        id="video-tile-rs"
+                        label="Reed-Solomon parity (%)"
+                        type="number"
+                        value={oc.videoTileRs}
+                        onChange={(v) => setOc({ ...oc, videoTileRs: v })}
+                      />
+                    </SectionItem>
+                  </>
+                )}
+              </SectionGroup>
             </Disclosure>
           )}
         </>
@@ -1515,120 +1607,126 @@ export function ProfileForm({
 
       {coreType === "freeturn" && (
         <>
-          <div className="flex flex-col gap-2">
-            <Label>{t("profileForm.freeturn.callIdsLabel")}</Label>
-            <MultiSelect
-              options={vkRoomOptions}
-              value={ft.links}
-              onChange={(v) => setFt({ ...ft, links: v })}
-              placeholder={t("profileForm.callIdComboPlaceholder")}
-              customValuePlaceholder={t("common.customValue")}
-              removeOptionLabel={(label) => `${t("common.remove")}: ${label}`}
-              addCustomValueLabel={t("common.add")}
-            />
-            <VkCallHint />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label>{t("profileForm.freeturn.transportLabel")}</Label>
-            <Select
-              value={ft.transport}
-              onValueChange={(v) => setFt({ ...ft, transport: v as FreeturnState["transport"] })}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue>{(v: string | null) => v?.toUpperCase()}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="tcp">TCP</SelectItem>
-                <SelectItem value="udp">UDP</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="ft-listen-port">{t("profileForm.listenPortLabel")}</Label>
-            <Input
-              id="ft-listen-port"
-              type="number"
-              value={ft.port}
-              onChange={(e) => setFt({ ...ft, port: e.target.value })}
-              placeholder={t("profileForm.listenPortPlaceholder")}
-            />
-          </div>
+          <SectionGroup>
+            <SectionItem position="top">
+              <div className="flex w-full flex-col gap-1">
+                <label className="text-title-medium text-on-surface">{t("profileForm.freeturn.callIdsLabel")}</label>
+                <MultiSelect
+                  options={vkRoomOptions}
+                  value={ft.links}
+                  onChange={(v) => setFt({ ...ft, links: v })}
+                  placeholder={t("profileForm.callIdComboPlaceholder")}
+                  customValuePlaceholder={t("common.customValue")}
+                  removeOptionLabel={(label) => `${t("common.remove")}: ${label}`}
+                  addCustomValueLabel={t("common.add")}
+                />
+                <VkCallHint />
+              </div>
+            </SectionItem>
+            <SectionItem position="middle">
+              <div className="flex w-full flex-col gap-1">
+                <label className="text-title-medium text-on-surface">{t("profileForm.freeturn.transportLabel")}</label>
+                <Select
+                  value={ft.transport}
+                  onValueChange={(v) => setFt({ ...ft, transport: v as FreeturnState["transport"] })}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue>{(v: string | null) => v?.toUpperCase()}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="tcp">TCP</SelectItem>
+                    <SelectItem value="udp">UDP</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </SectionItem>
+            <SectionItem position="bottom">
+              <TextFieldRow
+                id="ft-listen-port"
+                label={t("profileForm.listenPortLabel")}
+                type="number"
+                value={ft.port}
+                onChange={(v) => setFt({ ...ft, port: v })}
+                placeholder={t("profileForm.listenPortPlaceholder")}
+              />
+            </SectionItem>
+          </SectionGroup>
 
           {xrayBlock}
 
-          <div className="rounded-md border p-3">
-            <p className="mb-3 text-sm font-medium">{t("profileForm.freeturn.forwardTitle")}</p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="connect-host">{t("profileForm.hostLabel")}</Label>
-                <Input
-                  id="connect-host"
-                  value={ft.connectHost}
-                  onChange={(e) => setFt({ ...ft, connectHost: e.target.value })}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="connect-port">{t("profileForm.portLabel")}</Label>
-                <Input
-                  id="connect-port"
-                  type="number"
-                  value={ft.connectPort}
-                  onChange={(e) => setFt({ ...ft, connectPort: e.target.value })}
-                  required
-                  placeholder="51820"
-                />
-              </div>
-            </div>
-          </div>
+          <SectionGroup title={t("profileForm.freeturn.forwardTitle")}>
+            <SectionItem position="top">
+              <TextFieldRow
+                id="connect-host"
+                label={t("profileForm.hostLabel")}
+                value={ft.connectHost}
+                onChange={(v) => setFt({ ...ft, connectHost: v })}
+              />
+            </SectionItem>
+            <SectionItem position="bottom">
+              <TextFieldRow
+                id="connect-port"
+                label={t("profileForm.portLabel")}
+                type="number"
+                value={ft.connectPort}
+                onChange={(v) => setFt({ ...ft, connectPort: v })}
+                required
+                placeholder="51820"
+              />
+            </SectionItem>
+          </SectionGroup>
 
-          <div className="flex flex-col gap-2">
-            <Label>{t("profileForm.freeturn.obfProfileLabel")}</Label>
-            <Select
-              value={ft.obfProfile}
-              onValueChange={(v) => setFt({ ...ft, obfProfile: v as FreeturnState["obfProfile"] })}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue>{(v: FreeturnState["obfProfile"] | null) => labelFor(obfProfileLabels, v)}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(obfProfileLabels).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {ft.obfProfile !== "none" && (
-            <KeyField
-              id="obf-key"
-              label={t("profileForm.freeturn.obfKeyLabel")}
-              value={ft.obfKey}
-              onChange={(v) => setFt({ ...ft, obfKey: v })}
-              placeholder={t("profileForm.keyField.placeholder")}
-              generateLabel={t("profileForm.keyField.generate")}
-              generateFailedLabel={t("profileForm.keyField.generateFailed")}
-              onGenerate={() => api.keygenHex32().then(({ key }) => setFt((s) => ({ ...s, obfKey: key })))}
-            />
-          )}
+          <SectionGroup>
+            <SectionItem position={ft.obfProfile === "none" ? "single" : "top"}>
+              <div className="flex w-full flex-col gap-1">
+                <label className="text-title-medium text-on-surface">{t("profileForm.freeturn.obfProfileLabel")}</label>
+                <Select
+                  value={ft.obfProfile}
+                  onValueChange={(v) => setFt({ ...ft, obfProfile: v as FreeturnState["obfProfile"] })}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue>{(v: FreeturnState["obfProfile"] | null) => labelFor(obfProfileLabels, v)}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(obfProfileLabels).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </SectionItem>
+            {ft.obfProfile !== "none" && (
+              <SectionItem position="bottom">
+                <KeyField
+                  id="obf-key"
+                  label={t("profileForm.freeturn.obfKeyLabel")}
+                  value={ft.obfKey}
+                  onChange={(v) => setFt({ ...ft, obfKey: v })}
+                  placeholder={t("profileForm.keyField.placeholder")}
+                  generateLabel={t("profileForm.keyField.generate")}
+                  generateFailedLabel={t("profileForm.keyField.generateFailed")}
+                  onGenerate={() => api.keygenHex32().then(({ key }) => setFt((s) => ({ ...s, obfKey: key })))}
+                />
+              </SectionItem>
+            )}
+          </SectionGroup>
 
           {ft.obfProfile !== "none" && (
             <Disclosure title={t("profileForm.advancedSettings")}>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="obf-timing">{t("profileForm.freeturn.obfTimingLabel")}</Label>
-                <Input
-                  id="obf-timing"
-                  value={ft.obfTiming}
-                  onChange={(e) => setFt({ ...ft, obfTiming: e.target.value })}
-                  placeholder={t("profileForm.freeturn.obfTimingPlaceholder")}
-                />
-                <p className="text-xs text-on-surface-variant">
-                  {t("profileForm.freeturn.obfTimingNote")}
-                </p>
-              </div>
+              <SectionGroup>
+                <SectionItem position="single">
+                  <TextFieldRow
+                    id="obf-timing"
+                    label={t("profileForm.freeturn.obfTimingLabel")}
+                    value={ft.obfTiming}
+                    onChange={(v) => setFt({ ...ft, obfTiming: v })}
+                    placeholder={t("profileForm.freeturn.obfTimingPlaceholder")}
+                    supportingText={t("profileForm.freeturn.obfTimingNote")}
+                  />
+                </SectionItem>
+              </SectionGroup>
             </Disclosure>
           )}
         </>
@@ -1664,40 +1762,36 @@ export function ProfileForm({
           </div>
 
           {wd.connMode === "selfhosted" && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="webdav-login">{t("profileForm.webdav.loginLabel")}</Label>
-                <Input
+            <SectionGroup>
+              <SectionItem position="top">
+                <TextFieldRow
                   id="webdav-login"
+                  label={t("profileForm.webdav.loginLabel")}
                   value={wd.login}
-                  onChange={(e) => setWd({ ...wd, login: e.target.value })}
+                  onChange={(v) => setWd({ ...wd, login: v })}
                   placeholder={t("profileForm.webdav.autoGenPlaceholder")}
                 />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="webdav-password">{t("profileForm.webdav.passwordLabel")}</Label>
-                <Input
+              </SectionItem>
+              <SectionItem position="middle">
+                <TextFieldRow
                   id="webdav-password"
+                  label={t("profileForm.webdav.passwordLabel")}
                   value={wd.password}
-                  onChange={(e) => setWd({ ...wd, password: e.target.value })}
+                  onChange={(v) => setWd({ ...wd, password: v })}
                   placeholder={t("profileForm.webdav.autoGenPlaceholder")}
-                  className="font-mono text-xs"
                 />
-              </div>
-            </div>
-          )}
-
-          {wd.connMode === "selfhosted" && (
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="webdav-listen-port">{t("profileForm.listenPortLabel")}</Label>
-              <Input
-                id="webdav-listen-port"
-                type="number"
-                value={wd.port}
-                onChange={(e) => setWd({ ...wd, port: e.target.value })}
-                placeholder={t("profileForm.listenPortPlaceholder")}
-              />
-            </div>
+              </SectionItem>
+              <SectionItem position="bottom">
+                <TextFieldRow
+                  id="webdav-listen-port"
+                  label={t("profileForm.listenPortLabel")}
+                  type="number"
+                  value={wd.port}
+                  onChange={(v) => setWd({ ...wd, port: v })}
+                  placeholder={t("profileForm.listenPortPlaceholder")}
+                />
+              </SectionItem>
+            </SectionGroup>
           )}
 
           {wd.connMode === "server" && (
@@ -1764,7 +1858,6 @@ export function ProfileForm({
                           })
                         }
                         placeholder={t("profileForm.webdav.passwordPlaceholder")}
-                        className="font-mono text-xs"
                       />
                     </div>
                   </div>
@@ -1776,69 +1869,70 @@ export function ProfileForm({
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="webdav-proxy">{t("profileForm.webdav.proxyLabel")}</Label>
-              <Input
+          <SectionGroup>
+            <SectionItem position="top">
+              <TextFieldRow
                 id="webdav-proxy"
+                label={t("profileForm.webdav.proxyLabel")}
                 value={wd.proxyUpstream}
-                onChange={(e) => setWd({ ...wd, proxyUpstream: e.target.value })}
+                onChange={(v) => setWd({ ...wd, proxyUpstream: v })}
                 placeholder={t("profileForm.webdav.proxyPlaceholder")}
               />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="webdav-dns">{t("profileForm.webdav.dnsLabel")}</Label>
-              <Input
+            </SectionItem>
+            <SectionItem position="middle">
+              <TextFieldRow
                 id="webdav-dns"
+                label={t("profileForm.webdav.dnsLabel")}
                 value={wd.dns}
-                onChange={(e) => setWd({ ...wd, dns: e.target.value })}
+                onChange={(v) => setWd({ ...wd, dns: v })}
                 placeholder={t("profileForm.webdav.dnsPlaceholder")}
               />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between rounded-md border p-3">
-            <Label htmlFor="webdav-enc">{t("profileForm.webdav.encLabel")}</Label>
-            <Switch
-              id="webdav-enc"
-              checked={wd.enc}
-              onCheckedChange={(v) => setWd({ ...wd, enc: v })}
-            />
-          </div>
+            </SectionItem>
+            <SectionItem
+              position="bottom"
+              role="switch"
+              aria-checked={wd.enc}
+              onClick={() => setWd({ ...wd, enc: !wd.enc })}
+            >
+              <SwitchRow
+                label={t("profileForm.webdav.encLabel")}
+                checked={wd.enc}
+                onCheckedChange={(v) => setWd({ ...wd, enc: v })}
+                supportingText={t("profileForm.webdav.encHint")}
+              />
+            </SectionItem>
+          </SectionGroup>
 
           {wd.connMode === "selfhosted" && (
-            <div className="rounded-md border p-3">
-              <p className="mb-3 text-sm font-medium">{t("profileForm.webdav.tlsTitle")}</p>
-              <div className="flex flex-col gap-3">
-                <div className="flex flex-col gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={handleUseWebdavPanelCert}>
-                    {t("xray.usePanelCert")}
-                  </Button>
-                  {webdavPanelCertError && <p className="text-xs text-error">{webdavPanelCertError}</p>}
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="webdav-tls-cert">{t("profileForm.webdav.tlsCertLabel")}</Label>
-                  <Input
+            <>
+              <div className="flex flex-col gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={handleUseWebdavPanelCert}>
+                  {t("xray.usePanelCert")}
+                </Button>
+                {webdavPanelCertError && <p className="text-xs text-error">{webdavPanelCertError}</p>}
+              </div>
+              <SectionGroup title={t("profileForm.webdav.tlsTitle")}>
+                <SectionItem position="top">
+                  <TextFieldRow
                     id="webdav-tls-cert"
+                    label={t("profileForm.webdav.tlsCertLabel")}
                     value={wd.tlsCertFile}
-                    onChange={(e) => setWd({ ...wd, tlsCertFile: e.target.value })}
+                    onChange={(v) => setWd({ ...wd, tlsCertFile: v })}
                     placeholder={t("profileForm.webdav.tlsCertPlaceholder")}
                   />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="webdav-tls-key">{t("profileForm.webdav.tlsKeyLabel")}</Label>
-                  <Input
+                </SectionItem>
+                <SectionItem position="bottom">
+                  <TextFieldRow
                     id="webdav-tls-key"
+                    label={t("profileForm.webdav.tlsKeyLabel")}
                     value={wd.tlsKeyFile}
-                    onChange={(e) => setWd({ ...wd, tlsKeyFile: e.target.value })}
+                    onChange={(v) => setWd({ ...wd, tlsKeyFile: v })}
                     placeholder={t("profileForm.webdav.tlsKeyPlaceholder")}
+                    supportingText={t("profileForm.webdav.tlsNote")}
                   />
-                </div>
-                <p className="text-xs text-on-surface-variant">
-                  {t("profileForm.webdav.tlsNote")}
-                </p>
-              </div>
-            </div>
+                </SectionItem>
+              </SectionGroup>
+            </>
           )}
 
           <Disclosure title={t("profileForm.advancedSettings")}>
@@ -1868,80 +1962,76 @@ export function ProfileForm({
                 {t("profileForm.webdav.presetReset")}
               </Button>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="webdav-poll-min">poll-min</Label>
-                <Input
+            <SectionGroup>
+              <SectionItem position="top">
+                <TextFieldRow
                   id="webdav-poll-min"
+                  label="poll-min"
                   value={wd.tuning.pollMin}
-                  onChange={(e) => setWd({ ...wd, tuning: { ...wd.tuning, pollMin: e.target.value } })}
+                  onChange={(v) => setWd({ ...wd, tuning: { ...wd.tuning, pollMin: v } })}
                   placeholder={t("profileForm.webdav.autoPlaceholder")}
                 />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="webdav-poll-max">poll-max</Label>
-                <Input
+              </SectionItem>
+              <SectionItem position="middle">
+                <TextFieldRow
                   id="webdav-poll-max"
+                  label="poll-max"
                   value={wd.tuning.pollMax}
-                  onChange={(e) => setWd({ ...wd, tuning: { ...wd.tuning, pollMax: e.target.value } })}
+                  onChange={(v) => setWd({ ...wd, tuning: { ...wd.tuning, pollMax: v } })}
                   placeholder={t("profileForm.webdav.autoPlaceholder")}
                 />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="webdav-coalesce">coalesce</Label>
-                <Input
+              </SectionItem>
+              <SectionItem position="middle">
+                <TextFieldRow
                   id="webdav-coalesce"
+                  label="coalesce"
                   value={wd.tuning.coalesce}
-                  onChange={(e) => setWd({ ...wd, tuning: { ...wd.tuning, coalesce: e.target.value } })}
+                  onChange={(v) => setWd({ ...wd, tuning: { ...wd.tuning, coalesce: v } })}
                   placeholder={t("profileForm.webdav.autoPlaceholder")}
                 />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="webdav-chunk-size">chunk-size</Label>
-                <Input
+              </SectionItem>
+              <SectionItem position="middle">
+                <TextFieldRow
                   id="webdav-chunk-size"
+                  label="chunk-size"
                   type="number"
                   value={wd.tuning.chunkSize}
-                  onChange={(e) => setWd({ ...wd, tuning: { ...wd.tuning, chunkSize: e.target.value } })}
+                  onChange={(v) => setWd({ ...wd, tuning: { ...wd.tuning, chunkSize: v } })}
                   placeholder="131071"
                 />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="webdav-puts">puts</Label>
-                <Input
+              </SectionItem>
+              <SectionItem position="middle">
+                <TextFieldRow
                   id="webdav-puts"
+                  label="puts"
                   type="number"
                   value={wd.tuning.puts}
-                  onChange={(e) => setWd({ ...wd, tuning: { ...wd.tuning, puts: e.target.value } })}
+                  onChange={(v) => setWd({ ...wd, tuning: { ...wd.tuning, puts: v } })}
                   placeholder="8"
                 />
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="webdav-read-min">read-min</Label>
-                  <Input
-                    id="webdav-read-min"
-                    type="number"
-                    value={wd.tuning.readMin}
-                    onChange={(e) => setWd({ ...wd, tuning: { ...wd.tuning, readMin: e.target.value } })}
-                    placeholder="3"
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="webdav-read-max">read-max</Label>
-                  <Input
-                    id="webdav-read-max"
-                    type="number"
-                    value={wd.tuning.readMax}
-                    onChange={(e) => setWd({ ...wd, tuning: { ...wd.tuning, readMax: e.target.value } })}
-                    placeholder="8"
-                  />
-                </div>
-              </div>
-            </div>
-            <p className="text-xs text-on-surface-variant">
-              {t("profileForm.webdav.tuningNote")}
-            </p>
+              </SectionItem>
+              <SectionItem position="middle">
+                <TextFieldRow
+                  id="webdav-read-min"
+                  label="read-min"
+                  type="number"
+                  value={wd.tuning.readMin}
+                  onChange={(v) => setWd({ ...wd, tuning: { ...wd.tuning, readMin: v } })}
+                  placeholder="3"
+                />
+              </SectionItem>
+              <SectionItem position="bottom">
+                <TextFieldRow
+                  id="webdav-read-max"
+                  label="read-max"
+                  type="number"
+                  value={wd.tuning.readMax}
+                  onChange={(v) => setWd({ ...wd, tuning: { ...wd.tuning, readMax: v } })}
+                  placeholder="8"
+                  supportingText={t("profileForm.webdav.tuningNote")}
+                />
+              </SectionItem>
+            </SectionGroup>
           </Disclosure>
         </>
       )}

@@ -23,13 +23,23 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        "flex w-fit items-center justify-between gap-2 rounded-t-xs border-b-2 border-on-surface-variant bg-surface-container-highest px-4 text-body-large whitespace-nowrap text-on-surface transition-colors outline-none data-placeholder:text-on-surface-variant focus-visible:border-primary disabled:pointer-events-none disabled:opacity-[0.38] aria-invalid:border-error data-[size=default]:h-14 data-[size=sm]:h-10 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2",
+        // px-4 matches TextFieldRow's own 16dp content inset (see its doc
+        // comment in section.tsx — M3's TextFieldPadding, applied on every
+        // side of the field's own text, independent of the label above).
+        // `group` here + the indicator <div> below match TextFieldRow's
+        // filled-bar indicator exactly (see its doc comment in section.tsx
+        // for why it's a filled bar and not a border).
+        "group relative flex w-fit items-center justify-between gap-2 bg-transparent px-4 text-body-large whitespace-nowrap text-on-surface outline-none data-placeholder:text-on-surface-variant disabled:pointer-events-none disabled:opacity-[0.38] data-[size=default]:h-14 data-[size=sm]:h-10 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2",
         className
       )}
       {...props}
     >
       {children}
       <SelectPrimitive.Icon render={<Icon name="keyboard_arrow_down" className="text-on-surface-variant" />} />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-px rounded-full bg-outline-variant transition-[height,background-color] group-focus-visible:h-0.5 group-focus-visible:bg-primary group-aria-invalid:bg-error group-disabled:opacity-[0.38]"
+      />
     </SelectPrimitive.Trigger>
   )
 }

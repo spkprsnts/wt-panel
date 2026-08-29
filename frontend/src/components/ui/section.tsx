@@ -207,11 +207,45 @@ function TextFieldRow({
 }: TextFieldRowProps) {
   const generatedId = React.useId()
   const inputId = id ?? generatedId
+  // p-4 (16dp) on every side matches the M3 TextField's own internal
+  // content inset exactly — TextFieldImpl.kt's `TextFieldPadding = 16.dp`,
+  // applied on all four sides via `contentPaddingWithoutLabel()` since
+  // AppComponents.kt's TextFieldRow never passes a `label` composable to
+  // the underlying TextField (it has its own separate RowLabel above
+  // instead, which — unlike the field — carries no padding of its own).
+  // That asymmetry is real and intentional in the source: the label and
+  // the field's own text are NOT flush with each other: only the label
+  // lines up with the row's outer inset, the value sits 16dp further in.
+  //
+  // The indicator line below is a filled bar (a sibling div), not a
+  // `border-bottom` — a CSS border with radius but zero-width adjacent
+  // sides renders as a tapered "whisker" at the corner (the border "ring"
+  // has no defined inner edge to round against once the neighbouring side
+  // has 0 width), which is not what M3 draws. Compose's own TextField
+  // doesn't draw a border either: IndicatorLineNode fills a plain
+  // rectangle (`linePath`) and clips it against the field's rounded-rect
+  // outline (`linePath and textFieldShapePath`) — a solid fill clipped by
+  // a curve, which always ends in a blunt rounded cap, never a point.
+  // `rounded-full` on a 1-2px-tall bar reproduces that same blunt cap
+  // regardless of the exact corner radius, since any radius at least half
+  // the bar's own height already rounds it into a full stadium end.
+  // Thickness is NOT constant either: FilledTextFieldTokens has
+  // ActiveIndicatorHeight = 1dp at rest, FocusActiveIndicatorHeight = 2dp
+  // focused (AppComponents.kt's TextFieldRow uses the stock TextField
+  // defaults for this, only overriding colors). Color is
+  // border-outline-variant at rest (TextFieldDefaults.colors'
+  // unfocusedIndicatorColor — deliberately not on-surface-variant, which
+  // is a body-text color and reads far too bright for a resting line),
+  // primary focused, error invalid — same three color states, independent
+  // of the height change. peer-* variants read all of this off the input/
+  // textarea's own state since the bar is a plain sibling, not a wrapper.
   const fieldClassName = cn(
-    "w-full border-b-2 border-on-surface-variant bg-transparent py-1 text-body-large text-on-surface outline-none transition-colors placeholder:text-on-surface-variant focus:border-primary disabled:pointer-events-none disabled:opacity-[0.38] aria-invalid:border-error",
+    "peer w-full bg-transparent p-4 text-body-large text-on-surface outline-none placeholder:text-on-surface-variant disabled:pointer-events-none disabled:opacity-[0.38]",
     !multiline && "truncate",
     className
   )
+  const indicatorClassName =
+    "pointer-events-none absolute inset-x-0 bottom-0 h-px rounded-full bg-outline-variant transition-[height,background-color] peer-focus:h-0.5 peer-focus:bg-primary peer-aria-invalid:bg-error peer-disabled:opacity-[0.38]"
 
   return (
     <div className="flex w-full flex-col gap-1">
@@ -219,25 +253,28 @@ function TextFieldRow({
         {label}
       </label>
       <div className="flex items-center gap-2">
-        {multiline ? (
-          <textarea
-            id={inputId}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            aria-invalid={error}
-            className={fieldClassName}
-            {...(props as React.ComponentProps<"textarea">)}
-          />
-        ) : (
-          <input
-            id={inputId}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            aria-invalid={error}
-            className={fieldClassName}
-            {...(props as React.ComponentProps<"input">)}
-          />
-        )}
+        <div className="relative min-w-0 flex-1">
+          {multiline ? (
+            <textarea
+              id={inputId}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              aria-invalid={error}
+              className={fieldClassName}
+              {...(props as React.ComponentProps<"textarea">)}
+            />
+          ) : (
+            <input
+              id={inputId}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              aria-invalid={error}
+              className={fieldClassName}
+              {...(props as React.ComponentProps<"input">)}
+            />
+          )}
+          <div aria-hidden="true" className={indicatorClassName} />
+        </div>
         {trailingIcon}
       </div>
       {supportingText && (

@@ -7,7 +7,6 @@ import { useDialogPrompt } from "@/components/dialog-prompt"
 import { Icon } from "@/components/icon"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Label } from "@/components/ui/label"
 import { SectionGroup, SectionItem, TextFieldRow } from "@/components/ui/section"
 import {
   Select,
@@ -122,7 +121,7 @@ function RoomDialog({
           <SectionGroup>
             <SectionItem position="top">
               <div className="flex w-full flex-col gap-1">
-                <Label>{t("rooms.providerLabel")}</Label>
+                <label className="text-title-medium text-on-surface">{t("rooms.providerLabel")}</label>
                 <Select value={provider} onValueChange={(v) => setProvider(v as RoomProvider)}>
                   <SelectTrigger className="w-full">
                     <SelectValue>{(v: RoomProvider | null) => (v ? t(PROVIDER_LABELS[v]) : null)}</SelectValue>

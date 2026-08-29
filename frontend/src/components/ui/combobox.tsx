@@ -1,7 +1,6 @@
 import * as React from "react"
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
 
-import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { POPUP_SURFACE } from "@/components/ui/popup-surface"
 
@@ -76,24 +75,39 @@ function Combobox({
         setOpen(nextOpen)
       }}
     >
-      <Input
-        ref={inputRef}
-        id={id}
-        className={className}
-        value={value}
-        autoComplete="off"
-        required={required}
-        role="combobox"
-        aria-expanded={open && options.length > 0}
-        aria-controls={listboxId}
-        aria-autocomplete="list"
-        onChange={(e) => {
-          onChange(e.target.value)
-          setOpen(true)
-        }}
-        onFocus={() => setOpen(true)}
-        placeholder={placeholder}
-      />
+      <div className="relative">
+        <input
+          ref={inputRef}
+          id={id}
+          // Matches TextFieldRow's fieldClassName exactly (section.tsx) —
+          // same 16dp-content-padding/outline-variant-at-rest reasoning,
+          // since every call site now lives inside a SectionItem alongside
+          // TextFieldRow/Select fields and needs to look identical. The
+          // indicator below is a filled bar, not a border — see
+          // TextFieldRow's own doc comment for why.
+          className={cn(
+            "peer w-full truncate bg-transparent p-4 text-body-large text-on-surface outline-none placeholder:text-on-surface-variant",
+            className
+          )}
+          value={value}
+          autoComplete="off"
+          required={required}
+          role="combobox"
+          aria-expanded={open && options.length > 0}
+          aria-controls={listboxId}
+          aria-autocomplete="list"
+          onChange={(e) => {
+            onChange(e.target.value)
+            setOpen(true)
+          }}
+          onFocus={() => setOpen(true)}
+          placeholder={placeholder}
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-px rounded-full bg-outline-variant transition-[height,background-color] peer-focus:h-0.5 peer-focus:bg-primary"
+        />
+      </div>
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Positioner anchor={inputRef} align="start" sideOffset={4} className="z-50">
           <PopoverPrimitive.Popup
