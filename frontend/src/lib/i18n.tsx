@@ -2,12 +2,10 @@ import * as React from "react"
 
 import { ru, en, type TranslationKey } from "@/i18n"
 
-// Language is a plain two-way choice, same shape as lib/theme.ts's own
-// Theme type — no third "system" option, no locale negotiation, just
-// "ru" or "en". Unlike theme (a DOM class toggle with no React state
-// needed at all), changing language has to re-render every translated
-// string on screen, so this one really does need a Context, not a plain
-// module-level getter/setter.
+// A plain two-way choice, no "system" option or locale negotiation. Unlike
+// theme (a DOM class toggle, no React state needed), changing language has
+// to re-render every translated string, so this needs a Context rather
+// than a module-level getter/setter.
 export type Language = "ru" | "en"
 
 const LANGUAGE_KEY = "wtpanel_language"
@@ -31,10 +29,9 @@ function storeLanguage(language: Language) {
   }
 }
 
-// Default is "ru", not the browser's own language: every existing
-// operator of this panel is already using it in Russian today, and a
-// silent switch to English on whatever locale their browser happens to
-// report would be a regression for all of them. English is the opt-in.
+// Defaults to "ru", not the browser's language: existing operators already
+// use this panel in Russian, so English is opt-in rather than a silent
+// switch based on browser locale.
 const DEFAULT_LANGUAGE: Language = "ru"
 
 interface LanguageContextValue {
@@ -60,9 +57,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>
 }
 
-// useT is the everyday hook — components importing just t() are the
-// overwhelming majority of call sites; useLanguage below is only for the
-// switcher itself.
+// The everyday hook — useLanguage below is only for the switcher itself.
 export function useT() {
   return useLanguageContext().t
 }

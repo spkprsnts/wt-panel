@@ -19,16 +19,13 @@ export interface QrVariant {
   content: string
 }
 
-// WTMQ1 multi-frame QR — mirrors WireTurn's own doc for this exactly
-// (WireTurn repo's docs/qr-transfer.md): frame format, thresholds, and the
-// manual "Один QR-код" override. Some entry-point links (mainly turnable://
-// with a large pub_key) technically fit in one QR, but the module density
-// gets too high for a phone camera to scan reliably. Instead of fountain
-// codes, WireTurn just loops a plain animation of several low-density
-// frames — the WireTurn scanner (and anything else implementing this same
-// doc) reassembles them by concatenating payloads in index order. Short
-// content (the overwhelming majority) never chunks — single frame, no
-// animation, byte-identical to a plain QR.
+// WTMQ1 multi-frame QR — mirrors WireTurn's own format (docs/qr-transfer.md
+// upstream). Some entry-point links (mainly turnable:// with a large
+// pub_key) technically fit in one QR, but the module density gets too high
+// for a phone camera to scan reliably. Instead of fountain codes, this just
+// loops a plain animation of low-density frames that the scanner
+// reassembles by concatenating payloads in index order. Short content
+// (the majority) never chunks — single frame, byte-identical to a plain QR.
 const CHUNK_PREFIX = "WTMQ1"
 const SINGLE_FRAME_MAX_LENGTH = 700
 const CHUNK_PAYLOAD_SIZE = 400
@@ -55,11 +52,9 @@ function buildFrames(text: string, forceStatic: boolean): string[] {
   return chunks.map((chunk, i) => `${CHUNK_PREFIX}|${sessionId}|${i + 1}|${total}|${chunk}`)
 }
 
-// QrDialog is the shared "show me a QR code" dialog for both the
-// subscription-level (WireTurn / текстовый) and profile-level (WireTurn /
-// URI ядра) variants — replaces the old plain "copy the truncated link"
-// buttons. Variants are loaded lazily (only once the dialog is actually
-// opened) since both call an authenticated backend endpoint.
+// The shared "show me a QR code" dialog for both subscription-level and
+// profile-level link variants. Variants are loaded lazily (only once the
+// dialog opens) since both call an authenticated backend endpoint.
 export function QrDialog({
   trigger,
   title,
@@ -86,10 +81,9 @@ export function QrDialog({
   const [frameIndex, setFrameIndex] = React.useState(0)
 
   // Keep the latest loadVariants without making it an effect dependency —
-  // callers pass a fresh closure every render (it captures client/profile
-  // id), and re-running the fetch on every parent re-render (ClientsPage
-  // polls every 10s) would refetch links pointlessly while the dialog sits
-  // open.
+  // callers pass a fresh closure every render, and re-running the fetch on
+  // every parent re-render (ClientsPage polls every 10s) would refetch
+  // links pointlessly while the dialog sits open.
   const loadVariantsRef = React.useRef(loadVariants)
   loadVariantsRef.current = loadVariants
 
@@ -116,10 +110,10 @@ export function QrDialog({
     [activeContent, forceStatic]
   )
 
-  // Resets to the first frame whenever the set itself changes (new variant,
-  // or flipping forceStatic) — an index left over from a previous, longer
-  // set would be out of bounds the moment the set shrinks — then starts the
-  // loop that advances it, if there's more than one frame to loop through.
+  // Resets to the first frame whenever the set changes (new variant, or
+  // flipping forceStatic) — a leftover index would go out of bounds the
+  // moment the set shrinks — then starts the loop if there's more than one
+  // frame.
   React.useEffect(() => {
     setFrameIndex(0)
     if (frames.length <= 1) return undefined

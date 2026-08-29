@@ -23,7 +23,7 @@ export function EditClientDialog({
   const t = useT()
   const [open, setOpen] = React.useState(false)
   // See EditProfileDialog's openCount comment — same reasoning: remount on
-  // open instead of unmounting on close, so Radix's Dialog exit animation
+  // open instead of unmounting on close, so Base UI's Dialog exit animation
   // has something to animate.
   const [openCount, setOpenCount] = React.useState(0)
 

@@ -15,11 +15,11 @@ import (
 	"github.com/google/uuid"
 )
 
-// olcRTC has no releases upstream (no version tagging at all — see its own
-// magefile.go), so the only way to pin a specific state is to build from
-// source at a chosen commit. That's a multi-step, possibly multi-minute
-// pipeline (clone + submodules + `go run mage build`), so it runs as a
-// background Job the API layer can poll instead of blocking an HTTP request.
+// olcRTC has no releases upstream, so the only way to pin a specific state
+// is to build from source at a chosen commit. That's a multi-step,
+// possibly multi-minute pipeline (clone + submodules + `go run mage
+// build`), so it runs as a background Job the API layer can poll instead of
+// blocking an HTTP request.
 type JobStatus string
 
 const (
@@ -44,9 +44,8 @@ type JobManager struct {
 	jobs map[string]*Job
 	// latest tracks each kernel's most recently started job id, so the API
 	// layer can answer "what's going on with this kernel" by name alone
-	// (see LatestJob) — the Kernels page uses this to resume showing
-	// accurate progress after a full page reload, when it no longer has
-	// the job id that a run-in-progress request would otherwise carry.
+	// (see LatestJob) — lets the Kernels page resume showing progress after
+	// a page reload without holding onto a job id itself.
 	latest map[string]string
 }
 
@@ -77,12 +76,10 @@ func (m *JobManager) LatestJob(kernel string) (Job, bool) {
 	return m.Get(id)
 }
 
-// startJob centralizes the bookkeeping every kind of kernel job needs:
-// registering it as the kernel's "latest" (for LatestJob above), and
-// refusing to start a second one while an existing one for the same
-// kernel is still running — without this, reloading the page mid-install
-// and clicking "Установить" again would kick off a redundant concurrent
-// download/build of the same thing.
+// startJob registers a job as the kernel's "latest" (for LatestJob above)
+// and refuses to start a second one while an existing one for the same
+// kernel is still running — otherwise reloading mid-install and clicking
+// "Установить" again would kick off a redundant concurrent download/build.
 func (m *JobManager) startJob(kernel, ref string) (job *Job, alreadyRunning bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -116,14 +113,11 @@ func (m *JobManager) finish(job *Job, status JobStatus, version string) {
 // StartOlcRTCBuild kicks off the build in a background goroutine and
 // returns immediately with the job's id; poll Get(id) for progress.
 //
-// onSuccess runs from inside that same background goroutine the moment the
-// build actually finishes — not from whatever HTTP request later happens to
-// poll Get(id) for it. That distinction matters: a job that outlives every
-// client watching it (the operator reloads the page, or never comes back
-// to check) still finishes the same way, so whatever onSuccess is meant to
-// record (see handlers_kernels.go's recordKernelInstall) can't get silently
-// skipped just because nobody was around to observe the "success" status
-// over HTTP.
+// onSuccess runs from that same goroutine the moment the build finishes —
+// not from whatever HTTP request later polls Get(id). So a job that
+// outlives every client watching it (page reloaded, or never rechecked)
+// still records its result (see handlers_kernels.go's recordKernelInstall)
+// instead of silently skipping it for lack of an observer.
 func (m *JobManager) StartOlcRTCBuild(ref, destPath, dataDir string, onSuccess func(version, log string)) *Job {
 	job, running := m.startJob("olcrtc", ref)
 	if running {
@@ -133,13 +127,10 @@ func (m *JobManager) StartOlcRTCBuild(ref, destPath, dataDir string, onSuccess f
 	return job
 }
 
-// StartInstall runs a release-download install (Turnable/FreeTurn/Xray-core
-// — fetch a prebuilt binary, no multi-step build like olcRTC needs) as a
-// background job with the same reload-safety guarantee as
-// StartOlcRTCBuild: onSuccess fires from this goroutine itself the moment
-// work() returns, not from whatever request later happens to poll for the
-// result, so recordKernelInstall can't get silently skipped just because
-// the operator reloaded the page before the download finished.
+// StartInstall runs a release-download install (Turnable/FreeTurn/Xray-core)
+// as a background job with the same reload-safety guarantee as
+// StartOlcRTCBuild: onSuccess fires from this goroutine the moment work()
+// returns, not from whatever request later polls for the result.
 func (m *JobManager) StartInstall(kernel, ref string, work func() (version string, err error), onSuccess func(version string)) *Job {
 	job, running := m.startJob(kernel, ref)
 	if running {
@@ -162,22 +153,16 @@ func (m *JobManager) StartInstall(kernel, ref string, work func() (version strin
 }
 
 // ensureBuildTools makes sure git and a Go toolchain are on PATH before the
-// actual clone/build steps run — a server this panel was just installed
-// onto (via install.sh) may never have needed either: Turnable/FreeTurn
-// install as prebuilt binaries, and the panel's own install.sh bootstraps
-// git/go/node only for building the panel itself, not for whatever the
-// operator later builds through this feature. A fresh box that's never
-// even run `apt-get update` needs that run before any package name will
-// resolve at all, so it's done here too, not assumed.
+// actual clone/build steps run — a freshly installed server may have
+// neither (Turnable/FreeTurn install as prebuilt binaries, and install.sh
+// only bootstraps git/go/node for building the panel itself). Also runs
+// `apt-get update` first since a box that's never done so can't resolve any
+// package name.
 //
-// git comes from apt (fine for that — nothing here depends on a specific
-// git version). Go does not: apt's own golang-go package lags upstream by
-// years on most distros' stable releases (confirmed while setting up this
-// same box for dev — Ubuntu 24.04's apt gives Go far older than this
-// repo's own go.mod requires), so a missing or already-present-but-old `go`
-// gets the real upstream tarball from go.dev instead, same fix as had to
-// use for Node.js earlier (apt's nodejs was too old for this project's
-// frontend toolchain — see dev.sh/README).
+// git comes from apt. Go does not: apt's golang-go package lags upstream by
+// years on most distros' stable releases, so a missing or too-old `go`
+// instead gets the real upstream tarball from go.dev (same reasoning as the
+// Node.js fix in dev.sh/README).
 func ensureBuildTools(run func(dir string, env []string, name string, args ...string) bool) bool {
 	if _, err := exec.LookPath("git"); err != nil {
 		if !run("", nil, "sh", "-c", "apt-get update -qq && apt-get install -y -qq git curl") {
@@ -191,7 +176,7 @@ func ensureBuildTools(run func(dir string, env []string, name string, args ...st
 		if _, statErr := os.Stat("/usr/local/go/bin/go"); statErr == nil {
 			os.Setenv("PATH", "/usr/local/go/bin:"+os.Getenv("PATH"))
 		} else {
-			arch := runtime.GOARCH // go.dev's tarball names use the same amd64/arm64 spelling as GOARCH
+			arch := runtime.GOARCH
 			script := fmt.Sprintf(`set -e
 v=$(curl -fsSL "https://go.dev/VERSION?m=text" | head -1)
 curl -fsSL "https://go.dev/dl/${v}.linux-%s.tar.gz" -o /tmp/wtp-go.tar.gz
@@ -211,25 +196,19 @@ ln -sf /usr/local/go/bin/gofmt /usr/local/bin/gofmt
 	return ensureSwapForBuild(run)
 }
 
-// olcrtcSwapFile is dedicated to this one purpose (not a generic "/swapfile"
-// like olcRTC's own docs use) so this never touches a swap file the
-// operator set up themselves for unrelated reasons — we only ever create,
-// check, or re-enable this exact path.
+// olcrtcSwapFile is a dedicated path (not a generic "/swapfile") so this
+// never touches a swap file the operator set up for unrelated reasons.
 const olcrtcSwapFile = "/var/lib/wt-panel-olcrtc-build.swap"
 
 // olcrtcBuildMemThresholdKB is olcRTC's own documented cutoff: "If you have
-// less than 4 GB RAM, the build may crash" (docs/fast.md, docs/manual.md —
-// go+its WebRTC/codec dependency graph is heavy enough during compilation
-// to OOM on small boxes). Below it, this adds swap using the exact same
-// fallocate+mkswap+swapon recipe those docs give as the fix.
+// less than 4 GB RAM, the build may crash" — below it, this adds swap using
+// the same fallocate+mkswap+swapon recipe those docs give as the fix.
 const olcrtcBuildMemThresholdKB = 4 * 1024 * 1024
 
-// ensureSwapForBuild is a no-op the moment RAM+existing swap already clears
-// olcRTC's documented threshold — most boxes this panel runs on won't need
-// it at all. Read failures on /proc/meminfo (i.e. not Linux, though this
-// panel is Linux-only anyway — see README) fail open: better to attempt the
-// build and let it fail the way it always did than to block it over a
-// diagnostic that couldn't run.
+// ensureSwapForBuild is a no-op once RAM+existing swap already clears
+// olcRTC's documented threshold. Read failures on /proc/meminfo fail open:
+// better to attempt the build and let it fail as it always did than to
+// block it over a diagnostic that couldn't run.
 func ensureSwapForBuild(run func(dir string, env []string, name string, args ...string) bool) bool {
 	totalKB, swapKB, err := readMemInfoKB()
 	if err != nil {
@@ -240,9 +219,9 @@ func ensureSwapForBuild(run func(dir string, env []string, name string, args ...
 	}
 
 	if _, err := os.Stat(olcrtcSwapFile); err == nil {
-		// Created by an earlier build on this box — just make sure it's
-		// actually active (a reboot since would have dropped it; swapon on
-		// an already-active file is a harmless no-op error we can ignore).
+		// Created by an earlier build — make sure it's still active (a
+		// reboot would have dropped it; swapon on an already-active file is
+		// a harmless no-op error).
 		run("", nil, "swapon", olcrtcSwapFile)
 		return true
 	}
@@ -261,8 +240,7 @@ func ensureSwapForBuild(run func(dir string, env []string, name string, args ...
 
 // readMemInfoKB reads MemTotal and SwapTotal (both in kB) from
 // /proc/meminfo — SwapTotal already aggregates every active swap
-// file/partition, so this is simpler and just as accurate as summing
-// /proc/swaps by hand.
+// file/partition, simpler than summing /proc/swaps by hand.
 func readMemInfoKB() (totalKB, swapKB int64, err error) {
 	data, err := os.ReadFile("/proc/meminfo")
 	if err != nil {
@@ -283,16 +261,13 @@ func readMemInfoKB() (totalKB, swapKB int64, err error) {
 	return totalKB, swapKB, nil
 }
 
-// olcrtcGoEnv points GOPATH/GOCACHE/GOMODCACHE (and HOME, as a catch-all for
-// any other tool that consults it) at a fixed directory under the panel's
-// own data dir instead of leaving Go to derive them from $HOME. The panel
-// normally runs as a systemd service with no User= directive, which means
-// systemd never populates HOME for it — Go's "go run" then has nothing to
-// derive a default module cache location from and fails outright with
-// "module cache not found: neither GOMODCACHE nor GOPATH is set" (seen on a
-// real fresh VPS). Anchoring it here instead of $HOME also means the module
-// cache survives and gets reused across separate olcRTC builds, since tmpDir
-// itself is wiped after every run.
+// olcrtcGoEnv points GOPATH/GOCACHE/GOMODCACHE/HOME at a fixed directory
+// under the panel's data dir instead of leaving Go to derive them from
+// $HOME. The panel normally runs as a systemd service with no User=
+// directive, so HOME is never populated and "go run" fails outright with
+// "module cache not found: neither GOMODCACHE nor GOPATH is set". Anchoring
+// here also means the module cache survives and is reused across builds,
+// since tmpDir itself is wiped after every run.
 func olcrtcGoEnv(dataDir string) []string {
 	base := filepath.Join(dataDir, "olcrtc-gocache")
 	gopath := filepath.Join(base, "gopath")
@@ -384,16 +359,12 @@ func (m *JobManager) runOlcRTCBuild(job *Job, ref, destPath, dataDir string, onS
 		m.finish(job, JobFailed, resolvedSHA)
 		return
 	}
-	// Writing straight to destPath fails with "text file busy" whenever the
-	// previously-installed olcrtc binary is currently running (the panel
-	// execs kernel binaries as long-lived child processes) — a regular
-	// open-for-write can't touch a file the kernel has mapped as a running
-	// process's text segment. Every other install path in this package
-	// (DownloadBinary, DownloadZipEntry, DownloadTarGzEntry) already avoids
-	// this by writing to a same-directory temp file and renaming it into
-	// place; rename() only swaps the directory entry, so an already-running
-	// process keeps its old inode open and is unaffected, matching those
-	// functions' own doc comments.
+	// Writing straight to destPath fails with "text file busy" if the
+	// previously-installed binary is currently running as a mapped process
+	// text segment. Write to a temp file and rename instead, like
+	// DownloadBinary/DownloadZipEntry/DownloadTarGzEntry already do — rename
+	// only swaps the directory entry, so a running process keeps its old
+	// inode open.
 	tmp := destPath + ".download"
 	if err := os.WriteFile(tmp, data, 0o755); err != nil {
 		m.appendLog(job, "write "+tmp+": "+err.Error())

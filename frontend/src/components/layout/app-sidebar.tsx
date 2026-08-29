@@ -109,19 +109,14 @@ function SidebarFooter({ collapsed, version }: { collapsed: boolean; version: st
   )
 }
 
-// AppSidebar renders two independent things: a permanent desktop `<aside>`
-// (hidden below md, collapse/expand toggle persisted in localStorage — same
-// as before) and a mobile off-canvas drawer (Base UI Dialog styled as a
-// left-sliding panel rather than a centered modal, only ever mounted below
-// md via AppLayout's own `md:hidden` hamburger button). The drawer is
-// always shown in its full, non-collapsed form — "collapse to icons" only
-// makes sense as a way to reclaim desktop screen width, and closes itself
-// the moment a nav link is picked (see SidebarBody's onNavigate) since
-// there's no reason to leave it open over the page it just navigated to.
-//
-// The collapse (icon rail) / expand (labeled drawer) toggle on desktop and
-// the mobile off-canvas drawer are M3's "navigation rail" and "navigation
-// drawer" — same adaptive pattern, just re-skinned below.
+// Renders two independent things: a permanent desktop `<aside>` (collapse/
+// expand toggle persisted in localStorage) and a mobile off-canvas drawer
+// (Base UI Dialog styled as a left-sliding panel, only mounted below md via
+// AppLayout's hamburger button). The drawer is always shown in its full,
+// non-collapsed form and closes itself when a nav link is picked (see
+// SidebarBody's onNavigate). The desktop collapse/expand and the mobile
+// drawer are M3's "navigation rail" and "navigation drawer" — same
+// adaptive pattern, re-skinned below.
 export function AppSidebar({
   mobileOpen,
   onMobileOpenChange,

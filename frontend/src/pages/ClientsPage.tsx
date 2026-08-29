@@ -30,10 +30,9 @@ import { QrDialog } from "@/components/qr-dialog"
 import { Icon } from "@/components/icon"
 import { SectionGroup, SectionItem, sectionPosition } from "@/components/ui/section"
 
-// parseCoreConfigJSON is the shared best-effort JSON.parse both
-// profileSummaryBadges and profilePort need — a profile saved before a
-// field existed, or a parse failure, just means fewer badges/no port,
-// never an error.
+// Shared best-effort JSON.parse for profileSummaryBadges and profilePort —
+// a profile saved before a field existed, or a parse failure, just means
+// fewer badges/no port, never an error.
 function parseCoreConfigJSON(profile: Profile): Record<string, unknown> {
   try {
     return profile.CoreConfig ? JSON.parse(profile.CoreConfig) : {}
@@ -42,20 +41,15 @@ function parseCoreConfigJSON(profile: Profile): Record<string, unknown> {
   }
 }
 
-// profileSummaryBadges pulls a couple of the most distinguishing fields out
-// of a profile's own CoreConfig JSON — the CoreType badge alone doesn't tell
-// two olcRTC (or two FreeTurn, etc.) profiles apart at a glance, so this
-// surfaces whichever settings actually vary in practice per core (provider/
-// transport for olcRTC; connection type/proto/route socket for Turnable;
-// connection mode for WebDAV), plus a SOCKS5 marker for olcRTC/webdav
-// profiles that have an outbound proxy configured (see profile-form.tsx's
-// oc.proxyUpstream/wd.proxyUpstream) — the port itself is NOT included
-// here (see profilePort below): it renders in its own fixed-width slot in
-// the profile row instead of being just another badge mixed in with these,
-// so ports actually line up down the list instead of landing wherever they
-// happen to fall in a variable-length badge sequence. Values are the raw
-// technical strings already used elsewhere on this page (CoreType itself,
-// XrayInbound.Protocol) — not translated, same convention.
+// Pulls a couple of the most distinguishing fields out of a profile's own
+// CoreConfig JSON, since the CoreType badge alone doesn't tell two profiles
+// of the same core apart at a glance (provider/transport for olcRTC;
+// connection type/proto/route socket for Turnable; connection mode for
+// WebDAV), plus a SOCKS5 marker for an outbound proxy (see profile-form.tsx's
+// oc/wd.proxyUpstream). The port is NOT included here (see profilePort) so
+// it can render in its own fixed-width slot and line up down the list.
+// Values are the raw technical strings used elsewhere on this page — not
+// translated.
 function profileSummaryBadges(profile: Profile): string[] {
   const cfg = parseCoreConfigJSON(profile)
   const str = (v: unknown) => (typeof v === "string" && v ? v : null)
@@ -81,17 +75,12 @@ function profileSummaryBadges(profile: Profile): string[] {
   return fields.filter((v): v is string => v !== null)
 }
 
-// profilePort is the port half of what profileSummaryBadges used to
-// include inline — split out so it can render in its own fixed-width
-// column (see the profile row below) instead of wherever it happened to
-// fall among the other summary badges. null for olcRTC (a pure client
-// library, no local listener — see docs/settings.md upstream) and for
-// WebDAV "server" mode (relays out to external backends, same reasoning).
-// The backend always persists `port` once a profile's been provisioned
-// (Turnable/FreeTurn/WebDAV's own Go structs have no `omitempty` on that
-// field — see their provisioner/config.go), whether it was auto-assigned
-// or operator-specified, so this reflects the real running port, not just
-// a manually-typed one.
+// The port half of what profileSummaryBadges used to include inline, split
+// out to render in its own fixed-width column. null for olcRTC (a pure
+// client library, no local listener) and WebDAV "server" mode (relays to
+// external backends). The backend always persists `port` once provisioned
+// (no `omitempty` on that field — see provisioner/config.go), auto-assigned
+// or not, so this reflects the real running port.
 function profilePort(profile: Profile): number | null {
   if (profile.CoreType === "olcrtc") return null
   const cfg = parseCoreConfigJSON(profile)
@@ -99,13 +88,10 @@ function profilePort(profile: Profile): number | null {
   return typeof cfg.port === "number" && cfg.port > 0 ? cfg.port : null
 }
 
-// xraySummaryLabel is what the Xray overlay badge shows: the picked
-// inbound's own protocol when there is one, otherwise the protocol
-// sniffed from the manual fallback the operator pasted in (a URI's own
-// scheme, or "wireguard" for a manual WG config) — "xray (URI)" alone
-// didn't distinguish a manual hysteria2 link from a manual vless one, even
-// though the scheme is right there in the string profile-form.tsx already
-// saved.
+// What the Xray overlay badge shows: the picked inbound's protocol when
+// there is one, otherwise the protocol sniffed from the manual fallback
+// (a URI's scheme, or "wireguard" for a manual WG config) — "xray (URI)"
+// alone didn't distinguish a manual hysteria2 link from a manual vless one.
 function xraySummaryLabel(profile: Profile): string {
   if (profile.XrayInbound) return profile.XrayInbound.Protocol
   if (profile.XrayManualWireGuard) return "wireguard (WG)"
@@ -113,13 +99,10 @@ function xraySummaryLabel(profile: Profile): string {
   return scheme ? `${scheme} (URI)` : "xray (URI)"
 }
 
-// ProfileSummaryBadges wraps profileSummaryBadges in a useMemo keyed on the
-// two string fields it actually reads (CoreConfig/CoreType), not on
-// `profile` itself — ClientsPage's 10s poll (see `load`) replaces the whole
-// `clients` array on every tick even when nothing changed, which would
-// otherwise re-run JSON.parse on every profile's config on every tick
-// forever for no reason, since a plain call inside the parent's .map()
-// has nothing to memoize against.
+// Wraps profileSummaryBadges in a useMemo keyed on the two fields it
+// actually reads, not on `profile` itself — ClientsPage's 10s poll replaces
+// the whole `clients` array every tick even when nothing changed, which
+// would otherwise re-run JSON.parse on every profile's config forever.
 function ProfileSummaryBadges({ profile }: { profile: Profile }) {
   const badges = React.useMemo(
     () => profileSummaryBadges(profile),
@@ -136,11 +119,9 @@ function ProfileSummaryBadges({ profile }: { profile: Profile }) {
   )
 }
 
-// ProfilePortLabel is profileSummaryBadges' own memoization pattern
-// (same CoreConfig/CoreType-keyed useMemo, same reasoning) applied to
-// profilePort — kept as a separate small component so the fixed-width
-// column below only ever re-renders this, not the whole badge row, when
-// nothing relevant changed.
+// Same memoization pattern as ProfileSummaryBadges, applied to profilePort
+// — kept as a separate component so the fixed-width column only re-renders
+// this, not the whole badge row.
 function ProfilePortLabel({ profile }: { profile: Profile }) {
   const port = React.useMemo(
     () => profilePort(profile),
@@ -167,15 +148,14 @@ export function ClientsPage() {
   const [error, setError] = React.useState<string | null>(null)
   const [restartingId, setRestartingId] = React.useState<number | null>(null)
   // Which profile's Edit/Logs dialog is currently open — same single-active-
-  // ID convention as restartingId above. These are triggered from a
-  // DropdownMenuItem now (see the profile row below), not each dialog's own
-  // DialogTrigger button: nesting a Dialog inside a DropdownMenuItem is a
-  // known Radix footgun — the dropdown's own close-on-select and outside-
-  // click dismissal can race with the dialog's own opening and stomp on it.
-  // Lifting open state here instead, with EditProfileDialog/ProfileLogsDialog
-  // unconditionally mounted per row (open just toggles false/true, never
-  // unmount/remount — see EditProfileDialog's own openCount comment for why
-  // that specifically matters), sidesteps the whole class of bug.
+  // ID convention as restartingId above. Triggered from a DropdownMenuItem
+  // (see the profile row below), not each dialog's own DialogTrigger:
+  // nesting a Dialog inside a DropdownMenuItem is a known Base UI footgun —
+  // the dropdown's close-on-select and outside-click dismissal can race
+  // with the dialog opening and stomp on it. Lifting open state here, with
+  // EditProfileDialog/ProfileLogsDialog unconditionally mounted per row
+  // (open just toggles, never unmount/remount — see EditProfileDialog's
+  // openCount comment), sidesteps the whole class of bug.
   const [editingProfileId, setEditingProfileId] = React.useState<number | null>(null)
   const [logsProfileId, setLogsProfileId] = React.useState<number | null>(null)
 
@@ -188,9 +168,8 @@ export function ClientsPage() {
 
   React.useEffect(() => {
     load()
-    // Profile status (Running/PID) is a live snapshot from the server, not
-    // pushed — poll so the indicators in the expanded profile list don't
-    // silently go stale while the page just sits open.
+    // Profile status (Running/PID) is a live snapshot, not pushed — poll so
+    // the expanded profile list doesn't silently go stale.
     const interval = window.setInterval(load, 10000)
     return () => window.clearInterval(interval)
   }, [load])

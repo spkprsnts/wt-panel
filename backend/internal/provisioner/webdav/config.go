@@ -6,23 +6,18 @@ package webdav
 // ConnMode picks which of webdav-tunnel's two server-side modes this
 // profile runs: "selfhosted" (default, empty also means this — older
 // profiles predate this field) runs the embedded WebDAV, "server" connects
-// out to one or more already-existing external WebDAV backends (Backends)
-// instead of hosting one itself.
+// out to one or more already-existing external WebDAV backends (Backends).
 //
 // Login/Password/Port are infra, selfhosted-only: filled in on first
-// AddProfile call if left empty and never re-minted afterwards — webdav-
-// tunnel selfhosted has no multi-user concept, so every profile gets its
-// own process + port + creds. ProxyUpstream is logical: falls back to
-// config.WebDAVDefaultProxyUpstream when empty, but a profile can route
-// through a different upstream SOCKS5 than the rest.
+// AddProfile call if left empty and never re-minted afterwards — every
+// profile gets its own process + port + creds. ProxyUpstream is logical:
+// falls back to config.WebDAVDefaultProxyUpstream when empty.
 //
-// TLSCertFile/TLSKeyFile (selfhosted-only) point webdav-tunnel's own
-// built-in TLS support (-webdav-tls-cert/-webdav-tls-key) directly at a
-// cert/key pair already on this host's filesystem — no reverse proxy in
-// front. Enc turns on webdav-tunnel's AES-256-GCM chunk encryption; the
-// client learns about it from the "enc=1" query param this provisioner's
-// buildURI adds, never a separate side channel, so a client using the
-// generated URI always matches what the server actually does.
+// TLSCertFile/TLSKeyFile (selfhosted-only) point webdav-tunnel's built-in
+// TLS support directly at a cert/key pair on this host's filesystem — no
+// reverse proxy in front. Enc turns on webdav-tunnel's AES-256-GCM chunk
+// encryption; the client learns about it from the "enc=1" query param
+// buildURI adds, never a separate side channel.
 type profileCoreConfig struct {
 	ConnMode string `json:"conn_mode,omitempty"` // "selfhosted" (default) or "server"
 
@@ -40,22 +35,18 @@ type profileCoreConfig struct {
 
 	// Backends is server-mode-only: one or more already-existing external
 	// WebDAV endpoints to relay through — see docs/config.md#multi-backend-
-	// rotation upstream. A single entry is a plain external-WebDAV setup;
-	// more than one enables webdav-tunnel's own round-robin rotation across
-	// them. Written into a generated YAML file (-config) rather than CLI
-	// flags, since -webdav/-login/-password only ever describe one backend.
+	// rotation upstream. More than one enables webdav-tunnel's own
+	// round-robin rotation. Written into a generated YAML file (-config)
+	// rather than CLI flags, since -webdav/-login/-password only ever
+	// describe one backend.
 	Backends []WebdavBackend `json:"backends,omitempty"`
 
 	// Tuning overrides (docs/tuning.md upstream) — every field empty/zero
-	// means "let webdav-tunnel apply its own default for this mode" rather
-	// than a real value: selfhosted auto-applies a faster preset for
-	// poll-min/poll-max/coalesce (its own local WebDAV can take it), server
-	// mode always uses the plain generic defaults unless told otherwise
-	// (external storage's real network conditions vary too much to guess).
-	// See resolveTuning, which is also where the panel's own "fast
-	// (self-hosted)"/"standard (external)" quick-fill presets in the UI
-	// ultimately come from — they're just these same two numbers offered as
-	// a one-click fill-in, not a stored mode of their own.
+	// means "let webdav-tunnel apply its own default for this mode": selfhosted
+	// auto-applies a faster poll-min/poll-max/coalesce preset, server mode
+	// uses the plain generic defaults. The UI's "fast (self-hosted)"/
+	// "standard (external)" quick-fill presets are just these same two
+	// numbers offered as a one-click fill-in, not a stored mode of their own.
 	PollMin   string `json:"poll_min,omitempty"`
 	PollMax   string `json:"poll_max,omitempty"`
 	Coalesce  string `json:"coalesce,omitempty"`

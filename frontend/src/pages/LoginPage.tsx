@@ -21,11 +21,10 @@ export function LoginPage() {
   const navigate = useNavigate()
   const [username, setUsername] = React.useState("admin")
   const [password, setPassword] = React.useState("")
-  // step flips to "totp" when the backend reports the password checked out
-  // but this account has 2FA enabled (see handleLogin's "totp_required"
-  // response) — username/password stay in state and are resent alongside
-  // the code, since the backend re-validates all three together in one
-  // call rather than exposing a separate "just the code" endpoint.
+  // Flips to "totp" when the backend reports the password was correct but
+  // 2FA is enabled (handleLogin's "totp_required" response). Username/
+  // password stay in state and are resent with the code, since the backend
+  // re-validates all three together rather than exposing a code-only endpoint.
   const [step, setStep] = React.useState<"password" | "totp">("password")
   const [code, setCode] = React.useState("")
   const [error, setError] = React.useState<string | null>(null)

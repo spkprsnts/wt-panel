@@ -44,15 +44,12 @@ type Server struct {
 	version string
 	// bootID is a fresh random string generated once per process, exposed
 	// via getSettings alongside version — the Settings page's restart/update
-	// dialogs poll it to tell "the old process is still up" from "a new
-	// process is now serving requests" with no timing window to miss: a
+	// dialogs poll it to detect a new process is now serving requests. A
 	// plain reachability check (wait for a request to fail, then succeed)
-	// looked right but wasn't reliable, since the down-window between the
-	// old process exiting and the new one binding the port can finish
-	// faster than the poll interval — confirmed for real, an update never
-	// reloaded because of it. version alone can't fill this role either:
-	// it doesn't change across a plain restart (only across an update), but
-	// both need the same "is this actually a new process" signal.
+	// isn't reliable: the down-window between old process exiting and new
+	// one binding the port can finish faster than the poll interval. version
+	// alone doesn't work either since it doesn't change across a plain
+	// restart, only across an update.
 	bootID string
 }
 
@@ -169,20 +166,19 @@ func New(db *gorm.DB, cfg *config.Config, authSvc *auth.Service, registry *provi
 // serveWebUI serves the embedded frontend build (see internal/webui) for
 // every request that isn't one of the API/subscription routes above — a
 // production deployment is a single binary, no separate frontend host.
-// Anything under /api or /sub that didn't match a registered route above
-// stays a real 404 rather than falling through to index.html; every other
+// Anything under /api or /sub that didn't match a registered route stays a
+// real 404 rather than falling through to index.html; every other
 // unmatched path is assumed to be client-side (react-router-dom) routing
 // and gets index.html so a hard refresh on e.g. /xray still works.
 //
 // index.html gets one fixed byte-level edit at startup: a
 // window.__WTP_BASE_PATH__ assignment injected right after <head>. Every
-// route in this handler runs already-stripped of the base path (main.go's
-// http.StripPrefix happens in front of this whole gin.Engine), so the SPA
-// itself is the only thing that can know it — react-router's
-// BrowserRouter basename and every fetch() in lib/api.ts read this global
-// to prepend the real prefix back on. Without it, a non-"/" base path
-// would serve the page fine but break every client-side navigation and API
-// call the moment the page runs, since root-absolute paths like
+// route here already runs stripped of the base path (main.go's
+// http.StripPrefix sits in front of this gin.Engine), so the SPA itself is
+// the only thing that can know it — react-router's BrowserRouter basename
+// and every fetch() in lib/api.ts read this global to prepend the real
+// prefix back on. Without it, a non-"/" base path would break every
+// client-side navigation and API call, since root-absolute paths like
 // "/api/login" resolve at the real domain root, not under the prefix.
 func serveWebUI(r *gin.Engine, basePath string) {
 	dist, err := webui.DistFS()

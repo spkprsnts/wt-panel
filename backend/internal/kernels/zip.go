@@ -9,11 +9,8 @@ import (
 )
 
 // DownloadZipEntry fetches a zip file from url and extracts exactly one
-// entry from it to destPath as an executable file — for releases that ship
-// an archive instead of a bare binary (Xray-core's releases are
-// Xray-<os>-<arch>.zip containing the xray binary alongside geoip.dat/
-// geosite.dat/LICENSE/README, unlike Turnable/FreeTurn's raw-binary
-// assets — see DownloadBinary).
+// entry from it to destPath as an executable file — for releases (Xray-core)
+// that ship a zip archive instead of a bare binary (see DownloadBinary).
 func DownloadZipEntry(url, entryName, destPath string) error {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {

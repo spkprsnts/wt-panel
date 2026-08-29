@@ -6,9 +6,8 @@ import "fmt"
 // platform and installs it at destPath. version is a release tag (e.g.
 // "0.5.3" or "v3.1.1") — pass "" to install the latest release instead.
 func InstallRelease(owner, repo, version, assetName, destPath string) (installedVersion string, err error) {
-	// force=false: reuse whatever the Kernels page's own listing already
-	// cached rather than spending another GitHub API call just because an
-	// install happens to be starting right now.
+	// force=false: reuse the cached listing rather than spending another
+	// GitHub API call just because an install is starting.
 	releases, err := ListReleases(owner, repo, 100, false)
 	if err != nil {
 		return "", err
@@ -50,14 +49,11 @@ func InstallRelease(owner, repo, version, assetName, destPath string) (installed
 	return target.TagName, nil
 }
 
-// InstallReleaseZipEntry is InstallRelease's counterpart for releases that
-// ship a zip archive instead of a bare binary (Xray-core) — otherwise
-// identical version-resolution logic, just extracting one named entry from
-// the downloaded archive instead of writing the download straight through.
+// InstallReleaseZipEntry is InstallRelease's counterpart for releases
+// (Xray-core) that ship a zip archive instead of a bare binary.
 func InstallReleaseZipEntry(owner, repo, version, assetName, entryName, destPath string) (installedVersion string, err error) {
-	// force=false: reuse whatever the Kernels page's own listing already
-	// cached rather than spending another GitHub API call just because an
-	// install happens to be starting right now.
+	// force=false: reuse the cached listing rather than spending another
+	// GitHub API call just because an install is starting.
 	releases, err := ListReleases(owner, repo, 100, false)
 	if err != nil {
 		return "", err
@@ -101,13 +97,11 @@ func InstallReleaseZipEntry(owner, repo, version, assetName, entryName, destPath
 
 // InstallReleaseTarGzEntry is InstallRelease's counterpart for releases
 // (webdav-tunnel) that ship a gzip-compressed tar archive whose asset
-// filename bakes in the version, so the asset is matched by a
-// platform-specific suffix (FindAssetBySuffix) rather than the exact name
-// InstallRelease/InstallReleaseZipEntry look for.
+// filename bakes in the version, so the asset is matched by suffix
+// (FindAssetBySuffix) rather than exact name.
 func InstallReleaseTarGzEntry(owner, repo, version, assetSuffix, entryName, destPath string) (installedVersion string, err error) {
-	// force=false: reuse whatever the Kernels page's own listing already
-	// cached rather than spending another GitHub API call just because an
-	// install happens to be starting right now.
+	// force=false: reuse the cached listing rather than spending another
+	// GitHub API call just because an install is starting.
 	releases, err := ListReleases(owner, repo, 100, false)
 	if err != nil {
 		return "", err

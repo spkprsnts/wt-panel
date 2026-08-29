@@ -41,18 +41,13 @@ type Config struct {
 	// doesn't set the field itself. Turnable's pub_key/priv_key are NOT
 	// here — they're generated fresh per profile via 'turnable config
 	// keygen' (see provisioner/turnable), since there's no reason for two
-	// independent profile processes to share key material. PlatformID and
-	// RouteSocket used to be configurable the same way, but the form
-	// (profile-form.tsx) always sends an explicit value for both — a
-	// single-option "vk.com" platform select, "udp" as the route socket's
-	// own initial state — so an env-var default could only ever matter for
-	// a profile created by calling the API directly, bypassing the panel
-	// UI entirely; not a supported path, so provisioner/turnable now just
-	// hardcodes both instead. TurnableDefaultRouteHost is just the host
-	// part — there's no sensible default port (it depends entirely on
-	// which local service, WireGuard vs VLESS vs something else, the
-	// operator wants this profile to reach), so the route's port is always
-	// required on the profile itself.
+	// profile processes to share key material. PlatformID/RouteSocket used
+	// to be configurable the same way, but the form always sends an
+	// explicit value for both now, so provisioner/turnable just hardcodes
+	// them. TurnableDefaultRouteHost is just the host part — there's no
+	// sensible default port (depends entirely on which local service the
+	// operator wants this profile to reach), so the port is always required
+	// on the profile itself.
 	TurnableDefaultRouteHost string // e.g. 127.0.0.1
 
 	// Same reasoning as Turnable's route: only the host has a sane default.
@@ -69,15 +64,13 @@ type Config struct {
 	// WebDAVPublicHost overrides the host address baked into a selfhosted
 	// WebDAV profile's client URI when it should differ from PublicIP (a
 	// custom domain, say) — see ResolvedWebDAVPublicHost. Same two-tier
-	// pattern as PublicIP itself: WTP_WEBDAV_PUBLIC_HOST only seeds
+	// pattern as PublicIP: WTP_WEBDAV_PUBLIC_HOST only seeds
 	// PanelSettings.WebDAVPublicHost on first run (db.seedPanelSettings);
-	// once that DB row has a value, main.go's own override of this field at
-	// startup makes it authoritative, and it's editable from then on via the
-	// Settings page like PublicIP is. The scheme (webdav/webdavs) has no
-	// panel-wide equivalent: each profile derives it from whether it has its
-	// own TLS cert/key configured (see provisioner/webdav's
-	// buildSelfhostedURI) — there's no reverse-proxy TLS-termination
-	// deployment model here to have a global default for.
+	// once that DB row has a value, main.go's startup override makes it
+	// authoritative and editable from the Settings page. The scheme (webdav/
+	// webdavs) has no panel-wide equivalent — each profile derives it from
+	// whether it has its own TLS cert/key (see provisioner/webdav's
+	// buildSelfhostedURI).
 	WebDAVPublicHost string
 }
 

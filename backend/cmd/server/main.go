@@ -122,26 +122,22 @@ func main() {
 	addr, handler := applyPanelSettings(cfg.ListenAddr, &panelSettings, router)
 	httpServer := &http.Server{Addr: addr, Handler: handler}
 
-	// Catch SIGINT/SIGTERM (Ctrl+C, `systemctl stop`'s default signal) so
-	// we get a chance to stop every kernel process gracefully (SIGTERM,
-	// letting each kernel binary run its own shutdown logic) before this
-	// process actually exits. Without this, os/signal's default
-	// disposition for these terminates the process immediately — no
-	// different from a crash — and every kernel process would only be
-	// saved by the OS-level Pdeathsig fallback, which is a
-	// SIGKILL with no chance for the kernel binary to clean up after itself.
+	// Catch SIGINT/SIGTERM (Ctrl+C, `systemctl stop`'s default signal) so we
+	// get a chance to stop every kernel process gracefully (SIGTERM, letting
+	// each kernel binary run its own shutdown logic) before exiting.
+	// Otherwise the default disposition terminates immediately, no different
+	// from a crash, and kernel processes are only saved by the OS-level
+	// Pdeathsig fallback — a SIGKILL with no chance to clean up.
 	signalCtx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stopSignals()
 
-	// Validating the cert/key pair up front — rather than just calling
+	// Validating the cert/key pair up front — rather than calling
 	// ListenAndServeTLS and inspecting whatever error comes back — lets a
-	// bad path/unreadable/corrupt cert fall back to plain HTTP with a
-	// warning instead of taking the whole panel down. Before this, a wrong
-	// TLSCertFile/TLSKeyFile (e.g. from install.sh's SSL setup writing a
-	// bad path — see setup_ssl) hit log.Fatalf on every single restart:
-	// the service crash-looped indefinitely with no working HTTP listener
-	// at all, so there was no way to reach the Settings page to fix it
-	// short of editing the database directly.
+	// bad/unreadable/corrupt cert fall back to plain HTTP with a warning
+	// instead of taking the whole panel down. Before this, a wrong
+	// TLSCertFile/TLSKeyFile hit log.Fatalf on every restart: the service
+	// crash-looped with no working listener at all, and no way to reach the
+	// Settings page to fix it short of editing the database directly.
 	useTLS := false
 	if panelSettings.TLSCertFile != "" && panelSettings.TLSKeyFile != "" {
 		if _, err := tls.LoadX509KeyPair(panelSettings.TLSCertFile, panelSettings.TLSKeyFile); err != nil {
@@ -211,30 +207,24 @@ func main() {
 }
 
 // relaunchSelf re-execs the running binary with the same args and
-// environment, in place — same PID, not a spawned child — so main() gets to
-// re-read PanelSettings (and everything else config.Load() reads from the
-// environment) from scratch, which is what makes the Settings page's
-// restart button an actual restart instead of just a "changes need a
-// restart" note.
+// environment, in place — same PID, not a spawned child — so main() re-reads
+// PanelSettings (and everything else config.Load() reads from the
+// environment) from scratch, making the Settings page's restart button an
+// actual restart.
 //
-// This used to spawn a detached child via exec.Command(...).Start() and let
-// this process return/exit(0) afterward — which looked fine standalone, but
-// under systemd (Type=simple, Restart=on-failure, no User=) it broke the
-// service outright: systemd tracks the ORIGINAL pid from ExecStart, and a
-// clean exit(0) is not a "failure", so Restart=on-failure never fires —
-// systemd just marks the unit "inactive (dead)" while the new child runs
-// completely unsupervised outside it, unable to be tracked, restarted, or
-// stopped normally again. Confirmed on a real VPS: every click of
-// "Restart panel" left the unit dead. syscall.Exec instead replaces
-// this process's own image without changing its pid at all, so systemd
-// never sees anything happen — from its point of view the exact same
-// process just keeps running, now executing the fresh binary.
+// A prior version spawned a detached child and let this process exit(0)
+// instead — that broke systemd (Type=simple, Restart=on-failure): systemd
+// tracks the ORIGINAL pid, a clean exit(0) isn't a "failure" so
+// Restart=on-failure never fires, and the unit went "inactive (dead)" while
+// the new child ran unsupervised outside it. Confirmed on a real VPS: every
+// "Restart panel" click left the unit dead. syscall.Exec instead replaces
+// this process's own image without changing its pid, so systemd sees the
+// same process keep running, now executing the fresh binary.
 //
 // Caveat: under `go run`, os.Executable() resolves to the transient binary
-// the go tool builds into a temp dir for that invocation — relaunching it
-// works, but only while go run's own temp dir is still alive, so this is
-// only reliable for the real production case (a compiled binary launched
-// directly), which is what it's meant for.
+// in go's temp build dir — relaunching only works while that temp dir is
+// still alive, so this is reliable only for a compiled binary launched
+// directly (the real production case).
 func relaunchSelf() error {
 	exe, err := os.Executable()
 	if err != nil {

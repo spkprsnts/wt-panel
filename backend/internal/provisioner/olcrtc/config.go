@@ -22,13 +22,11 @@ type profileCoreConfig struct {
 	DNS       string `json:"dns,omitempty"`        // e.g. "1.1.1.1:53"
 	// ProxyUpstream is an optional outbound SOCKS5 proxy for olcrtc's own
 	// egress (docs/settings.md upstream, server-only "socks:" block) — same
-	// "socks5://[user:pass@]host:port" shape and same reasoning as webdav's
-	// own ProxyUpstream (provisioner/webdav/config.go): so the kernel's
-	// traffic to the video-call provider goes through a tunnel/VPN instead
-	// of the VPS's own IP directly. Stored here as one URL string (matching
-	// the operator-facing field everywhere else in this panel); split into
-	// olcrtc's own separate proxy_addr/proxy_port/proxy_user/proxy_pass
-	// YAML keys only at writeYAML time — see parseSocksProxy.
+	// "socks5://[user:pass@]host:port" shape as webdav's own ProxyUpstream,
+	// so the kernel's traffic to the video-call provider can go through a
+	// tunnel/VPN instead of the VPS's own IP. Split into olcrtc's separate
+	// proxy_addr/proxy_port/proxy_user/proxy_pass YAML keys only at
+	// writeYAML time — see parseSocksProxy.
 	ProxyUpstream string `json:"proxy_upstream,omitempty"`
 
 	// AuthToken is a pre-issued account token for provider "wbstream" only
@@ -40,10 +38,8 @@ type profileCoreConfig struct {
 	// Liveness/MaxSessionDuration are optional advanced connection-health
 	// knobs (docs/settings.md upstream, "liveness:"/"lifecycle:" blocks) —
 	// same "empty means let olcrtc apply its own default" convention as
-	// webdav's own tuning fields (provisioner/webdav/config.go): every
-	// sub-field is only ever written to the YAML if the operator actually
-	// set it, so an untouched field falls back to whatever olcrtc's own
-	// built-in default for it is, not a value this panel silently pins.
+	// webdav's tuning fields: only written to the YAML if the operator
+	// actually set them.
 	Liveness           *livenessConfig `json:"liveness,omitempty"`
 	MaxSessionDuration string          `json:"max_session_duration,omitempty"` // e.g. "6h"; empty = disabled (never auto-rebuilds)
 

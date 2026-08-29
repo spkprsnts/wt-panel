@@ -8,12 +8,9 @@ import (
 )
 
 // GenerateWireGuardKeypair returns a standard WireGuard keypair (base64,
-// 32 raw bytes each) — the same X25519 curve every real `wg genkey`/
-// `wg pubkey` and Xray-core's WireGuard inbound/outbound use. Xray-core
-// implements the WireGuard wire protocol itself (see
-// xtls.github.io/en/config/inbounds/wireguard.html); this just needs to
-// produce keys in the format its config expects, no external binary
-// involved (unlike Turnable's ML-KEM-768 keypair).
+// 32 raw bytes each) — the same X25519 curve `wg genkey`/`wg pubkey` and
+// Xray-core's WireGuard inbound/outbound use. No external binary involved
+// (unlike Turnable's ML-KEM-768 keypair).
 func GenerateWireGuardKeypair() (privateKey, publicKey string, err error) {
 	var priv [32]byte
 	if _, err := rand.Read(priv[:]); err != nil {
@@ -33,11 +30,10 @@ func GenerateWireGuardKeypair() (privateKey, publicKey string, err error) {
 }
 
 // GenerateRealityKeypair returns an X25519 keypair encoded the way
-// xray-core's own `xray x25519` tool and Reality's serverNames/privateKey/
-// shortIds settings expect: raw URL-safe base64, no padding — the same 32
-// raw bytes as GenerateWireGuardKeypair, just a different text encoding, so
-// the two never round-trip as interchangeable strings even though the
-// underlying curve is identical.
+// xray-core's `xray x25519` tool and Reality's privateKey/shortIds settings
+// expect: raw URL-safe base64, no padding — same curve as
+// GenerateWireGuardKeypair, different text encoding, so the two never
+// round-trip as interchangeable strings.
 func GenerateRealityKeypair() (privateKey, publicKey string, err error) {
 	var priv [32]byte
 	if _, err := rand.Read(priv[:]); err != nil {

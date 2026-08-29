@@ -237,12 +237,11 @@ func (p *Provisioner) writeAndStart(profile *models.Profile, cc profileCoreConfi
 }
 
 // parseSocksProxy splits a "socks5://[user[:pass]@]host:port" upstream URL
-// (the one operator-facing field, matching webdav's own ProxyUpstream) into
-// olcrtc's own separate proxy_addr/proxy_port/proxy_user/proxy_pass YAML
-// keys (see socksYAML) — olcrtc's config schema has no single "upstream
-// URL" field the way webdav-tunnel's -proxy flag does. Returns nil, nil for
-// an empty upstream (no proxy configured, olcrtc reaches the network
-// directly), so callers can assign the result straight to yamlConfig.Socks.
+// into olcrtc's own separate proxy_addr/proxy_port/proxy_user/proxy_pass
+// YAML keys (see socksYAML) — olcrtc's config schema has no single
+// "upstream URL" field the way webdav-tunnel's -proxy flag does. Returns
+// nil, nil for an empty upstream, so callers can assign the result straight
+// to yamlConfig.Socks.
 func parseSocksProxy(upstream string) (*socksYAML, error) {
 	if upstream == "" {
 		return nil, nil
@@ -324,11 +323,10 @@ func writeYAML(path string, cc profileCoreConfig) error {
 }
 
 // buildURI follows the compact convention in docs/uri.md:
-// olcrtc://<Provider>?<Transport>@<RoomID>#<EncryptionKey>$<MIMO>
-// Transport parameter payloads (vp8/sei/video tuning) are omitted from the
-// URI itself — WireTurn's client re-derives its own defaults, and ours are
-// only meaningful server-side. See docs/uri.md for the full payload grammar
-// if that ever needs to change.
+// olcrtc://<Provider>?<Transport>@<RoomID>#<EncryptionKey>$<Name>
+// Transport parameter payloads (vp8/sei/video tuning) are omitted — the
+// WireTurn client re-derives its own defaults, and ours are only
+// meaningful server-side.
 func buildURI(cc profileCoreConfig, name string) string {
 	return fmt.Sprintf("olcrtc://%s?%s@%s#%s$%s",
 		cc.Provider, cc.Transport, cc.RoomID, cc.CryptoKey, name)

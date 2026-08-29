@@ -17,19 +17,18 @@ import (
 // downloadPanelBackup hands the operator a complete, restorable snapshot of
 // the panel's entire state — every client/profile, xray inbound/client,
 // call room, subscription token, and the panel's own settings/admin
-// account — as a single sqlite file, mirroring 3x-ui's own "Backup" button.
-// The per-client/per-profile JSON exports elsewhere (exportClientProfiles,
-// exportProfile) only ever cover WireTurn-side data for one client; this is
-// the "reinstalling on a new VPS, don't lose anything" counterpart.
+// account — as a single sqlite file. The per-client/per-profile JSON
+// exports elsewhere (exportClientProfiles, exportProfile) only ever cover
+// WireTurn-side data for one client; this is the "reinstalling on a new
+// VPS, don't lose anything" counterpart.
 //
-// VACUUM INTO (not a plain file copy) matters specifically because this
-// runs against the SAME live database a request could be writing to right
-// now: SQLite has no atomic-snapshot guarantee for a raw os.ReadFile of the
-// main .db file alone (a concurrent writer could leave it mid-write, and
-// depending on journal mode the real current state can be split across the
-// main file and a separate -wal/-journal file) — VACUUM INTO is SQLite's
-// own built-in way to produce a single, complete, consistent snapshot file
-// from a live connection, taking whatever internal locks it needs itself.
+// VACUUM INTO (not a plain file copy) matters because this runs against the
+// SAME live database a request could be writing to right now: a raw
+// os.ReadFile of the main .db file has no atomic-snapshot guarantee (a
+// concurrent writer could leave it mid-write, or the real state could be
+// split across the main file and a -wal/-journal file). VACUUM INTO is
+// SQLite's own way to produce one consistent snapshot from a live
+// connection, taking whatever locks it needs itself.
 func (s *Server) downloadPanelBackup(c *gin.Context) {
 	tmpFile, err := os.CreateTemp("", "wtpanel-backup-*.db")
 	if err != nil {
@@ -79,20 +78,15 @@ const sqliteHeaderMagic = "SQLite format 3\x00"
 
 // restorePanelBackup replaces the panel's entire database with an uploaded
 // backup (see downloadPanelBackup) and restarts the panel to pick it up —
-// same "write the new file, then relaunch the process" pattern updatePanel
-// already uses for the binary itself (see that handler's own doc comment):
-// writing to a ".new" path first and only renaming it over the real path
-// once the upload is fully validated means a failed/interrupted upload
-// never corrupts the live database out from under the still-running
-// process, and the swap only actually takes effect for the fresh process
-// relaunchSelf starts right after.
+// same "write to a '.new' path, then relaunch" pattern updatePanel uses for
+// the binary: a failed/interrupted upload never corrupts the live database,
+// and the swap only takes effect for the fresh process relaunchSelf starts.
 //
-// This is maximally destructive by design — every client, profile, and
-// xray inbound, plus the admin account itself, all get replaced wholesale
-// — so the frontend is expected to have already gotten an explicit, scary
-// confirmation before ever calling this. PanelSettings is the one
-// exception: see prepareRestoredDB for why THIS machine's own copy wins
-// over whatever the backup says.
+// Maximally destructive by design — every client, profile, and xray
+// inbound, plus the admin account itself, all get replaced wholesale — so
+// the frontend is expected to have already gotten an explicit confirmation
+// before calling this. PanelSettings is the one exception: see
+// prepareRestoredDB for why THIS machine's own copy wins over the backup's.
 func (s *Server) restorePanelBackup(c *gin.Context) {
 	// restoreNetworkSettings opts INTO the backup's own ListenIP/
 	// ListenDomain/TLSCertFile/etc — the operator has to explicitly ask for
@@ -188,17 +182,14 @@ func (s *Server) restorePanelBackup(c *gin.Context) {
 // (id 1) with it instead of whatever the backup itself contains.
 //
 // ListenIP/ListenPort/ListenDomain/BasePath/TLSCertFile/TLSKeyFile/
-// PublicIP/WebDAVPublicHost all describe one specific machine — which
-// interface it binds, the file paths of a certificate that only exists on
-// THAT disk, the IP that box was actually detected/configured to have —
-// so restorePanelBackup defaults to keepSettings = this machine's own
-// current row: the realistic restore workflow is "install.sh already set
-// THIS box's IP/domain/SSL up, now bring back the data (clients, profiles,
-// xray config, the admin account) from the old one," not to also drag the
-// old box's now-wrong network identity along for the ride. keepSettings is
-// nil only when the operator explicitly opted into restoring the backup's
-// own network settings too (restorePanelBackup's restoreNetworkSettings
-// flag) — e.g. restoring onto the very same machine the backup came from.
+// PublicIP/WebDAVPublicHost all describe one specific machine (which
+// interface it binds, a cert path that only exists on that disk, ...), so
+// restorePanelBackup defaults to keepSettings = this machine's own current
+// row: the realistic workflow is "install.sh already set THIS box's IP/
+// domain/SSL up, now bring back the data from the old one," not drag the
+// old box's now-wrong network identity along too. keepSettings is nil only
+// when the operator explicitly opts into restoring the backup's own network
+// settings (restorePanelBackup's restoreNetworkSettings flag).
 func prepareRestoredDB(path string, keepSettings *models.PanelSettings) error {
 	restored, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
 	if err != nil {

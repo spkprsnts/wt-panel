@@ -46,23 +46,19 @@ function StatusLine({ status }: { status?: KernelStatus }) {
   )
 }
 
-// useKernelJob centralizes job tracking for every kernel (Turnable/
-// FreeTurn/Xray-core's simple release installs, and olcRTC's build) so all
-// four behave identically: on mount it asks the backend "what's the latest
-// job for this kernel" (see api.getKernelJob) instead of starting from a
-// blank slate, which is what lets an in-progress install/build keep
-// showing "running" — and keep polling — across a full page reload,
-// rather than the button just silently going back to "Install" while
-// the download/build actually continues server-side regardless.
+// Centralizes job tracking for every kernel so all behave identically: on
+// mount it asks the backend for the latest job (api.getKernelJob) instead
+// of starting blank, so an in-progress install/build keeps showing
+// "running" — and polling — across a page reload instead of the button
+// silently resetting while the work continues server-side regardless.
 function useKernelJob(kernelName: string, onInstalled: () => void) {
   const t = useT()
   const [job, setJob] = React.useState<BuildJob | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const pollRef = React.useRef<number | null>(null)
-  // Set once start() kicks off a fresh job — guards the mount-time "what's
-  // already running" fetch below from overwriting it with a stale snapshot
-  // if that fetch resolves late, after the operator already clicked
-  // Install/Build.
+  // Set once start() kicks off a fresh job — guards the mount-time fetch
+  // below from overwriting it with a stale snapshot if that fetch resolves
+  // late, after the operator already clicked Install/Build.
   const startedRef = React.useRef(false)
 
   const poll = React.useCallback(
@@ -121,12 +117,10 @@ function useKernelJob(kernelName: string, onInstalled: () => void) {
   return { job, error, start, running: job?.status === "running" }
 }
 
-// RefreshButton bypasses the backend's releases/commits cache (see
-// kernels.ListReleases/ListCommits — 10 min TTL) for whichever list it sits
-// next to. Most requests to GitHub come from this list being re-fetched on
-// every page load, not from actually installing anything, so serving that
-// from cache — with this as the manual escape hatch — is what keeps the
-// panel usable once GitHub's rate limit has been hit.
+// Bypasses the backend's releases/commits cache (kernels.ListReleases/
+// ListCommits — 10 min TTL) as a manual escape hatch. Serving the list from
+// cache by default is what keeps the panel usable once GitHub's rate limit
+// has been hit.
 function RefreshButton({ refreshing, onClick }: { refreshing: boolean; onClick: () => void }) {
   const t = useT()
   return (
@@ -169,11 +163,10 @@ function JobLog({ job }: { job: BuildJob | null }) {
   )
 }
 
-// PickerSelect is the "pick one item from a refreshable list" shape shared
-// by ReleaseKernelCard's release picker and OlcrtcKernelCard's commit
-// picker — label+RefreshButton row, loading/empty states, and a Select
-// whose trigger label and item list both derive from the same itemLabel so
-// they can't drift apart (same reasoning as profile-form.tsx's labelFor).
+// The "pick one item from a refreshable list" shape shared by
+// ReleaseKernelCard's release picker and OlcrtcKernelCard's commit picker —
+// trigger label and item list both derive from the same itemLabel so they
+// can't drift apart (same reasoning as profile-form.tsx's labelFor).
 function PickerSelect<T>({
   label,
   items,

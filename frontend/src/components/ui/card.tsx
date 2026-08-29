@@ -10,14 +10,12 @@ const cardVariants = cva("flex flex-col gap-6 rounded-md py-6", {
       outlined: "bg-surface border border-outline-variant",
       elevated: "bg-surface-container-low shadow-elevation-1",
       // Not one of the three M3 card types — every call site here uses
-      // Card as a passive page-section container (settings groups,
-      // dashboard stat blocks, the login shell), not a raised/bordered
-      // unit. Tone alone (surface against the page's surfaceContainerLow
-      // background) separates it, matching the app's borders-only-when-
-      // interactive convention (see app-sidebar.tsx); filled's
-      // surface-container-highest is also identical to a filled text
-      // field's own container color and would swallow a field placed
-      // inside it.
+      // Card as a passive page-section container, not a raised/bordered
+      // unit. Tone alone separates it from the page background, matching
+      // the app's borders-only-when-interactive convention (see
+      // app-sidebar.tsx); filled's surface-container-highest would also
+      // match a filled text field's own container color and swallow a
+      // field placed inside it.
       plain: "bg-surface",
     },
   },

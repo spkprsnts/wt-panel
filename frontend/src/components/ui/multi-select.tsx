@@ -12,22 +12,17 @@ export interface MultiSelectOption {
   label: string
 }
 
-// MultiSelect is a fixed-option combobox with removable tag chips in the
-// trigger — matches 3x-ui's ALPN picker (antd Select mode="multiple").
-// Base UI has no multi-select primitive, so this is Popover + a plain
-// checkable list rather than an extension of ./select.tsx (that one wraps
-// @base-ui/react/select, which is single-value by design). No M3 spec
-// covers this control either; the trigger borrows Input's filled-field
-// visual language and the popup matches select.tsx/dropdown-menu.tsx's
-// M3 menu styling, with M3 input chips for the selected tags.
+// A fixed-option combobox with removable tag chips in the trigger — matches
+// 3x-ui's ALPN picker (antd Select mode="multiple"). Base UI has no
+// multi-select primitive, so this is Popover + a plain checkable list
+// rather than an extension of ./select.tsx (single-value by design). No M3
+// spec covers this control; the trigger borrows Input's filled-field style
+// and the popup matches select.tsx/dropdown-menu.tsx's M3 menu styling.
 //
-// allowCustom (default true) additionally shows a text input at the top of
-// the popover so a value that isn't in `options` can be added too — the
-// list alone used to be the only way in (e.g. ALPN could only ever be one
-// of three presets), which doesn't fit every use of this component: a
-// profile's call ids, for one, are arbitrary strings the operator pastes
-// in, with `options` only offering ones already saved to the room journal
-// as shortcuts.
+// allowCustom (default true) shows a text input at the top of the popover
+// so a value outside `options` can be added too — needed for fields like a
+// profile's call ids, which are arbitrary pasted strings with `options`
+// only offering ones already saved as shortcuts.
 function MultiSelect({
   options,
   value,
@@ -45,13 +40,11 @@ function MultiSelect({
   placeholder?: string
   className?: string
   allowCustom?: boolean
-  // Same reasoning as Combobox's noMatchesText: a generic ui/ primitive
-  // doesn't import the app's own i18n hook, so this one bit of built-in
-  // copy is a plain prop instead.
+  // Same reasoning as Combobox's noMatchesText: no i18n hook in a generic
+  // ui/ primitive, so this is a plain prop instead.
   customValuePlaceholder?: string
   // Accessible names for the icon-only chip-remove and add-custom-value
-  // buttons — neither has visible text, so without these a screen reader
-  // announces an unlabeled button.
+  // buttons, which have no visible text.
   removeOptionLabel?: (label: string) => string
   addCustomValueLabel?: string
 }) {
@@ -70,12 +63,10 @@ function MultiSelect({
 
   return (
     <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
-      {/* nativeButton=false + a <div> render: the chip pills below each need
-          their own real, independently focusable remove <button> — nesting
-          one inside a real <button> (the previous render) is invalid HTML
-          (no interactive descendants allowed) and made the remove control
-          unreachable by keyboard/AT. Base UI still gives this div the same
-          role="button"/tabIndex/keyboard-activation behavior. */}
+      {/* nativeButton=false + a <div> render: the chip remove <button>s need
+          to be independently focusable, and nesting a <button> inside a
+          <button> is invalid HTML and unreachable by keyboard/AT. Base UI
+          still gives the div the same role/tabIndex/keyboard behavior. */}
       <PopoverPrimitive.Trigger
         nativeButton={false}
         render={

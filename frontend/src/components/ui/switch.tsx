@@ -30,20 +30,13 @@ function Switch({ className, checked, ...props }: SwitchPrimitive.Root.Props) {
         render={
           <motion.span
             // Deliberately not `layout` — that mode animates by comparing
-            // getBoundingClientRect() snapshots across renders (FLIP), so
-            // it can't tell "this switch's own checked state changed" apart
-            // from "this switch's ancestor moved for an unrelated reason"
-            // (fields appearing/disappearing elsewhere reflow the row).
-            // Both look like "the rect changed" to it, so it springs the
-            // thumb to catch up either way — confirmed still happening
-            // even with layoutDependency scoping (which only gates whether
-            // the *animation* starts, not FLIP's own remeasuring, so a
-            // concurrent scroll/reflow during a genuine checked-change
-            // could still measure a stale rect and animate to a leftover
-            // position for a frame). Animating literal `x`/`width`/`height`
-            // values instead never measures the page at all — the browser's
-            // normal reflow moves the element the instant its ancestor
-            // does, with nothing for Motion to "correct".
+            // getBoundingClientRect() snapshots (FLIP), so it can't tell a
+            // real checked-change apart from an ancestor reflowing for an
+            // unrelated reason (e.g. a field appearing elsewhere) and
+            // springs the thumb to "catch up" either way, even with
+            // layoutDependency scoping. Animating literal `x`/`width`/
+            // `height` never measures the page, so there's nothing to
+            // spuriously correct.
             animate={{
               x: checked ? TRACK_CONTENT_WIDTH - THUMB_CHECKED_SIZE : 0,
               width: checked ? THUMB_CHECKED_SIZE : THUMB_UNCHECKED_SIZE,
@@ -62,14 +55,11 @@ function Switch({ className, checked, ...props }: SwitchPrimitive.Root.Props) {
         className="pointer-events-none relative rounded-full"
       >
         <span
-          // The actual painted circle, and the momentary "pressed" grow
-          // (AndroidX Switch's pressed-handle-size, toned down from its
-          // literal 28px here — a flat 28px reads as a much bigger jump off
-          // the 16px unchecked resting size than off the 24px checked one)
-          // while the track is held — done as a `scale` transform instead
-          // of a real width/height change, since transform never touches
-          // layout, so it can't fight with (or get overridden by) the
-          // motion-owned box above the way an actual size change did.
+          // The painted circle, plus the momentary "pressed" grow while
+          // held (AndroidX Switch's pressed-handle-size, toned down since a
+          // flat 28px reads as a bigger jump off the 16px unchecked size
+          // than off the 24px checked one). Uses `scale` rather than a real
+          // width/height change so it can't fight the motion-owned box above.
           className={cn(
             "absolute inset-0 rounded-full transition-transform duration-150",
             checked ? "bg-on-primary group-active:scale-[1.16667]" : "bg-outline group-active:scale-125"

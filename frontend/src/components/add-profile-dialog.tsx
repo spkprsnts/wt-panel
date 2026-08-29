@@ -27,11 +27,9 @@ export function AddProfileDialog({
   const t = useT()
   const [open, setOpen] = React.useState(false)
   // Remounting the form on every open (via key) is simpler than a manual
-  // resetForm() — a fresh key means fresh initial state, no leftover
-  // values from a previous open lingering in ProfileForm's own state. Bumped
-  // on open (not just after a successful submit) so closing without
+  // resetForm(). Bumped on open, not just after submit, so closing without
   // submitting and reopening doesn't resurrect the abandoned draft — mirrors
-  // EditProfileDialog's openCount for the same reason.
+  // EditProfileDialog's openCount.
   const [formKey, setFormKey] = React.useState(0)
 
   function handleOpenChange(next: boolean) {

@@ -1,8 +1,6 @@
-// Theme is a plain "light"/"dark" choice, not a third "system" option —
-// keeps the toggle a simple two-state switch. The *first* visit (nothing
-// saved yet) still respects the OS preference as a starting point; every
-// visit after an explicit toggle uses whatever was saved, regardless of
-// what the OS preference does later.
+// A plain "light"/"dark" choice, no third "system" option. The first visit
+// (nothing saved) respects the OS preference as a starting point; every
+// visit after an explicit toggle uses whatever was saved instead.
 export type Theme = "light" | "dark"
 
 const THEME_KEY = "wtpanel_theme"
@@ -24,9 +22,9 @@ export function getEffectiveTheme(): Theme {
   return getStoredTheme() ?? (systemPrefersDark() ? "dark" : "light")
 }
 
-// applyTheme only touches the DOM class — same mechanism the inline
-// bootstrap script in index.html uses before React even mounts, so the
-// page never flashes the wrong theme on load.
+// Only touches the DOM class — same mechanism the inline bootstrap script
+// in index.html uses before React mounts, so the page never flashes the
+// wrong theme on load.
 export function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle("dark", theme === "dark")
 }

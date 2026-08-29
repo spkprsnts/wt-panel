@@ -34,14 +34,10 @@ type Pending =
   | { kind: "confirm"; message: string; options: ConfirmOptions; resolve: (value: boolean) => void }
   | { kind: "alert"; message: string; options: AlertOptions; resolve: () => void }
 
-// DialogPromptProvider is the app-wide replacement for window.confirm/alert
-// — those block the whole tab (can't be styled, look out of place next to
-// the rest of the UI, and some browsers let a page suppress them entirely
-// after a few calls) — mounted once in App.tsx, this renders a single
-// shared Dialog instead. useDialogPrompt()'s confirm/alert are drop-in
-// async replacements: `if (!confirm(msg)) return` becomes
-// `if (!(await confirm(msg))) return` at each call site, everything else
-// about the calling code stays the same.
+// App-wide replacement for window.confirm/alert, which block the whole tab
+// and can't be styled. Mounted once in App.tsx. useDialogPrompt()'s
+// confirm/alert are drop-in async replacements: `if (!confirm(msg)) return`
+// becomes `if (!(await confirm(msg))) return`.
 export function DialogPromptProvider({ children }: { children: React.ReactNode }) {
   const t = useT()
   const [pending, setPending] = React.useState<Pending | null>(null)

@@ -15,32 +15,23 @@ import (
 )
 
 // runSetting implements `wt-panel setting ...` — an offline counterpart to
-// the Settings page's API (getAccount/changePassword/getPanelSettings/
-// updatePanelSettings) that opens the same sqlite file directly via
+// the Settings page's API that opens the same sqlite file directly via
 // db.Open, with no HTTP server, provisioner.Registry, or xray.Manager
-// started at all. install.sh's `wtp` menu is the intended caller: every
-// operation here (checking or changing the URI base path, resetting the
-// admin password, clearing a bad TLS config) is exactly what's needed to
-// recover a panel that won't even start — the API-based route this used to
-// require obviously can't help in that situation. The caller is
-// responsible for stopping the systemd service first (these fields are
-// startup-only/restart-required regardless — see PanelSettings' own doc
-// comment — and stopping avoids any concurrent-write risk with a live
-// server process holding the same sqlite file open).
+// started. install.sh's `wtp` menu is the intended caller: recovering a
+// panel that won't even start, where the API-based route can't help. The
+// caller must stop the systemd service first, to avoid a concurrent-write
+// race with a live server process holding the same sqlite file open.
 func runSetting(args []string) {
 	fs := flag.NewFlagSet("setting", flag.ExitOnError)
 	show := fs.Bool("show", false, "print current settings and exit")
 	password := fs.String("password", "", "set the admin password (min 8 characters)")
 	webBasePath := fs.String("webBasePath", "", "set the panel's URI base path (must start and end with /)")
 	clearTLS := fs.Bool("clearTls", false, "clear the configured TLS cert/key/domain, reverting to plain HTTP")
-	// clearTOTP is the break-glass recovery for 2FA specifically: unlike a
-	// forgotten password (recoverable via -password above), a lost/broken
-	// authenticator app has no in-app recovery path at all — disableTotp
-	// itself requires a valid code, so an admin locked out by 2FA (wrong
-	// device time, a botched authenticator import, lost phone, ...) can't
-	// self-service through the API or UI even once. This is the same
-	// "stop the service, fix the DB directly" escape hatch clearTls already
-	// is for a bad TLS config.
+	// clearTOTP is the break-glass recovery for 2FA: disableTotp itself
+	// requires a valid code, so an admin locked out (wrong device time, a
+	// botched import, lost phone) can't self-service through the API or UI
+	// at all — same "stop the service, fix the DB directly" escape hatch as
+	// clearTls.
 	clearTOTP := fs.Bool("clearTotp", false, "disable 2FA for the admin account (use when locked out and unable to enter a valid code)")
 	fs.Parse(args)
 

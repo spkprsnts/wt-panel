@@ -4,8 +4,8 @@
 // Each profile gets its own dedicated process and own port, same as the
 // other three kernels, so editing/removing one profile never restarts
 // anyone else's. Client-id allowlisting (clients.json) is deliberately not
-// used — see the doc comment on profileCoreConfig — so there's no CLI
-// bookkeeping here at all, just process args.
+// used — see profileCoreConfig's doc comment — so there's no CLI
+// bookkeeping here, just process args.
 package freeturn
 
 import (
@@ -247,9 +247,8 @@ func (p *Provisioner) ensureProcess(profile *models.Profile, cc profileCoreConfi
 	if cc.ObfProfile != "none" && cc.ObfTiming != "" {
 		args = append(args, "-obf-timing", cc.ObfTiming)
 	}
-	// -kcp-* flags tune the ARQ layer -mode tcp uses to carry a TCP stream
-	// inside TURN's UDP-only relay — upstream rejects them outright in
-	// -mode udp, so they're only ever passed alongside it.
+	// upstream rejects -kcp-* flags outright in -mode udp, so only pass
+	// them alongside -mode tcp.
 	if cc.Mode == "tcp" && cc.KCP != nil {
 		k := cc.KCP
 		args = append(args,

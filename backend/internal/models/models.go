@@ -172,13 +172,8 @@ type CallRoom struct {
 // assemble the final config.json by concatenating these almost as-is.
 // Port is a real column rather than buried in Settings JSON because other
 // parts of the panel (profile route/-connect auto-fill) need to read it
-// without parsing per-protocol JSON.
-//
-// This is deliberately just a config record for now: no xray-core process
-// is actually run or reconfigured from it yet (see README "Статус
-// реализации" for the planned follow-up), same pattern as everything else
-// here started as a config record before the matching process-management
-// code existed.
+// without parsing per-protocol JSON. Rows here are turned into a real
+// xray-core process by internal/xray.Manager (see reloadXray).
 type XrayInbound struct {
 	gorm.Model
 	Protocol string `gorm:"not null"` // "vless", "trojan", "hysteria2", "wireguard"
@@ -261,11 +256,11 @@ type PanelSettings struct {
 	WebDAVPublicHost string
 }
 
-// KernelInstall records the currently installed binary for one kernel —
-// one row per CoreType (Turnable, FreeTurn, olcRTC). Turnable/FreeTurn are
-// installed from a GitHub release (Version = release tag); olcRTC has no
-// releases upstream, so it's built from source at a chosen commit
-// (Version = short/full commit SHA, Source = "build").
+// KernelInstall records the currently installed binary for one kernel — one
+// row per CoreType (Turnable, FreeTurn, Xray, WebDAV, olcRTC). All but
+// olcRTC are installed from a GitHub release (Version = release tag);
+// olcRTC has no releases upstream, so it's built from source at a chosen
+// commit (Version = short/full commit SHA, Source = "build").
 type KernelInstall struct {
 	gorm.Model
 	CoreType    CoreType `gorm:"uniqueIndex;not null"`

@@ -27,11 +27,8 @@ func decodeURI(t *testing.T, uri string) map[string]any {
 
 // TestBuildURILinksIsAString guards against a real interop bug: this field
 // used to be a Go []string, which marshals as a JSON array. WireTurn's own
-// parser (AppPreferences.kt's FreeTurnConfig.parse) reads "links" via
-// Gson's asString — handed a JSON array instead of a string, that throws,
-// parse()'s catch-all turns it into a null, and the *entire* URI (every
-// field, not just links) silently fails to import. See buildURI's own doc
-// comment on freeturnURI.Links.
+// parser reads "links" via Gson's asString — handed an array, it throws and
+// the *entire* URI silently fails to import. See freeturnURI.Links.
 func TestBuildURILinksIsAString(t *testing.T) {
 	cfg := &config.Config{PublicIP: "1.2.3.4"}
 	cc := profileCoreConfig{

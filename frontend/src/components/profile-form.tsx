@@ -32,48 +32,36 @@ const CORE_LABELS: Record<CoreType, TranslationKey> = {
   webdav: "profileForm.core.webdav",
 }
 
-// labelFor reads a Select's current value out of a value→label map — shared
-// by every enum-valued Select field below (connection type, proto,
-// encryption, route transport, obfProfile, ...) so the label shown in the
-// trigger is always derived from the exact same map used to render the
-// SelectItem list, instead of a separately hand-written ternary chain that
-// could drift out of sync with it.
+// Shared by every enum-valued Select below so the trigger's label always
+// matches the SelectItem list instead of a separate, driftable ternary.
 function labelFor<T extends string>(map: Record<T, string>, v: T | null): string | null {
   return v !== null && v in map ? map[v] : v
 }
 
-// Turnable/FreeTurn have no transport of their own that survives on the
-// public internet without help (raw TURN/relay traffic is trivially
-// fingerprinted) — the Xray overlay is how a profile actually gets real
-// protocol camouflage, so a brand-new profile of either core defaults to
-// having it on. olcRTC/WebDAV are SOCKS5-native and only use the overlay
-// for the optional Dual Route fallback, so they default to off.
+// Turnable/FreeTurn traffic is trivially fingerprinted without the Xray
+// overlay, so new profiles default it on. olcRTC/WebDAV are SOCKS5-native
+// and only use the overlay for the optional Dual Route fallback, so they
+// default to off.
 function defaultXrayEnabledForCore(ct: CoreType): boolean {
   return ct === "turnable" || ct === "freeturn"
 }
 
-// olcRTC's room id/URL hints reuse the same rooms.hint.* copy the Call
-// Rooms journal already shows per provider — same field, same providers
-// (minus "vk", which olcRTC never uses), so no reason to duplicate the text.
+// Reuses the same rooms.hint.* copy the Call Rooms journal shows per
+// provider (minus "vk", which olcRTC never uses).
 const OLCRTC_ROOM_ID_HINT_KEYS: Record<OlcrtcState["provider"], TranslationKey> = {
   jitsi: "rooms.hint.jitsi",
   telemost: "rooms.hint.telemost",
   wbstream: "rooms.hint.wbstream",
 }
 
-// useCallRooms feeds the "Call rooms" journal into whichever combobox
-// wants it as suggestions (Turnable's single call id, FreeTurn's multiple
-// links, olcRTC's room id) — one fetch per provider, shared instead of each
-// field re-fetching independently the way the old per-field RoomQuickPick
-// used to.
+// Feeds the "Call rooms" journal into whichever combobox wants it as
+// suggestions — one fetch per provider, shared across fields.
 function useCallRooms(provider: RoomProvider): CallRoom[] {
   const [rooms, setRooms] = React.useState<CallRoom[]>([])
   React.useEffect(() => {
     let cancelled = false
-    // Guards against a stale response landing after a newer one if the
-    // operator switches provider again before the first fetch resolves —
-    // without this, an out-of-order response can overwrite rooms with
-    // suggestions from a provider that's no longer selected.
+    // Guards against a stale response overwriting rooms if the operator
+    // switches provider again before the first fetch resolves.
     api
       .listCallRooms(provider)
       .then((res) => {
@@ -89,9 +77,8 @@ function useCallRooms(provider: RoomProvider): CallRoom[] {
   return rooms
 }
 
-// VkCallHint is shared by Turnable's (single) and FreeTurn's (multiple)
-// call-id fields — both ultimately need the same "where do I even get one
-// of these" instructions, since both take a bare VK Calls id, not a link.
+// Shared by Turnable's (single) and FreeTurn's (multiple) call-id fields —
+// both take a bare VK Calls id, not a link.
 function VkCallHint() {
   const t = useT()
   return (
@@ -200,11 +187,9 @@ const initialOlcrtc: OlcrtcState = {
 interface FreeturnState {
   links: string[]
   transport: "tcp" | "udp"
-  // "udp" (default) relays UDP datagrams transparently — WireGuard/
-  // AmneziaWG/Hysteria backends. "tcp" forwards a TCP stream (KCP+smux
-  // over the same UDP-only TURN relay) — Xray/sing-box/VLESS backends.
-  // Upstream free-turn-proxy dropped this entirely in v3.0.0 and brought
-  // it back in v3.2.0 alongside the KCP tuning fields below.
+  // "udp" relays UDP datagrams transparently (WireGuard/Hysteria backends).
+  // "tcp" forwards a TCP stream via KCP+smux over the same UDP-only TURN
+  // relay (Xray/sing-box/VLESS backends).
   mode: "udp" | "tcp"
   port: string
   connectHost: string
@@ -212,9 +197,8 @@ interface FreeturnState {
   obfProfile: "rtpopus" | "rtpopus2" | "rtpopus3" | "none"
   obfKey: string
   obfTiming: string
-  // KCP tunes the ARQ layer carrying that TCP stream — only sent when
-  // mode is "tcp" (upstream rejects these flags outright otherwise).
-  // Defaults below match upstream's own (docs/flags.md's "KCP" table).
+  // Tunes the ARQ layer carrying that TCP stream — only sent when mode is
+  // "tcp". Defaults match upstream's docs/flags.md "KCP" table.
   kcpNoDelay: string
   kcpInterval: string
   kcpResend: string
@@ -245,29 +229,21 @@ const initialFreeturn: FreeturnState = {
   kcpAckNoDelay: true,
 }
 
-// Login/Password are infra (auto-generated server-side on first save if
-// left blank, same as Turnable's pub_key/priv_key) — editable here in case
-// the operator wants specific credentials instead. TLSCertFile/TLSKeyFile
-// point webdav-tunnel's own built-in TLS straight at cert/key files already
-// on the server — no reverse proxy involved.
+// Login/Password are auto-generated server-side on first save if left
+// blank (same as Turnable's pub_key/priv_key), editable here to set
+// specific credentials instead.
 interface WebdavBackend {
   url: string
   login: string
   password: string
 }
 
-// connMode "selfhosted" runs webdav-tunnel's own embedded WebDAV (Login/
-// Password/TLS* below apply); "server" instead relays through one or more
-// already-existing external WebDAV endpoints (Backends) — see
-// docs/config.md upstream. The two are mutually exclusive per profile.
-// Tuning fields (docs/tuning.md upstream) — empty string / "0" means "let
-// webdav-tunnel apply its own default for this mode" rather than a real
-// value: selfhosted auto-applies a faster preset for poll-min/poll-max/
-// coalesce, server mode always uses the plain generic defaults unless told
-// otherwise. The two quick-fill preset buttons in the UI just populate
-// these same fields — there's no separate stored "preset" concept, so
-// hand-editing after picking one works exactly like typing values in from
-// scratch.
+// connMode "selfhosted" runs webdav-tunnel's own embedded WebDAV; "server"
+// relays through existing external WebDAV endpoints (Backends) instead —
+// see docs/config.md upstream. Tuning fields below: empty/"0" means "let
+// webdav-tunnel apply its own default" rather than a real value. The preset
+// buttons just populate these same fields — there's no separate stored
+// "preset" concept.
 interface WebdavTuning {
   pollMin: string
   pollMax: string
@@ -321,11 +297,9 @@ const initialWebdav: WebdavState = {
   tuning: emptyWebdavTuning,
 }
 
-// parseCoreConfig reverses buildCoreConfig — used to pre-fill the form when
-// editing an already-provisioned profile. Reads defensively (every field
-// optional-chained with a fallback to the matching initial* default) since
-// a profile provisioned by an older version of this form may be missing
-// fields a newer one added.
+// Reverses buildCoreConfig to pre-fill the form when editing a profile.
+// Reads defensively (fallback to the matching initial* default) since an
+// older-provisioned profile may be missing fields a newer version added.
 function parseCoreConfig(
   coreType: CoreType,
   raw: string
@@ -596,21 +570,16 @@ function buildCoreConfig(
   }
 }
 
-// inferRouteSocket figures out whether picking this inbound should set
-// Turnable's own route socket to "udp" or "tcp" — hysteria2/wireguard are
-// always UDP-based; vless/trojan depend on their configured stream
-// transport (mKCP rides on UDP, everything else here — raw tcp, ws, grpc,
-// http-upgrade, xhttp — rides on TCP). Best-effort: an unparsable
-// StreamSettings blob just falls back to tcp rather than guessing wrong in
-// the other, noisier direction (silently forcing udp).
+// hysteria2/wireguard are always UDP-based; vless/trojan depend on their
+// stream transport (mKCP rides on UDP, everything else rides on TCP). An
+// unparsable StreamSettings blob falls back to tcp rather than silently
+// forcing udp.
 function inferRouteSocket(inbound: XrayInbound): "udp" | "tcp" {
   if (inbound.Protocol === "hysteria2" || inbound.Protocol === "wireguard") return "udp"
   try {
     const stream = JSON.parse(inbound.StreamSettings || "{}") as { network?: string }
     if (stream.network === "kcp") return "udp"
-  } catch {
-    // fall through to the tcp default
-  }
+  } catch {}
   return "tcp"
 }
 
@@ -659,12 +628,10 @@ export const emptyProfileFormValues: ProfileFormInitialValues = {
   xrayMux: "",
 }
 
-// ProfileForm is the shared body used by both AddProfileDialog (mode
-// "create") and EditProfileDialog (mode "edit") — everything from the
-// profile name down to the xray overlay. In edit mode the core type can't
-// change (the backend rejects it — see handlers_profiles.go's
-// updateProfile), so that selector is disabled rather than hidden: seeing
-// which kernel a profile uses is still useful context while editing it.
+// Shared body used by both AddProfileDialog and EditProfileDialog. In edit
+// mode the core type can't change (the backend rejects it — see
+// handlers_profiles.go's updateProfile), so that selector is disabled
+// rather than hidden.
 export function ProfileForm({
   mode,
   initialValues,
@@ -679,10 +646,7 @@ export function ProfileForm({
   onSubmit: (payload: ProfileSubmitPayload) => Promise<void>
 }) {
   const t = useT()
-  // Value→label maps for every enum-valued Select field below — see
-  // labelFor's own doc comment for why these are shared between the
-  // trigger's SelectValue and the SelectContent item list instead of each
-  // maintaining its own copy of the same labels.
+  // Value→label maps for every enum-valued Select field below — see labelFor.
   const connectionTypeLabels: Record<TurnableState["connectionType"], string> = {
     relay: t("profileForm.turnable.connectionTypeRelay"),
     direct: t("profileForm.turnable.connectionTypeDirect"),
@@ -739,10 +703,8 @@ export function ProfileForm({
   )
   const [xrayManualUri, setXrayManualUri] = React.useState(initialValues.xrayManualUri)
   const [xrayManualWireGuard, setXrayManualWireGuard] = React.useState(initialValues.xrayManualWireGuard)
-  // Purely a UI toggle (never sent as-is) — which of the two manual
-  // fallbacks is currently shown when no inbound is picked. Starts on
-  // whichever one actually has saved content, so editing a profile with an
-  // existing WG config opens on that tab instead of defaulting to URI.
+  // UI-only toggle for which manual fallback is shown when no inbound is
+  // picked. Starts on whichever one has saved content.
   const [xrayManualMode, setXrayManualMode] = React.useState<"uri" | "wireguard">(
     initialValues.xrayManualWireGuard ? "wireguard" : "uri"
   )
@@ -766,22 +728,13 @@ export function ProfileForm({
     api.listXrayInbounds().then(setInbounds).catch(() => setInbounds([]))
   }, [])
 
-  // WebDAV selfhosted's own TLS is a plain Go tls.LoadX509KeyPair — the same
-  // PEM cert+key format the panel's own http.ListenAndServeTLS needs — so
-  // whatever cert the panel already has (Settings → "Panel network",
-  // normally a real Let's Encrypt cert from install.sh's SSL setup) works
-  // here unmodified, same reasoning as XrayPage's TlsFields.handleUsePanelCert
-  // for Hysteria2. Unlike that Hysteria2 case, though, the host WebDAV
-  // clients are actually told to connect to (webdav(s)://host:port) is NOT
-  // the panel's own ListenDomain — it comes from a wholly separate,
-  // env-var-only setting (WTP_WEBDAV_PUBLIC_HOST, resolved via
-  // cfg.ResolvedWebDAVPublicHost, falling back to the bare PublicIP — see
-  // config.go). If the panel's cert was issued for a domain but that env
-  // var isn't ALSO pointed at the same domain, this copies over a cert that
-  // will fail hostname verification the moment a real client connects,
-  // since it'll be doing so against the (uncertified) IP instead — worth
-  // surfacing rather than silently handing over a cert that looks right but
-  // doesn't actually validate.
+  // Reuses the panel's own TLS cert (same PEM format webdav-tunnel's
+  // tls.LoadX509KeyPair expects), like XrayPage's handleUsePanelCert does
+  // for Hysteria2. Unlike that case, though, WebDAV clients connect via a
+  // separate env-var-only host (WTP_WEBDAV_PUBLIC_HOST, see config.go) that
+  // can silently diverge from the panel's own ListenDomain the cert was
+  // issued for — check for that mismatch and surface it instead of handing
+  // over a cert that won't actually validate.
   async function handleUseWebdavPanelCert() {
     setWebdavPanelCertError(null)
     try {
@@ -809,17 +762,10 @@ export function ProfileForm({
     setXrayInboundId(id)
     const inbound = inbounds.find((i) => String(i.ID) === id)
     if (!inbound) return
-    // The kernel forwards its decrypted traffic to a local port — point it
-    // straight at the inbound we just picked so operators don't have to
-    // copy the port over by hand. For Turnable this also means the route
-    // socket/transport pair has to actually match how the inbound listens
-    // (see inferRouteSocket) — picking a UDP-based inbound (hysteria2,
-    // wireguard, or vless/trojan over mKCP) while route socket stayed on
-    // its old "tcp" value would silently forward to the wrong socket type.
-    // FreeTurn has the same problem one level up: its own tunnel -mode has
-    // to match the inbound's transport too (udp-relay for hysteria2/
-    // wireguard/mKCP, tcp-forwarder for everything else — VLESS/Trojan/
-    // VMess over raw tcp/ws/grpc/http-upgrade/xhttp), same inference.
+    // Points the kernel's forwarding target at the inbound's local port.
+    // Turnable's route socket/transport must also match how the inbound
+    // listens (see inferRouteSocket), and FreeTurn's tunnel mode has the
+    // same requirement one level up.
     if (coreType === "turnable") {
       const routeSocket = inferRouteSocket(inbound)
       setTn((s) => ({
@@ -840,18 +786,12 @@ export function ProfileForm({
   }
 
   // Turnable/FreeTurn additionally get a WireGuard-config manual fallback
-  // (a raw [Interface]/[Peer] blob, not a single-line URI — see
-  // xrayManualWireGuard) alongside the plain URI one; olcRTC keeps URI-only.
+  // (a raw [Interface]/[Peer] blob) alongside the plain URI one; olcRTC
+  // stays URI-only.
   const supportsWireGuardManual = coreType === "turnable" || coreType === "freeturn"
 
-  // olcRTC and WebDAV are SOCKS5-native kernels with no WireGuard-compatible
-  // transport of their own, so a wireguard inbound is never a valid pick for
-  // either. FreeTurn used to have the mirror-image restriction (UDP-relay
-  // only, so only hysteria2/wireguard inbounds were real forwarding
-  // targets) — lifted now that it can also forward a TCP stream (-mode tcp,
-  // KCP+smux over the same TURN relay) to vless/trojan/vmess-style TCP
-  // inbounds, same as Turnable already could; handlePickInbound's
-  // inferRouteSocket call picks the matching mode automatically.
+  // olcRTC and WebDAV are SOCKS5-native with no WireGuard-compatible
+  // transport of their own, so a wireguard inbound is never a valid pick.
   function visibleInboundsFor(ct: CoreType, list: XrayInbound[]) {
     return ct === "olcrtc" || ct === "webdav"
       ? list.filter((ib) => ib.Protocol !== "wireguard")
@@ -859,11 +799,9 @@ export function ProfileForm({
   }
   const visibleInbounds = visibleInboundsFor(coreType, inbounds)
 
-  // Dual Route (docs/subscriptions.md §3) only applies to the VLESS-mode
-  // overlay (vless/trojan/hysteria2 link) — WireGuard mode has no
-  // equivalent, so hide the controls whenever the resolved overlay is
-  // WireGuard, whether that comes from picking a wireguard inbound or from
-  // the manual WireGuard-config fallback.
+  // Dual Route (docs/subscriptions.md §3) has no WireGuard equivalent, so
+  // hide the controls whenever the resolved overlay is WireGuard — whether
+  // from a wireguard inbound or the manual WireGuard fallback.
   const selectedInbound = inbounds.find((ib) => String(ib.ID) === xrayInboundId)
   const isWireGuardOverlay = xrayInboundId
     ? selectedInbound?.Protocol === "wireguard"
@@ -901,12 +839,9 @@ export function ProfileForm({
     }
   }
 
-  // xrayBlock sits above the "Route"/"-connect" box for Turnable/FreeTurn.
-  // Dual Route is its own separate SectionGroup (not nested inside a
-  // SectionItem of the main one) — a SectionItem is a single joined-corner
-  // row, not a container meant to host another whole grouped list inside
-  // it; keeping them as sibling groups is what the corner-radius joining is
-  // actually designed for.
+  // Dual Route is its own sibling SectionGroup rather than nested inside a
+  // SectionItem — a SectionItem is a single joined-corner row, not a
+  // container for another grouped list.
   const xrayBlock = (
     <>
       <SectionGroup>
@@ -947,9 +882,7 @@ export function ProfileForm({
                     </SelectContent>
                   </Select>
                 </div>
-                {/* Picking an inbound used to be a one-way door — nothing
-                    ever cleared xrayInboundId back to "", so the manual
-                    fallback below stayed hidden forever after. */}
+                {/* Lets the operator clear the pick to get back to the manual fallback fields. */}
                 {xrayInboundId && (
                   <Button type="button" variant="outline" size="sm" onClick={() => setXrayInboundId("")}>
                     {t("profileForm.xray.reset")}
@@ -1067,19 +1000,13 @@ export function ProfileForm({
 
   return (
     <>
-      {/* display:contents keeps this <form> out of the flex layout below —
-          it exists purely so the footer's submit button (form={formId},
-          rendered outside it) still triggers this form's onSubmit — while
-          the actual scrolling happens on the div inside it, not on
-          DialogContent itself. That's what keeps the dialog's header/close
-          button and this footer pinned in place instead of scrolling away
-          with the fields between them. */}
+      {/* display:contents keeps this <form> out of the flex layout so the
+          footer's submit button (form={formId}, rendered outside it) can
+          still trigger onSubmit, while the div inside handles scrolling —
+          keeping the dialog's header and footer pinned in place. */}
       <form id={formId} onSubmit={handleSubmit} className="contents">
-        {/* px-6 lives here (not on DialogContent, see the dialog wrapper's
-            own className) so the scrollbar this div grows renders flush at
-            DialogContent's actual edge instead of inset within a shared
-            padding — the content itself still gets the same inset via this
-            div's own padding, just without dragging the scrollbar in with it. */}
+        {/* px-6 lives here, not on DialogContent, so the scrollbar renders
+            flush at DialogContent's edge instead of inset with the padding. */}
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6">
           <SectionGroup>
             <SectionItem position="top">

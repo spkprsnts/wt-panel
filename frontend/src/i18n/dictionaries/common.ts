@@ -1,9 +1,6 @@
-// common.ts holds strings reused across multiple pages/components — button
-// labels, generic status text — rather than duplicating "Сохранить"/"Save"
-// in every dictionary fragment that happens to have a save button. Every
-// other dictionary file lives next to it in this directory and gets merged
-// in by ../index.ts; see that file's own doc comment for the merge/typing
-// mechanics.
+// Strings reused across multiple pages/components — button labels, generic
+// status text — rather than duplicating "Сохранить"/"Save" in every
+// fragment that happens to have a save button. Merged in by ../index.ts.
 export const common = {
   ru: {
     "common.save": "Сохранить",

@@ -7,20 +7,19 @@ import { cn } from "@/lib/utils"
 // Sizing/spacing/disabled-state values below are read straight off the
 // pinned AndroidX source (BaselineButtonTokens.kt / ButtonXSmallTokens.kt /
 // ButtonMediumTokens.kt, compose/material3/material3 @ dd849e2), not a
-// secondary reference — that reference's own derived token tables turned
-// out to disagree with the primary source in a couple of places (e.g. it
-// lists 12px for the extra-small size's inline padding; the token file
-// itself says 16px).
+// secondary reference — the latter's derived tables disagreed with the
+// primary source in a couple of places (e.g. 12px vs. the token file's 16px
+// for extra-small inline padding).
 const buttonVariants = cva(
   "state-layer inline-flex min-w-[58px] items-center justify-center gap-2 whitespace-nowrap rounded-full text-label-large transition-colors disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-invalid:outline-2 aria-invalid:outline-error",
   {
     variants: {
       variant: {
         // Disabled containers swap to a flat onSurface wash rather than
-        // just fading the variant's own color (BaselineButtonTokens:
-        // DisabledContainerColor = onSurface @ 10% opacity, disabled
-        // content = onSurfaceVariant @ 38% — two independent opacities,
-        // not one blanket fade over the whole button).
+        // fading the variant's own color (BaselineButtonTokens:
+        // DisabledContainerColor = onSurface @ 10%, disabled content =
+        // onSurfaceVariant @ 38% — two independent opacities, not one
+        // blanket fade).
         default:
           "bg-primary text-on-primary disabled:bg-on-surface/10 disabled:text-on-surface-variant/38",
         elevated:

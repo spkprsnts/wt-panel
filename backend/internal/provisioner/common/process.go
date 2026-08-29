@@ -12,20 +12,15 @@ import (
 	"time"
 )
 
-// ansiEscapeRe matches ANSI/VT100 escape sequences (SGR color codes,
-// cursor movement, etc.) — Turnable and some of the other kernels
-// colorize their own log output unconditionally, even when not attached
-// to a real terminal, which otherwise leaves raw "\x1b[32m" bytes in the
-// profile-logs viewer on the Xray/profile pages. Stripped in ReadLog, at
-// read time, not at write time: an earlier version of this wrapped
-// cmd.Stdout/Stderr in a Go-side io.Writer to strip inline, but that forces
-// exec.Cmd to create an internal pipe instead of handing the child the raw
-// fd — and Cmd.Wait() then blocks until every process holding a copy of
-// that fd closes it, not just the direct child. A kernel binary that forks
-// a grandchild inheriting stdout/stderr (confirmed with a plain `sh -c
-// "sleep 300"` test child) made Stop() hang waiting on a pipe nothing was
-// ever going to close. Reading the raw file and stripping on the way out
-// avoids that class of bug entirely.
+// ansiEscapeRe matches ANSI/VT100 escape sequences — some kernels colorize
+// their log output unconditionally, even off a real terminal, leaving raw
+// "\x1b[32m" bytes in the profile-logs viewer. Stripped in ReadLog at read
+// time, not write time: an earlier version wrapped cmd.Stdout/Stderr in a
+// Go io.Writer to strip inline, but that forces exec.Cmd to create an
+// internal pipe instead of handing the child the raw fd — Cmd.Wait() then
+// blocks until every process holding a copy of that fd closes it, not just
+// the direct child. A kernel binary forking a grandchild that inherits
+// stdout/stderr made Stop() hang waiting on a pipe nothing would close.
 var ansiEscapeRe = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 
 // gracefulStopTimeout bounds how long Stop waits for SIGTERM to actually
@@ -36,16 +31,13 @@ var ansiEscapeRe = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 const gracefulStopTimeout = 10 * time.Second
 
 // Auto-restart tuning: a kernel process that exits on its own (a crash, not
-// a deliberate Stop) is restarted automatically instead of just sitting
-// dead until an operator happens to notice and re-saves the profile (today
-// the only thing that calls Restart()). restartBackoffBase doubles on each
-// consecutive fast crash — a genuinely broken binary/config shouldn't be
-// retried once every 2 seconds forever — capped at restartBackoffMax, and
-// there's deliberately no permanent give-up: worst case is one restart
-// attempt a minute, which is cheap enough to just leave running.
-// restartHealthyDuration resets that growth back to the base delay once a
-// process proves it can stay up for a while, so an isolated crash months
-// apart isn't penalized as if it were a continuation of an old loop.
+// a deliberate Stop) is restarted automatically rather than sitting dead
+// until an operator notices. restartBackoffBase doubles on each consecutive
+// fast crash, capped at restartBackoffMax — deliberately no permanent
+// give-up, since one restart attempt a minute is cheap to just leave
+// running. restartHealthyDuration resets the backoff to base once a process
+// stays up a while, so an isolated crash months later isn't penalized as a
+// continuation of an old loop.
 const (
 	restartBackoffBase     = 2 * time.Second
 	restartBackoffMax      = 60 * time.Second
@@ -57,21 +49,18 @@ const (
 // (with backoff, see above) if it exits on its own.
 //
 // A background goroutine spawned in Start reaps the process via cmd.Wait()
-// and flips `running` to false the moment it actually exits — this is what
-// makes IsRunning() reflect a crash (not just a deliberate Stop) instead of
-// going stale, since exec.Cmd's own ProcessState is only populated once
-// something calls Wait(). That same goroutine is what drives auto-restart.
+// and flips `running` to false the moment it exits — this is what makes
+// IsRunning() reflect a crash, not just a deliberate Stop, since exec.Cmd's
+// ProcessState is only populated once something calls Wait(). That same
+// goroutine drives auto-restart.
 //
 // Deliberately NOT context-aware: Start uses plain exec.Command, not
-// exec.CommandContext. These processes are meant to outlive whatever
-// request triggered them (AddProfile/UpdateProfile/Restore all run inside
-// an HTTP handler, and Gin cancels the request's context the moment the
-// handler returns) — their lifecycle is controlled exclusively by calling
-// Stop(), never by a caller's context expiring. A context.Context parameter
-// here would be a foot-gun: an early version of this code passed the HTTP
-// request's context straight into exec.CommandContext, which silently
-// killed every profile's process a few hundred milliseconds after it
-// started, right after the API response was sent.
+// exec.CommandContext. These processes must outlive the HTTP handler that
+// triggered them (Gin cancels the request's context the moment the handler
+// returns), so their lifecycle is controlled exclusively by Stop(). An
+// early version passed the request's context into exec.CommandContext,
+// which silently killed every profile's process a few hundred milliseconds
+// after the API response was sent.
 type ProcessSupervisor struct {
 	mu      sync.Mutex
 	name    string
@@ -83,14 +72,10 @@ type ProcessSupervisor struct {
 	done    chan struct{} // closed by the reaper goroutine once cmd.Wait() returns
 
 	// manualStop and stopCh together let Stop() cancel auto-restart
-	// immediately and unconditionally. manualStop tells the reaper
-	// goroutine (once cmd.Wait() returns) that this particular exit was
-	// requested, not a crash, so it shouldn't schedule a restart. stopCh
-	// additionally interrupts an already-scheduled backoff sleep — needed
-	// because Stop() must win even when called on a process that had
-	// already crashed and is currently mid-backoff (RemoveProfile calling
-	// Stop() on a crashed profile must not let it come back afterward;
-	// Stop() alone can't rely on signaling a process that isn't running).
+	// immediately and unconditionally. manualStop tells the reaper goroutine
+	// this exit was requested, not a crash. stopCh additionally interrupts
+	// an already-scheduled backoff sleep — needed so Stop() wins even when
+	// called on a process that's currently mid-backoff after a crash.
 	manualStop bool
 	stopCh     chan struct{}
 

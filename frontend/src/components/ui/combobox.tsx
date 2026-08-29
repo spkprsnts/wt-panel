@@ -9,13 +9,12 @@ export interface ComboboxOption {
   label: string
 }
 
-// Combobox is a single-value "pick from a list OR type your own" control —
-// the value field IS a real <input>, so typing always works; opening the
-// popover (on focus, or by typing) just offers suggestions to click
-// instead of typing the whole thing out. Unlike ./select.tsx (a thin
-// @base-ui/react/select wrapper — list-only, no free text) this is built
-// on the bare Popover primitive, same reasoning as ./multi-select.tsx: no
-// existing primitive here combines "typeable" with "has suggestions".
+// A single-value "pick from a list OR type your own" control — the value
+// field is a real <input>, and the popover just offers suggestions to
+// click. Unlike ./select.tsx (a thin @base-ui/react/select wrapper,
+// list-only) this is built on the bare Popover primitive, same as
+// ./multi-select.tsx: no existing primitive combines "typeable" with
+// "has suggestions".
 function Combobox({
   options,
   value,
@@ -33,20 +32,16 @@ function Combobox({
   id?: string
   className?: string
   required?: boolean
-  // A generic ui/ primitive (like Button/Input) doesn't import the app's
-  // own i18n hook — same separation every other file in this directory
-  // already keeps — so the one bit of built-in copy here is a plain prop
-  // the caller passes translated text into instead.
+  // A generic ui/ primitive doesn't import the app's i18n hook, so the
+  // caller passes translated text in as a plain prop instead.
   noMatchesText?: string
 }) {
   const [open, setOpen] = React.useState(false)
-  // Base UI's Popover has no Anchor part (unlike Radix) — the input is
-  // rendered as a plain element outside the popover's own subtree, and its
-  // ref is passed to the Positioner's `anchor` prop for positioning. That
-  // means a pointerdown/focus landing back on it still reads as "outside"
-  // to the popover's dismiss logic, so onOpenChange below checks the
-  // triggering event's target against this ref and cancels the close when
-  // it's actually our own input, same intent as the old Anchor workaround.
+  // Base UI's Popover has no Anchor part — the input is a plain element
+  // outside the popover's subtree, with its ref passed to Positioner's
+  // `anchor` prop. That means a pointerdown/focus back on it still reads
+  // as "outside" to the dismiss logic, so onOpenChange below checks the
+  // event target against this ref and cancels the close when it's our own input.
   const inputRef = React.useRef<HTMLInputElement>(null)
   const listboxId = React.useId()
 
@@ -79,12 +74,9 @@ function Combobox({
         <input
           ref={inputRef}
           id={id}
-          // Matches TextFieldRow's fieldClassName exactly (section.tsx) —
-          // same 16dp-content-padding/outline-variant-at-rest reasoning,
-          // since every call site now lives inside a SectionItem alongside
-          // TextFieldRow/Select fields and needs to look identical. The
-          // indicator below is a filled bar, not a border — see
-          // TextFieldRow's own doc comment for why.
+          // Matches TextFieldRow's fieldClassName (section.tsx) so every
+          // call site looks identical inside a SectionItem. Indicator below
+          // is a filled bar, not a border — see TextFieldRow for why.
           className={cn(
             "peer w-full truncate bg-transparent p-4 text-body-large text-on-surface outline-none placeholder:text-on-surface-variant",
             className

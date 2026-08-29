@@ -12,30 +12,26 @@ import (
 // DeriveWireGuardPeerAddress deterministically assigns a client its
 // 10.x.x.x address inside the server's subnet from the XrayClient row's own
 // id — nothing upstream assigns one per client otherwise. Shared by
-// injectClients (what the server's own peers list allows) and
+// injectClients (what the server's peers list allows) and
 // BuildWireGuardConfig (what the client is told its own address is) so the
-// two can never drift apart — collision-free up to 250*250 peers per
-// inbound, far beyond what a single WireGuard inbound is for.
+// two can never drift apart.
 func DeriveWireGuardPeerAddress(clientRowID uint) string {
 	return fmt.Sprintf("10.%d.%d.%d", 200+(clientRowID/65000)%50, (clientRowID/250)%250, 2+int(clientRowID%250))
 }
 
 // BuildClientLink builds the real client-facing vless://, trojan://, or
 // hysteria2:// URI for one XrayClient attached to an XrayInbound, matching
-// xray-core/3x-ui's own link conventions — see WireTurn's
-// docs/subscriptions.md §3: vlessConfig.vlessLink is meant to be one of
-// these real links, not a resolved-settings JSON blob (an earlier version
-// of this panel sent the latter, which no real WireTurn client can parse).
+// xray-core/3x-ui's own link conventions — vlessConfig.vlessLink is meant
+// to be one of these real links, not a resolved-settings JSON blob (an
+// earlier version of this panel sent the latter, which no real WireTurn
+// client can parse).
 //
 // host:port here still has to be *something* syntactically valid even
 // though the WireTurn client ignores it whenever this link rides on top of
 // a kernel tunnel (docs/subscriptions.md §3: "адрес и порт в ссылке
-// игнорируются — подставляется локальный адрес ядра") — inbound.Listen is a
-// bind address, not necessarily a reachable one: empty/"0.0.0.0" means "all
-// interfaces", which no external client could ever dial, so that case falls
-// back to publicIP (the panel's own config.Config.PublicIP). A specific
-// non-wildcard Listen (the operator pinned this inbound to one interface on
-// purpose) is trusted as-is.
+// игнорируются") — inbound.Listen is a bind address, not necessarily a
+// reachable one: empty/"0.0.0.0" means "all interfaces", so that case falls
+// back to publicIP. A specific non-wildcard Listen is trusted as-is.
 func BuildClientLink(inbound models.XrayInbound, client models.XrayClient, remark, publicIP string) (string, error) {
 	clientCfg, err := decodeJSONObject(client.Config)
 	if err != nil {
@@ -83,9 +79,8 @@ func BuildClientLink(inbound models.XrayInbound, client models.XrayClient, remar
 		return fmt.Sprintf("trojan://%s@%s:%d?%s%s", url.QueryEscape(password), host, inbound.Port, q.Encode(), frag), nil
 	case "hysteria2":
 		auth, _ := clientCfg["auth"].(string)
-		// hysteria2 is always TLS-only in this panel's schema (see
-		// buildPayload in XrayPage.tsx) — sni comes straight from its
-		// tlsSettings, already folded into q by applySecurityParams above,
+		// hysteria2 is always TLS-only in this panel's schema — sni comes
+		// from tlsSettings (already folded into q by applySecurityParams),
 		// but hysteria2 clients conventionally use "insecure" rather than
 		// xray's own security/type params, so build a narrower query set.
 		hq := url.Values{}
@@ -99,10 +94,9 @@ func BuildClientLink(inbound models.XrayInbound, client models.XrayClient, remar
 
 // BuildWireGuardConfig resolves WireTurn's structured wgConfig (§3) for one
 // client attached to a wireguard XrayInbound — the client's own keypair
-// plus the server's public key (a UI-convenience copy already sitting on
-// the inbound's own Settings, see XrayPage.tsx) and its assigned address
-// (must match DeriveWireGuardPeerAddress exactly, since that's also what
-// the server's own peers list allows — see config.go's injectClients).
+// plus the server's public key (a UI-convenience copy on the inbound's own
+// Settings, see XrayPage.tsx) and its assigned address (must match
+// DeriveWireGuardPeerAddress exactly — see config.go's injectClients).
 func BuildWireGuardConfig(inbound models.XrayInbound, client models.XrayClient) (privateKey, publicKey, address, mtu string, err error) {
 	clientCfg, err := decodeJSONObject(client.Config)
 	if err != nil {
@@ -122,11 +116,10 @@ func BuildWireGuardConfig(inbound models.XrayInbound, client models.XrayClient) 
 }
 
 // ParseWireGuardConfigText extracts the handful of fields WireTurn's
-// wgConfig actually needs from a pasted [Interface]/[Peer]-style config
-// text (the panel's manual-fallback UI for a profile with no matching
-// inbound yet) — endpoint is deliberately not extracted, since the spec
-// says the client always overrides it with the local kernel address
-// regardless of what's sent (docs/subscriptions.md §3).
+// wgConfig needs from a pasted [Interface]/[Peer]-style config text (the
+// panel's manual-fallback UI for a profile with no matching inbound yet) —
+// endpoint is deliberately not extracted, since the client always overrides
+// it with the local kernel address regardless (docs/subscriptions.md §3).
 func ParseWireGuardConfigText(raw string) (privateKey, publicKey, address, mtu string) {
 	for _, line := range strings.Split(raw, "\n") {
 		line = strings.TrimSpace(line)

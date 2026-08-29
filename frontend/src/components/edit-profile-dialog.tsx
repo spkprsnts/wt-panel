@@ -6,9 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ProfileForm, type ProfileFormInitialValues, type ProfileSubmitPayload } from "@/components/profile-form"
 
 // open/onOpenChange are controlled by the caller (ClientsPage's dropdown
-// menu triggers this, not a trigger button of its own) rather than an
-// internal useState + DialogTrigger — see that call site's own comment for
-// why a Dialog can't safely be nested inside a DropdownMenuItem.
+// menu triggers this, not a trigger button of its own) — see that call
+// site's comment for why a Dialog can't safely nest inside a DropdownMenuItem.
 export function EditProfileDialog({
   profile,
   open,
@@ -21,16 +20,13 @@ export function EditProfileDialog({
   onUpdated: () => void
 }) {
   const t = useT()
-  // Bumped only when the dialog actually opens — used in ProfileForm's key
-  // below so it remounts with fresh state each time (no stale in-progress
-  // edits left over from a previous open-then-cancel), without ever
-  // unmounting ProfileForm ourselves on close. Unmounting on close (an
-  // earlier version did `{open && <ProfileForm .../>}`) yanked the content
-  // out of the DOM the instant `open` flipped false, while Radix's own
-  // Dialog close animation (fading/scaling DialogContent, including the
-  // title) kept playing on what was left — the content disappearing
-  // abruptly while the title faded out smoothly after. Radix needs the
-  // content to stay mounted for the whole exit transition.
+  // Bumped only when the dialog opens — used in ProfileForm's key below so
+  // it remounts with fresh state each time, without ever unmounting
+  // ProfileForm ourselves on close. Unmounting on close (`{open &&
+  // <ProfileForm .../>}`) yanked the content out of the DOM the instant
+  // `open` flipped false, while Base UI's own close animation kept playing
+  // on what was left — it needs the content to stay mounted for the exit
+  // transition.
   const [openCount, setOpenCount] = React.useState(0)
 
   function handleOpenChange(next: boolean) {

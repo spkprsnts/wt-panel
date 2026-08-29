@@ -26,10 +26,8 @@ type Provisioner interface {
 	// UpdateProfile applies logical changes (e.g. call/room id, transport,
 	// peers) to an already-provisioned profile. Infra fields the client was
 	// already handed — port, login/password, crypto key — must NOT change,
-	// so implementations keep them in their own bookkeeping and ignore
-	// zero-valued fields on the incoming profile.CoreConfig rather than
-	// re-minting them. Every kernel here runs one OS process per profile
-	// specifically so this never has to touch any other profile's process.
+	// so implementations ignore zero-valued fields on the incoming
+	// profile.CoreConfig rather than re-minting them.
 	UpdateProfile(ctx context.Context, profile *models.Profile) (kernelURI string, err error)
 
 	// RemoveProfile tears down server-side state for a previously
@@ -62,22 +60,18 @@ type Provisioner interface {
 
 	// Stop halts this profile's process (if any is tracked) WITHOUT
 	// touching its persisted state — same "config survives, only the
-	// process stops" contract as Shutdown, just for one profile instead of
-	// every profile at once. This is what backs Profile.Enabled: turning a
-	// profile off calls Stop, turning it back on calls Restore (which
-	// reuses the same port/keys already sitting in profile.CoreConfig
-	// rather than re-provisioning). A no-op, not an error, for a profile
-	// with no tracked process (never started, or already stopped).
+	// process stops" contract as Shutdown, for one profile. Backs
+	// Profile.Enabled: turning a profile off calls Stop, turning it back on
+	// calls Restore (reusing the port/keys already in profile.CoreConfig).
+	// A no-op, not an error, for a profile with no tracked process.
 	Stop(profile *models.Profile) error
 
 	// Shutdown gracefully stops every currently-supervised process (SIGTERM,
 	// bounded wait, Kill as a last resort — see ProcessSupervisor.Stop)
 	// WITHOUT touching any persisted state: unlike RemoveProfile, config
-	// files stay on disk and DB rows are untouched, so RestoreAll brings
-	// everything back on the next start. Call this from the panel's own
-	// shutdown sequence, before the panel process actually exits — a
-	// process stopped this way never reaches the Pdeathsig "die with your
-	// parent" fallback (see process_lifetime.go), because it's already
-	// exited gracefully by then.
+	// files and DB rows stay untouched, so RestoreAll brings everything back
+	// on the next start. Call this before the panel process exits, so
+	// kernel binaries get a graceful stop instead of relying on the
+	// Pdeathsig fallback (see process_lifetime.go).
 	Shutdown()
 }

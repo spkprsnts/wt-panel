@@ -1,8 +1,7 @@
 // Package kernels manages the on-disk binaries the four provisioner
 // packages shell out to: fetching pre-built releases for Turnable/FreeTurn
-// (both publish GitHub Releases with one asset per platform) and building
-// olcRTC from source at a chosen commit (it has no releases upstream — see
-// its magefile.go, there's no version tagging at all).
+// (GitHub Releases, one asset per platform) and building olcRTC from source
+// at a chosen commit (no releases upstream, no version tagging at all).
 package kernels
 
 import (
@@ -17,14 +16,9 @@ import (
 	"time"
 )
 
-// httpClient is shared by every outbound request this package makes
-// (GitHub API calls in this file, release asset/zip downloads in assets.go
-// and zip.go) so WTP_GITHUB_PROXY applies uniformly everywhere. Go's
-// http.DefaultTransport already honors HTTP_PROXY/HTTPS_PROXY/NO_PROXY
-// from the process environment via http.ProxyFromEnvironment — this env
-// var is a narrower, explicit override for when the operator wants a
-// proxy for GitHub access specifically (a dev box behind a restrictive
-// or rate-limiting network path) without exporting a system-wide
+// httpClient is shared by every outbound request this package makes so
+// WTP_GITHUB_PROXY applies uniformly everywhere — a narrower, explicit
+// override for GitHub access specifically, without exporting a system-wide
 // HTTP_PROXY that would also redirect unrelated traffic.
 var httpClient = buildHTTPClient()
 
@@ -91,12 +85,10 @@ func githubGet(path string, out interface{}) error {
 }
 
 // listCacheTTL controls how long a successful releases/commits fetch is
-// reused before a normal (non-forced) call hits GitHub again. The Kernels
-// page calls all four of these on every load, and GitHub's REST API rate
-// limit (60/hour unauthenticated, confirmed hit in practice during dev —
-// see WTP_GITHUB_TOKEN above for the real fix) is shared across every
-// owner/repo this panel queries, so a page reload — or several operators'
-// pages open at once — shouldn't each cost a fresh request.
+// reused before a normal (non-forced) call hits GitHub again. GitHub's REST
+// API rate limit (60/hour unauthenticated — see WTP_GITHUB_TOKEN) is shared
+// across every owner/repo this panel queries, so a page reload — or several
+// operators' pages open at once — shouldn't each cost a fresh request.
 const listCacheTTL = 10 * time.Minute
 
 type cacheEntry[T any] struct {
@@ -105,14 +97,11 @@ type cacheEntry[T any] struct {
 }
 
 // listCache is a tiny generic TTL cache shared by ListReleases and
-// ListCommits (instantiated once per type below). It fails open toward
-// availability over freshness: if a forced or expired-cache refresh
-// actually fails (e.g. the rate limit this cache exists to avoid), a
-// previous successful fetch — however old — is returned instead of an
-// error, so a transient GitHub outage/rate-limit doesn't blank out a list
-// the operator could otherwise still act on (pick an already-known
-// release/commit to install/build). Only returns an error if nothing has
-// ever been fetched successfully for that key.
+// ListCommits. It fails open toward availability over freshness: if a
+// forced or expired-cache refresh fails (e.g. hits the rate limit this
+// cache exists to avoid), the previous successful fetch — however old — is
+// returned instead of an error. Only errors if nothing was ever fetched
+// successfully for that key.
 type listCache[T any] struct {
 	mu      sync.Mutex
 	entries map[string]cacheEntry[T]
@@ -154,9 +143,8 @@ var (
 
 // ListReleases returns up to `limit` most recent releases for owner/repo,
 // serving a cached copy (see listCacheTTL) unless force is set — the
-// Kernels page's manual "обновить список" button sets it, and so does
-// every regular page load falling outside the TTL window; InstallRelease
-// always passes false so an install doesn't also force a fresh fetch.
+// Kernels page's "обновить список" button sets it; InstallRelease always
+// passes false so an install doesn't also force a fresh fetch.
 func ListReleases(owner, repo string, limit int, force bool) ([]Release, error) {
 	key := fmt.Sprintf("%s/%s:%d", owner, repo, limit)
 	return releaseCache.get(key, force, func() ([]Release, error) {

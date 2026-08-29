@@ -16,26 +16,17 @@ import (
 	"wtpanel/internal/xray"
 )
 
-// subscriptionOrigin resolves the single "scheme://host:port" to embed in
-// subscription links — mirrors 3x-ui's own subscription-link origin, instead
-// of the old flat s.cfg.PublicOrigin (WTP_PUBLIC_ORIGIN), which nothing ever
-// actually sets — a real client-facing bug: the QR dialog was handing out
-// "http://localhost:8090/sub/..." links no client device could ever reach.
+// subscriptionOrigin resolves the "scheme://host:port" to embed in
+// subscription links, derived from PanelSettings rather than the flat
+// s.cfg.PublicOrigin (WTP_PUBLIC_ORIGIN), which nothing sets — that used to
+// leave the QR dialog handing out "http://localhost:8090/sub/..." links no
+// client device could reach.
 //
-// There used to be an operator-facing IP-vs-domain switch here (3x-ui has
-// one too), but that choice isn't actually free: a TLS cert here is
-// virtually always issued for ListenDomain, not the bare PublicIP (see
-// PanelSettings.WebDAVPublicHost's own doc comment) — acme.sh's own DNS/
-// HTTP-01 challenge needs a resolvable name, and install.sh's SSL setup
-// only ever targets whichever host the operator picked as the SSL target in
-// the first place. Handing out the OTHER host would silently produce a
-// link whose scheme this function still reports as https but whose
-// certificate doesn't actually match — exactly the kind of thing an
-// operator flipping the old switch without thinking about it could ship to
-// a client by accident. So: whichever host the cert is actually good for
-// wins outright — domain when both a cert and ListenDomain are configured,
-// else the public address — and there's nothing left for an operator to
-// pick wrong.
+// A TLS cert here is issued for ListenDomain, not the bare PublicIP (acme.sh
+// needs a resolvable name, and install.sh's SSL setup targets whatever host
+// the operator picked). So the domain wins outright whenever both a cert and
+// ListenDomain are configured, else the public address — never a mix that
+// would report https for a host the cert doesn't actually cover.
 func (s *Server) subscriptionOrigin() string {
 	var ps models.PanelSettings
 	if err := s.db.First(&ps, 1).Error; err != nil {
@@ -155,8 +146,7 @@ func (s *Server) exportClientProfiles(c *gin.Context) {
 // docs/subscriptions.md §5.4/§5.5, and additionally content-negotiates by
 // User-Agent/?format= (not itself part of the spec — the app tries several
 // parse strategies on whatever body it gets regardless — but needed so a
-// plain browser opening this link gets a usable page instead of raw JSON,
-// same as 3x-ui's subscription info page):
+// plain browser opening this link gets a usable page instead of raw JSON):
 //   - ?format= wins outright when present ("json"/"text"/"base64"/"html").
 //   - else "WireTurn/…" UA (the app itself) → json.
 //   - else a real browser (UA contains "Mozilla") → html.
@@ -257,12 +247,10 @@ func (s *Server) buildBundleProfile(profile models.Profile) BundleProfile {
 // buildXrayBundleConfig resolves what a profile's xray overlay actually
 // sends to the WireTurn client — a real vless://trojan://hysteria2:// link
 // (vlessConfig) or a structured WireGuard peer config (wgConfig), matching
-// WireTurn's docs/subscriptions.md §3 field-for-field (an earlier version
-// of this sent a resolved-settings JSON blob under a made-up "xrayConfig"
-// key, which no real WireTurn client can parse — see README for the
-// writeup). Best-effort — a stale XrayInboundID (inbound deleted after the
-// profile was created) falls back to the manual fallback (if any) rather
-// than failing the whole subscription.
+// WireTurn's docs/subscriptions.md §3 field-for-field. Best-effort — a stale
+// XrayInboundID (inbound deleted after the profile was created) falls back
+// to the manual URI/WireGuard fields, if set, rather than failing the whole
+// subscription.
 func (s *Server) buildXrayBundleConfig(profile *models.Profile) (protocol string, vless *VlessConfig, wg *WgConfig) {
 	if profile.XrayInboundID != nil {
 		var inbound models.XrayInbound

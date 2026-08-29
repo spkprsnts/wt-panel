@@ -1,13 +1,12 @@
 // Package turnable provisions server-side state for the "turnable" kernel:
 // https://github.com/TheAirBlow/Turnable
 //
-// Upstream has no built-in user database or hot-reload (its own README
-// lists "Database user and route management" under "Missing features"), so
-// rather than share one server process across every profile — which would
-// force a restart, dropping every other user's connection, whenever a
-// single profile is added/edited/removed — this provisioner runs one
-// dedicated Turnable server process per profile, each with its own
-// listen port, call_id, key material and a single embedded user.
+// Upstream has no built-in user database or hot-reload, so rather than
+// share one server process across every profile — forcing a restart,
+// dropping every other user's connection, on any single profile edit —
+// this provisioner runs one dedicated Turnable server process per profile,
+// each with its own listen port, call_id, key material and a single
+// embedded user.
 package turnable
 
 import (
@@ -312,31 +311,21 @@ func (p *Provisioner) configPath(externalID string) string {
 // buildURI follows docs/subscriptions.md §2.1:
 // turnable://[user_uuid]:[call_id]@[platform_id]/[route_id-socket-transport]?type=...&gateway=host:port&proto=...&cloak=none&peers=...&encryption=...&pub_key=...&selected_route_id=...#name
 //
-// The route's own socket/transport were, until now, only ever written into
-// the SERVER's local config.json (see the route{} literal above) and never
-// actually reached the client at all — the path segment was just the bare
-// route id ("main"), so the app had no way to know this route needs
-// tcp+kcp rather than plain udp. Per the spec's own worked example
-// ("vless-tcp-kcp", "wg-udp-"), the transport half is the empty string
-// when the socket is udp, not the literal "none" — RouteTransport only
-// ever holds "none" as this provisioner's own internal placeholder value
-// (see profileCoreConfig doc comment), so it has to be translated back to
-// "" before hitting the URI.
+// The route's socket/transport used to only reach the SERVER's local
+// config.json — the path segment was just the bare route id ("main"), so
+// the client had no way to know this route needs tcp+kcp rather than plain
+// udp. Per the spec's worked example, the transport half is the empty
+// string when the socket is udp, not the literal "none" — RouteTransport
+// only ever holds "none" as this provisioner's internal placeholder (see
+// profileCoreConfig), so it's translated back to "" before hitting the URI.
 //
-// `type` is the client-facing connection mode (relay/direct — see
-// profileCoreConfig.ConnectionType doc comment), independent from the
-// server config's own "type" field which is always "relay". `proto` and
-// `cloak` mirror the server entry's own Proto/Cloak fields above — cloak is
-// always "none" (the only value upstream Turnable implements). `encryption`
-// mirrors the server route's own Encryption field above — same value, so
-// the client always assumes what the server is actually doing. `pub_key` is
-// the server's ML-KEM-768 public key (see Keygen) the client needs to
-// actually perform that handshake/full encryption against — omitting it
-// (an earlier version of this URI did) leaves the client with no key to
-// encrypt to at all, encryption mode notwithstanding. It's base64
+// `type` is the client-facing connection mode (relay/direct), independent
+// from the server config's own "type" field which is always "relay".
+// `pub_key` is the server's ML-KEM-768 public key (see Keygen) the client
+// needs to perform that handshake against — omitting it (an earlier
+// version did) leaves the client with no key to encrypt to. It's base64
 // (+/=-bearing), so it has to be query-escaped, unlike every other segment
-// here. `peers` mirrors the server user's own Peers count (spec default
-// "1") — also missing from an earlier version of this URI.
+// here.
 func buildURI(cfg *config.Config, profile *models.Profile, cc profileCoreConfig) string {
 	gateway := fmt.Sprintf("%s:%d", cfg.PublicIP, cc.Port)
 	routeTransport := cc.RouteTransport

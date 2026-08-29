@@ -1,8 +1,7 @@
-// entityDialogs.ts covers the small create/edit dialog *wrappers* around
-// ClientForm/ProfileForm (create-client-dialog.tsx, edit-client-dialog.tsx,
-// add-profile-dialog.tsx, edit-profile-dialog.tsx) — just their own
-// trigger/title/tooltip text, not the form fields themselves (those are
-// client-form.tsx's/profile-form.tsx's own dictionaries).
+// Covers the small create/edit dialog wrappers around ClientForm/
+// ProfileForm — just their trigger/title/tooltip text, not the form fields
+// themselves (those live in client-form.tsx's/profile-form.tsx's own
+// dictionaries).
 export const entityDialogs = {
   ru: {
     "clientDialogs.editTooltip": "Редактировать клиента",

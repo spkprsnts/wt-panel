@@ -3,11 +3,10 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
 
-// Ported from WireTurn's ui/AppComponents.kt SectionGroup/SectionItem — the
-// grouped-list shell the Android app uses for every settings-style form and
-// dynamic list (first/last item gets the outer 20px corner, everything else
-// joins at a near-flat 4px corner, no divider lines). See section.tsx's
-// SectionItem below for the exact corner table.
+// Ported from WireTurn's ui/AppComponents.kt SectionGroup/SectionItem — a
+// grouped-list shell (first/last item gets the outer 20px corner, everything
+// else joins at a near-flat 4px corner, no divider lines). See
+// positionShape below for the exact corner table.
 
 function SectionGroup({
   title,
@@ -30,11 +29,8 @@ function SectionGroup({
 
 type ItemPosition = "top" | "middle" | "bottom" | "single"
 
-// sectionPosition derives a SectionItem's position from its place in a
-// dynamic list (see WireTurn's AppExceptionsScreen.kt for the same
-// index-driven pattern this ports) — shared so every list-backed
-// SectionGroup (ClientsPage's profiles, SettingsPage's config dump, ...)
-// computes it identically instead of each re-deriving its own ternary.
+// Derives a SectionItem's position from its place in a dynamic list, shared
+// so every list-backed SectionGroup computes it the same way.
 function sectionPosition(index: number, length: number): ItemPosition {
   if (length === 1) return "single"
   if (index === 0) return "top"
@@ -42,9 +38,8 @@ function sectionPosition(index: number, length: number): ItemPosition {
   return "middle"
 }
 
-// 20px on the corners that face the group's outer boundary, 4px ("joint")
-// on the corners facing a neighboring item — matches SectionItem's
-// Top/Middle/Bottom/Single cornerSize(20dp)/smallCornerSize(4dp) split.
+// 20px on the corners facing the group's outer boundary, 4px ("joint") on
+// the corners facing a neighboring item.
 const positionShape: Record<ItemPosition, string> = {
   top: "rounded-t-large-increased rounded-b-xs",
   middle: "rounded-xs",
@@ -66,10 +61,9 @@ function SectionItem({
   disabled?: boolean
   className?: string
   children: React.ReactNode
-  // For a row whose onClick toggles something it contains (e.g. a
-  // SwitchRow) — puts the real accessible semantics on this single button
-  // instead of the row and its inner control both being separate,
-  // redundant tab stops. See SwitchRow's own doc comment.
+  // For a row whose onClick toggles something it contains (e.g. SwitchRow)
+  // — puts the accessible semantics on this one button instead of two
+  // redundant tab stops. See SwitchRow below.
   role?: "switch"
   "aria-checked"?: boolean
 }) {
@@ -125,16 +119,12 @@ function LabelGroup({
 }
 
 // Meant to live inside a SectionItem whose own onClick does the actual
-// toggle (`onClick={() => onCheckedChange(!checked)}`, with
-// role="switch"/aria-checked passed to that SectionItem — see its own doc
-// comment) — matches WireTurn's shared-interaction-source pattern, where
-// SwitchRow never adds a second ripple/click of its own. The inner Switch
-// is presentational (tabIndex=-1, aria-hidden): nesting a second real
-// role="switch" inside the row's own button would both be invalid HTML
-// (no focusable descendants inside <button>) and give keyboard/AT users two
-// redundant stops for one control. It still stops its own click from
-// bubbling so a direct mouse hit on the thumb doesn't fire the row handler
-// twice.
+// toggle (`onClick={() => onCheckedChange(!checked)}`, with role="switch"/
+// aria-checked passed to that SectionItem). The inner Switch is
+// presentational (tabIndex=-1, aria-hidden): a second real role="switch"
+// nested in the row's own <button> would be invalid HTML and give
+// keyboard/AT users a redundant tab stop. It still stops its own click
+// from bubbling so a direct hit on the thumb doesn't also fire the row.
 function SwitchRow({
   label,
   checked,
@@ -187,12 +177,9 @@ type TextFieldRowProps = TextFieldRowBaseProps &
   )
 
 // Meant to live inside a SectionItem. Deliberately not the `Input`/
-// `Textarea` components — WireTurn's TextFieldRow (which handles both
-// single- and multi-line fields via the same composable, see its
-// singleLine/minLines/maxLines params) has a different chrome entirely:
-// the label sits above the field (never floating) and the field itself
-// carries no fill, only a bottom indicator line, since SectionItem's own
-// `surface` background already does the containment job.
+// `Textarea` components — the label sits above the field (never floating)
+// and the field carries no fill, only a bottom indicator line, since
+// SectionItem's own `surface` background already does the containment job.
 function TextFieldRow({
   label,
   value,
@@ -207,38 +194,18 @@ function TextFieldRow({
 }: TextFieldRowProps) {
   const generatedId = React.useId()
   const inputId = id ?? generatedId
-  // p-4 (16dp) on every side matches the M3 TextField's own internal
-  // content inset exactly — TextFieldImpl.kt's `TextFieldPadding = 16.dp`,
-  // applied on all four sides via `contentPaddingWithoutLabel()` since
-  // AppComponents.kt's TextFieldRow never passes a `label` composable to
-  // the underlying TextField (it has its own separate RowLabel above
-  // instead, which — unlike the field — carries no padding of its own).
-  // That asymmetry is real and intentional in the source: the label and
-  // the field's own text are NOT flush with each other: only the label
-  // lines up with the row's outer inset, the value sits 16dp further in.
+  // p-4 (16dp) matches M3 TextField's own internal content inset. The
+  // label sits above with no padding of its own, so it lines up with the
+  // row's outer inset while the field's value sits 16dp further in — that
+  // asymmetry is intentional, matching the Compose source.
   //
-  // The indicator line below is a filled bar (a sibling div), not a
-  // `border-bottom` — a CSS border with radius but zero-width adjacent
-  // sides renders as a tapered "whisker" at the corner (the border "ring"
-  // has no defined inner edge to round against once the neighbouring side
-  // has 0 width), which is not what M3 draws. Compose's own TextField
-  // doesn't draw a border either: IndicatorLineNode fills a plain
-  // rectangle (`linePath`) and clips it against the field's rounded-rect
-  // outline (`linePath and textFieldShapePath`) — a solid fill clipped by
-  // a curve, which always ends in a blunt rounded cap, never a point.
-  // `rounded-full` on a 1-2px-tall bar reproduces that same blunt cap
-  // regardless of the exact corner radius, since any radius at least half
-  // the bar's own height already rounds it into a full stadium end.
-  // Thickness is NOT constant either: FilledTextFieldTokens has
-  // ActiveIndicatorHeight = 1dp at rest, FocusActiveIndicatorHeight = 2dp
-  // focused (AppComponents.kt's TextFieldRow uses the stock TextField
-  // defaults for this, only overriding colors). Color is
-  // border-outline-variant at rest (TextFieldDefaults.colors'
-  // unfocusedIndicatorColor — deliberately not on-surface-variant, which
-  // is a body-text color and reads far too bright for a resting line),
-  // primary focused, error invalid — same three color states, independent
-  // of the height change. peer-* variants read all of this off the input/
-  // textarea's own state since the bar is a plain sibling, not a wrapper.
+  // The indicator line is a filled sibling div, not a `border-bottom` — a
+  // bordered rounded rect with one zero-width side renders a tapered
+  // "whisker" instead of M3's blunt rounded cap, which `rounded-full` on a
+  // thin filled bar reproduces correctly. Height goes 1px resting to 2px
+  // focused; color is outline-variant resting (not on-surface-variant,
+  // which reads too bright), primary focused, error invalid. peer-*
+  // variants read this off the input/textarea's own state.
   const fieldClassName = cn(
     "peer w-full bg-transparent p-4 text-body-large text-on-surface outline-none placeholder:text-on-surface-variant disabled:pointer-events-none disabled:opacity-[0.38]",
     !multiline && "truncate",

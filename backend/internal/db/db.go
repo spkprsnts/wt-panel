@@ -36,14 +36,9 @@ func Open(path string) (*gorm.DB, error) {
 
 	// SQLite has no real concurrent-writer story, and database/sql's default
 	// pool will happily open more than one connection to this same file.
-	// Pinning it to one connection serializes every query through it —
-	// the standard defensive default for Go+SQLite — and costs nothing
-	// here, since this panel was never going to benefit from concurrent
-	// connections against one local file anyway. (This was the first fix
-	// tried for a real xray-core startup failure that looked exactly like
-	// a stale read — it turned out not to be the actual cause there, see
-	// handlers_xray.go's generateClientIdentity, but it's a legitimate
-	// footgun to close regardless.)
+	// Pinning it to one connection serializes every query through it — the
+	// standard defensive default for Go+SQLite, and free since this panel
+	// never benefits from concurrent connections against one local file.
 	if sqlDB, err := db.DB(); err == nil {
 		sqlDB.SetMaxOpenConns(1)
 	}

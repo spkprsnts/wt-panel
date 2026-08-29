@@ -74,17 +74,14 @@ func (s *Server) updatePanelSettings(c *gin.Context) {
 
 // restartPanel triggers a real self-restart: main.go relaunches the same
 // binary (a fresh process re-reads PanelSettings and every other config
-// value) and gracefully shuts down this one — same SIGTERM-based teardown
-// as a manual stop, so every kernel process gets a real chance to clean up
-// rather than being hard-killed. Kernel processes come back on their own
-// once the new process's registry.RestoreAll runs (see main.go), so the
-// interruption to any active tunnel is real but brief, not a config change
-// an operator has to separately go fix.
+// value) and gracefully shuts down this one via the same SIGTERM-based
+// teardown as a manual stop. Kernel processes come back on their own once
+// the new process's registry.RestoreAll runs, so the tunnel interruption is
+// real but brief.
 //
-// The response is written and this handler returns before the restart
-// signal is sent (via a short delay in a goroutine) so the client actually
-// receives the "restarting" confirmation instead of the connection just
-// dying mid-request.
+// The restart signal is sent after a short delay in a goroutine, once the
+// response is already written, so the client gets the "restarting"
+// confirmation instead of the connection dying mid-request.
 func (s *Server) restartPanel(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"restarting": true})
 	go func() {
@@ -98,16 +95,12 @@ func (s *Server) restartPanel(c *gin.Context) {
 
 // checkPanelUpdate looks up the newest wt-panel GitHub Release (force=true:
 // this is an explicit, infrequent operator action, not a page-load path, so
-// it should always hit GitHub fresh rather than serve ListReleases' own
-// 10-minute cache) and compares its tag against s.version. Release tags are
-// created as "vX.Y.Z" (release.yml's `git tag -a v$VERSION`), while
-// s.version itself is baked in without the "v" (.goreleaser.yaml's ldflags
-// use goreleaser's {{.Version}}, which is the tag with "v" already
-// stripped) — TrimPrefix here just undoes that same convention so the two
-// strings are comparable. updateAvailable is always false for a "dev"
-// build (a plain `go build`/`go run`, not a real release binary — nothing
-// on GitHub to meaningfully compare it against, let alone overwrite it
-// with).
+// it should hit GitHub fresh rather than serve ListReleases' own 10-minute
+// cache) and compares its tag against s.version. Release tags are "vX.Y.Z"
+// while s.version is baked in without the "v" (goreleaser's {{.Version}}
+// strips it), so TrimPrefix makes the two comparable. updateAvailable is
+// always false for a "dev" build (plain `go build`/`go run`, not a real
+// release binary) — nothing on GitHub to meaningfully compare against.
 func (s *Server) checkPanelUpdate(c *gin.Context) {
 	releases, err := kernels.ListReleases("spkprsnts", "wt-panel", 1, true)
 	if err != nil {

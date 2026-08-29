@@ -1,19 +1,13 @@
-// index.ts merges every dictionary/*.ts fragment into two flat lookup
-// tables. Deliberately static imports + explicit merging here, not a
-// glob-based auto-discovery of dictionaries/*.ts: spreading each fragment's
-// `ru` object into one literal object lets TypeScript infer the exact
-// union of every key that exists (TranslationKey below) — a glob import
-// has no way to statically type that union. `en`'s explicit
-// `Record<TranslationKey, string>` annotation then means TypeScript
-// itself refuses to compile if any fragment added a key to `ru` and
-// forgot the matching `en` translation (or vice versa) — the single most
-// useful safety net for a dictionary this large, spread across many files
-// edited independently.
+// Merges every dictionary/*.ts fragment into two flat lookup tables.
+// Deliberately static imports + explicit spreads, not glob-based
+// auto-discovery: spreading each fragment's `ru` object into one literal
+// lets TypeScript infer the exact key union (TranslationKey below), and
+// `en`'s explicit `Record<TranslationKey, string>` annotation then makes
+// TypeScript refuse to compile if a fragment added a `ru` key without a
+// matching `en` one (or vice versa).
 //
-// New dictionary fragments are wired in here by hand, one import + one
-// spread line, when they're added — dictionary files themselves are never
-// touched by more than one change at a time, so this is the only file in
-// the whole i18n system where concurrent edits could ever collide.
+// New fragments are wired in here by hand — this is the one file in the
+// i18n system where concurrent edits could collide.
 import { common } from "./dictionaries/common"
 import { sidebar } from "./dictionaries/sidebar"
 import { login } from "./dictionaries/login"

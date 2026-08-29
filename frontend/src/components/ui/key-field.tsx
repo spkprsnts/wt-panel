@@ -3,18 +3,12 @@ import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/icon"
 
-// KeyField is a text field with a "Generate" action shared by every
-// crypto-key/secret input in the app (Turnable's keypair, olcRTC's crypto
-// key, FreeTurn's obfuscation key, Reality/WireGuard keys, ...) — was
-// duplicated near-verbatim between profile-form.tsx and XrayPage.tsx before
-// this got pulled out. Every call site lives inside a SectionItem now, so
-// the field itself intentionally matches TextFieldRow's chrome exactly —
-// see that component's own doc comment in section.tsx for the filled-bar
-// indicator / 16dp-content-padding reasoning, all read off WireTurn's own
-// TextFieldRow (AppComponents.kt). pr-12 (instead of the usual pr-4) is the
-// one deviation, reserved so the generate button sitting inside the
-// field's own right edge doesn't overlap the text. Also matches WireTurn
-// in never singling out key/technical fields with a monospace font.
+// A text field with a "Generate" action shared by every crypto-key/secret
+// input in the app — pulled out after being duplicated between
+// profile-form.tsx and XrayPage.tsx. Matches TextFieldRow's chrome (see
+// section.tsx) except pr-12 instead of pr-4, reserved so the generate
+// button doesn't overlap the text. Also matches WireTurn in never using a
+// monospace font for key fields.
 function KeyField({
   id,
   label,

@@ -11,9 +11,9 @@ import (
 
 // DownloadTarGzEntry fetches a gzip-compressed tar file from url and
 // extracts exactly one entry from it to destPath as an executable file —
-// webdav-tunnel's goreleaser-produced releases ship this way (binary
-// alongside LICENSE/README/docs/), unlike Turnable/FreeTurn's raw-binary
-// assets (see DownloadBinary) or Xray-core's zip (see DownloadZipEntry).
+// webdav-tunnel's goreleaser releases ship this way, unlike Turnable/
+// FreeTurn's raw binaries (DownloadBinary) or Xray-core's zip
+// (DownloadZipEntry).
 func DownloadTarGzEntry(url, entryName, destPath string) error {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {

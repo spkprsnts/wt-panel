@@ -64,13 +64,10 @@ function RoomDialog({
 
   // Re-seeds the fields from `room` every time the dialog opens — this
   // instance stays mounted for the whole table row, so without this,
-  // reopening Edit after `room` changed underneath it (another save's
-  // load(), or reopening after closing without submitting) would show
-  // stale local values that then overwrite the newer server data on save.
-  // Keyed on room?.ID, not the room object itself: `rooms` (and thus every
-  // row's `room` reference) is rebuilt on every load(), so depending on the
-  // object would reset this open dialog's in-progress edits whenever *any*
-  // other row's save triggered a reload.
+  // reopening Edit after `room` changed underneath it would show stale
+  // values that overwrite newer server data on save. Keyed on room?.ID, not
+  // the object itself: `rooms` is rebuilt on every load(), so depending on
+  // the object would reset in-progress edits whenever any other row saved.
   React.useEffect(() => {
     if (!open) return
     setProvider(room?.Provider ?? "vk")

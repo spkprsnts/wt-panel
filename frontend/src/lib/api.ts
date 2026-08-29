@@ -4,13 +4,10 @@ declare global {
   }
 }
 
-// BASE_PATH is injected into index.html at serve time by the Go backend
-// (see server.serveWebUI) — every route here is written as if the app were
-// mounted at "/", but the panel's actual URI-path setting (Settings page)
-// can put it under an arbitrary prefix. Every fetch() and the router's
-// basename (see App.tsx) both need this to resolve correctly; "" (empty
-// string, not "/") so simple concatenation with a leading-"/" path never
-// produces a double slash.
+// Injected into index.html at serve time by the Go backend (see
+// server.serveWebUI) — every route here is written as if mounted at "/",
+// but the panel's URI-path setting can put it under a prefix. "" (not "/")
+// so concatenating with a leading-"/" path never double-slashes.
 export const BASE_PATH = (window.__WTP_BASE_PATH__ ?? "/").replace(/\/$/, "")
 
 const TOKEN_KEY = "wtpanel_token"
@@ -46,16 +43,13 @@ function authHeaders(init?: HeadersInit): Headers {
   return headers
 }
 
-// handleErrors centralizes the 401→logout-redirect and !res.ok→ApiError
-// handling shared by request()/downloadFile()/uploadFile().
+// Centralizes 401→logout-redirect and !res.ok→ApiError handling shared by
+// request()/downloadFile()/uploadFile().
 //
-// /api/login is excluded from the 401 redirect: its own 401s (wrong
-// password, totp_required, a wrong/expired TOTP code) are meaningful
-// in-context responses LoginPage needs to actually read — not "your session
-// expired". Redirecting to /login here would just reload the login page out
-// from under LoginPage's own catch block before it ever gets to look at the
-// response, wiping out its state (which step it's on, any error) and making
-// a correct password + 2FA look like it always fails with no explanation.
+// /api/login is excluded from the 401 redirect: its 401s (wrong password,
+// totp_required, bad TOTP code) are meaningful responses LoginPage needs to
+// read, not "session expired" — redirecting would reload the login page out
+// from under LoginPage's catch block before it can read the response.
 async function handleErrors(res: Response, path: string): Promise<void> {
   if (res.status === 401 && path !== "/api/login") {
     clearToken()

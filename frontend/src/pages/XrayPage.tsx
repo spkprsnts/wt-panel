@@ -162,10 +162,9 @@ interface InboundFormState {
   sniffingDestOverride: string
 }
 
-// randomPort suggests a starting point for a brand-new inbound's listen
-// port — picked from the high, rarely-reserved range so it's unlikely to
-// collide with anything else already running on the box; the operator can
-// always type over it before saving.
+// Suggests a starting point for a new inbound's listen port, picked from
+// the high, rarely-reserved range to avoid colliding with anything else
+// already running on the box. The operator can type over it before saving.
 function randomPort(): number {
   return 10000 + Math.floor(Math.random() * 55536)
 }
@@ -245,19 +244,13 @@ function formFromInbound(inbound: XrayInbound): InboundFormState {
   let sniffing: Record<string, unknown> = {}
   try {
     settings = inbound.Settings ? JSON.parse(inbound.Settings) : {}
-  } catch {
-    /* leave defaults */
-  }
+  } catch {}
   try {
     stream = inbound.StreamSettings ? JSON.parse(inbound.StreamSettings) : {}
-  } catch {
-    /* leave defaults */
-  }
+  } catch {}
   try {
     sniffing = inbound.Sniffing ? JSON.parse(inbound.Sniffing) : {}
-  } catch {
-    /* leave defaults */
-  }
+  } catch {}
 
   const tcpSettings = (stream.tcpSettings as Record<string, unknown>) ?? {}
   const wsSettings = (stream.wsSettings as Record<string, unknown>) ?? {}
@@ -499,19 +492,13 @@ function buildPayload(protocol: XrayProtocol, f: InboundFormState) {
     }
   } else if (protocol === "hysteria2") {
     // Hysteria2 is QUIC — TLS isn't optional the way it is for vless/trojan,
-    // so there's no "security" choice or transport choice here, just the
-    // same TLS fields always applied. Matches upstream: no obfs/bandwidth
-    // knobs in the current inbound schema (both were dropped upstream).
-    //
-    // network/hysteriaSettings (not "tcp"/tcpSettings) is load-bearing, not
-    // cosmetic: xray-core's own hysteria proxy (proxy/hysteria/server.go)
-    // asserts streamSettings.ProtocolSettings is its internal *hysteria.Config
-    // and refuses to start ("not hysteria transport") otherwise — confirmed
-    // against the real upstream source, same place the "hysteria2" vs
-    // "hysteria" protocol-id mismatch was confirmed (see xrayCoreProtocol
-    // on the backend). hysteriaSettings.version must also be 2 —
-    // infra/conf's own HysteriaConfig.Build() rejects anything else, same
-    // check the proxy-level settings.version above already satisfies.
+    // so there's no security/transport choice here, just the TLS fields
+    // always applied. network/hysteriaSettings (not "tcp"/tcpSettings) is
+    // load-bearing: xray-core's hysteria proxy asserts
+    // streamSettings.ProtocolSettings is its internal *hysteria.Config and
+    // refuses to start otherwise (see xrayCoreProtocol on the backend).
+    // hysteriaSettings.version must also be 2 — infra/conf's
+    // HysteriaConfig.Build() rejects anything else.
     settings = { version: 2 }
     streamSettings = {
       network: "hysteria",
@@ -552,14 +539,10 @@ function TlsFields({
   const t = useT()
   const [panelCertError, setPanelCertError] = React.useState<string | null>(null)
 
-  // Hysteria2 requires TLS outright (no plaintext fallback the way
-  // vless/trojan have) — reusing whatever cert the panel's own HTTPS
-  // listener already has (Settings → "Panel network", normally a real
-  // Let's Encrypt cert from install.sh's SSL setup) means the operator
-  // doesn't need to issue or paste in a second cert just for this inbound.
-  // Only meaningfully different from typing the paths in by hand when the
-  // panel actually has TLS configured — surfaced as an error rather than
-  // silently doing nothing if it doesn't.
+  // Hysteria2 requires TLS outright (no plaintext fallback like vless/trojan
+  // have), so this reuses whatever cert the panel's own HTTPS listener
+  // already has (Settings → "Panel network") instead of making the operator
+  // paste in a second one. Surfaced as an error if the panel has none.
   async function handleUsePanelCert() {
     setPanelCertError(null)
     try {
@@ -766,16 +749,11 @@ function TlsFields({
 
 function RealityFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<React.SetStateAction<InboundFormState>> }) {
   const t = useT()
-  // 3x-ui pre-fills a full batch of shortIds the moment Reality becomes the
-  // active security mode, rather than leaving the operator to build a list
-  // by hand — a Reality inbound doesn't work without at least one, and
-  // xray-core accepts any length from 1 to 8 bytes per id, so one of each
-  // length (see keygenShortIds on the backend) is a sensible default set
-  // instead of a single fixed-length value. This component only mounts
-  // while security === "reality" (see NetworkSecurityFields), so mount is
-  // exactly that moment. Guarded on the field still being empty at mount
-  // time so it never clobbers a value already loaded from an existing
-  // inbound (edit mode) or typed in.
+  // Pre-fills a full batch of shortIds (one per valid 1-8 byte length, see
+  // keygenShortIds) the moment Reality becomes active, since a Reality
+  // inbound doesn't work without at least one. Guarded on the field still
+  // being empty so it never clobbers a value already loaded (edit mode) or
+  // typed in.
   React.useEffect(() => {
     if (f.realityShortIds) return
     api.keygenShortIds().then(({ shortIds }) =>
@@ -1260,15 +1238,14 @@ function InboundFormDialog({
   onSaved,
 }: {
   existing?: XrayInbound
-  // Only meaningful for a brand-new inbound (existing is unset) — see
-  // XrayPage's own call site, which passes inbounds.length + 1.
+  // Only meaningful for a brand-new inbound (existing is unset) — XrayPage
+  // passes inbounds.length + 1.
   nextNumber?: number
   onSaved: () => void
 }) {
   const t = useT()
   // Lets the footer's submit button (rendered outside this <form>, so it
-  // can stay pinned below the scrolling fields) still submit it via the
-  // standard form="..." attribute — see the render below.
+  // stays pinned below the scrolling fields) still submit it via form="...".
   const formId = React.useId()
   const defaultRemark = nextNumber ? `${t("xray.inboundForm.defaultNamePrefix")} #${nextNumber}` : ""
   const [open, setOpen] = React.useState(false)
@@ -1283,10 +1260,9 @@ function InboundFormDialog({
       setF(existing ? formFromInbound(existing) : emptyForm(defaultRemark))
       setError(null)
     }
-    // Keyed on existing?.ID, not the existing object itself: `inbounds` (and
-    // thus every row's `existing` reference) is rebuilt on every load(), so
-    // depending on the object would reset this open form's in-progress edits
-    // whenever *any* other row changed (delete, attach/detach a client, ...).
+    // Keyed on existing?.ID, not the object itself: `inbounds` is rebuilt on
+    // every load(), so depending on the object would reset this open form's
+    // in-progress edits whenever any other row changed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, existing?.ID])
 
@@ -1452,12 +1428,9 @@ function InboundFormDialog({
             </SectionGroup>
           )}
 
-          {/* Unlike TLS/Reality (a long, genuinely optional/advanced run of
-              fields that's worth collapsing away by default), Sniffing is
-              just one toggle plus an optional field the operator adjusts
-              often — a collapsible Disclosure was unnecessary chrome for
-              that little content, so this is a plain titled SectionGroup
-              instead, same as Turnable's "Route" / WebDAV's "TLS" boxes. */}
+          {/* Unlike TLS/Reality's collapsible Disclosure, Sniffing is just
+              one toggle plus an optional field, so a plain titled
+              SectionGroup is enough chrome. */}
           <SectionGroup title="Sniffing">
             <SectionItem
               position={f.sniffingEnabled ? "top" : "single"}
@@ -1526,10 +1499,9 @@ function ClientIdentity({ config }: { config: string }) {
   )
 }
 
-// InboundClientsDialog manages which panel Clients are attached to one
-// inbound. Deliberately only offers clients that already exist on the
-// Clients page — there is no way to create an "xray-only" client here,
-// matching the rule that Xray never has clients the Clients page doesn't.
+// Manages which panel Clients are attached to one inbound. Deliberately
+// only offers clients that already exist on the Clients page — there is no
+// way to create an "xray-only" client here.
 function InboundClientsDialog({ inbound, allClients, onChanged }: { inbound: XrayInbound; allClients: Client[]; onChanged: () => void }) {
   const t = useT()
   const [open, setOpen] = React.useState(false)

@@ -14,10 +14,10 @@ import (
 // Manager owns the single shared xray-core process. Reload is the only
 // entry point that matters operationally: it rebuilds config.json from the
 // database and starts/restarts/stops the process to match. Every mutation
-// to an XrayInbound or XrayClient (see handlers_xray.go) calls Reload
-// afterwards — there's no hot add/remove via xray-core's Stats/Handler API
-// yet (see README), a full restart is simple and correct, just not
-// glitch-free for other inbounds' connections while it happens.
+// to an XrayInbound or XrayClient calls Reload afterwards — there's no hot
+// add/remove via xray-core's Stats/Handler API yet (see README), so a full
+// restart is simple and correct, just not glitch-free for other inbounds'
+// connections while it happens.
 type Manager struct {
 	mu         sync.Mutex
 	db         *gorm.DB
@@ -77,9 +77,9 @@ func (m *Manager) Logs(maxBytes int) (string, error) {
 	return m.sup.ReadLog(maxBytes)
 }
 
-// Shutdown stops xray-core gracefully — called from main.go's shutdown and
-// restart paths alongside registry.ShutdownAll(), same "die with the panel"
-// guarantee the four kernel processes already have.
+// Shutdown stops xray-core gracefully — called alongside
+// registry.ShutdownAll(), same "die with the panel" guarantee the four
+// kernel processes already have.
 func (m *Manager) Shutdown() {
 	_ = m.sup.Stop()
 }

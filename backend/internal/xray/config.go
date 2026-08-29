@@ -1,7 +1,5 @@
 // Package xray turns the panel's stored XrayInbound/XrayClient rows into a
-// real xray-core process — the "make Xray actually work" step the rest of
-// the codebase (the Xray page, the profile create dialog's overlay picker)
-// was deliberately built ahead of, see README "Статус реализации".
+// real xray-core process.
 //
 // Unlike the four kernel provisioners (one process per profile), Xray-core
 // is one shared process serving every enabled inbound at once — the same
@@ -84,11 +82,10 @@ func BuildConfig(db *gorm.DB) (data []byte, enabledCount int, err error) {
 }
 
 // injectClients merges an inbound's attached XrayClient rows into its
-// stored Settings JSON — the panel keeps client identity in its own table
-// (see models.XrayClient's doc comment for why), but xray-core itself only
-// understands a "clients" array (vless/trojan/hysteria2) or "peers"
-// (wireguard) living directly inside the inbound's settings object, so
-// this is where the two get stitched back together into a real config.
+// stored Settings JSON — the panel keeps client identity in its own table,
+// but xray-core itself only understands a "clients" array (vless/trojan/
+// hysteria2) or "peers" (wireguard) living directly inside the inbound's
+// settings object, so this is where the two get stitched together.
 func injectClients(ib models.XrayInbound) (json.RawMessage, error) {
 	settings := map[string]any{}
 	if ib.Settings != "" {
@@ -154,20 +151,14 @@ func injectClients(ib models.XrayInbound) (json.RawMessage, error) {
 }
 
 // xrayCoreProtocol translates this panel's own stored XrayInbound.Protocol
-// value into the exact string xray-core's infra/conf package actually
-// registers a config loader under. Every value round-trips as-is except
-// "hysteria2": xray-core's own inbound config id for it is "hysteria" (see
-// XTLS/Xray-core's infra/conf/xray.go, kernelConfigLoader map — confirmed
-// against the real upstream source, not just its client-facing hysteria2://
-// URI scheme, which is an unrelated convention). Sending "hysteria2"
-// verbatim is exactly what produced a real, reproducible startup crash —
-// "infra/conf: unknown config id: hysteria2" — on every xray-core version
-// tested, including a build from the same week this was fixed. Kept as a
-// translation at this one boundary, rather than renaming the stored value
-// everywhere (XrayInbound.Protocol, the frontend's XrayProtocol type,
-// hysteria2:// client links, UI labels), so existing rows with
-// Protocol="hysteria2" already in a deployed database keep working
-// untouched — no migration needed.
+// value into the exact string xray-core's infra/conf package registers a
+// config loader under. Every value round-trips as-is except "hysteria2":
+// xray-core's own inbound config id for it is "hysteria" (its client-facing
+// hysteria2:// URI scheme is an unrelated convention). Sending "hysteria2"
+// verbatim produced a real startup crash — "infra/conf: unknown config id:
+// hysteria2". Kept as a translation at this one boundary, rather than
+// renaming the stored value everywhere, so existing rows with
+// Protocol="hysteria2" keep working untouched — no migration needed.
 func xrayCoreProtocol(p string) string {
 	if p == "hysteria2" {
 		return "hysteria"
@@ -176,18 +167,13 @@ func xrayCoreProtocol(p string) string {
 }
 
 // fixHysteriaStreamSettings self-heals a stored hysteria2 inbound's
-// streamSettings that still has the shape an older build of this panel's
-// own frontend used to send — network:"tcp" with an empty tcpSettings —
-// into what xray-core's hysteria proxy actually requires: network:
-// "hysteria" plus a hysteriaSettings object (see
-// proxy/hysteria/server.go's own streamSettings.ProtocolSettings type
-// assertion, which fails outright — "not hysteria transport" — for
-// anything else). Same self-heal philosophy injectClients already applies
-// to a stale WireGuard inbound's Address field below: an operator's
-// already-saved inbound should start working again the next time xray-core
-// reloads, not require them to notice, re-open, and re-save it by hand.
-// A no-op once the frontend's own fixed buildPayload has actually written
-// "hysteria" — this only ever touches the pre-fix shape.
+// streamSettings that still has the shape an older frontend build used to
+// send — network:"tcp" with an empty tcpSettings — into what xray-core's
+// hysteria proxy actually requires: network:"hysteria" plus a
+// hysteriaSettings object. Same self-heal philosophy injectClients applies
+// to a stale WireGuard Address below: an already-saved inbound should work
+// again the next time xray-core reloads, not require a manual re-save.
+// A no-op once the frontend's buildPayload has written "hysteria".
 func fixHysteriaStreamSettings(raw string) json.RawMessage {
 	def := json.RawMessage(`{"network":"hysteria","hysteriaSettings":{"version":2}}`)
 	if raw == "" {

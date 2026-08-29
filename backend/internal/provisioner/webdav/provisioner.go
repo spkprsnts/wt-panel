@@ -4,9 +4,9 @@
 // webdav-tunnel's selfhosted mode has no multi-user concept — one process
 // is one login/password pair on one port — so, like the other three
 // kernels, the panel runs a dedicated process per profile. Server mode
-// (ConnMode == "server") is different: there's no local listener at all,
-// just a relay connecting out to one or more already-existing external
-// WebDAV backends — see profileCoreConfig's doc comment.
+// (ConnMode == "server") is different: no local listener, just a relay
+// connecting out to existing external WebDAV backends — see
+// profileCoreConfig's doc comment.
 package webdav
 
 import (
@@ -170,11 +170,9 @@ func (p *Provisioner) Shutdown() {
 }
 
 // applyDefaults parses profile.CoreConfig and fills in whatever this
-// profile is missing. Server-mode profiles need nothing minted — Backends
-// is operator-supplied, there's no local port/credential to allocate — just
-// a check that at least one backend was actually given. Selfhosted keeps
-// its existing auto-generated login/password/port/proxy behavior. Caller
-// must hold p.mu.
+// profile is missing. Server-mode profiles need nothing minted — just a
+// check that at least one backend was given. Selfhosted auto-generates
+// login/password/port/proxy. Caller must hold p.mu.
 func (p *Provisioner) applyDefaults(profile *models.Profile) (profileCoreConfig, error) {
 	cc, err := p.parseConfig(profile)
 	if err != nil {
@@ -224,12 +222,10 @@ func (p *Provisioner) parseConfig(profile *models.Profile) (profileCoreConfig, e
 
 // ensureProcess (re)starts this profile's process only if it isn't running
 // yet or something infra-relevant actually changed. Server mode's whole
-// configuration (backends, enc, dns, proxy) lives in a generated YAML file
-// rather than CLI flags — -webdav/-login/-password only ever describe one
-// backend, so multi-backend rotation has no flag-only equivalent — which
-// means the usual "did the args slice change" check doesn't see edits to
-// that file's content; changeKey carries the raw YAML bytes alongside args
-// specifically so those edits still trigger a restart.
+// configuration lives in a generated YAML file rather than CLI flags, so
+// the usual "did the args slice change" check wouldn't see edits to that
+// file; changeKey carries the raw YAML bytes alongside args specifically so
+// those edits still trigger a restart.
 func (p *Provisioner) ensureProcess(profile *models.Profile, cc profileCoreConfig) error {
 	var args []string
 	changeKey := []string{cc.ConnMode}
@@ -351,12 +347,10 @@ func buildServerConfigYAML(cc profileCoreConfig) ([]byte, error) {
 	return yaml.Marshal(y)
 }
 
-// tuningFlags renders the operator's own overrides (if any) as -poll-min/
-// etc CLI flags for selfhosted mode. Only fields the profile actually set
-// are included — anything left at its zero value is omitted so
-// webdav-tunnel's own "-mode selfhosted" auto-defaults (main.go's
-// aggressive-preset branch, upstream) apply exactly as if this provisioner
-// had never passed a tuning flag at all.
+// tuningFlags renders the operator's overrides (if any) as -poll-min/etc
+// CLI flags for selfhosted mode. Fields left at their zero value are
+// omitted so webdav-tunnel's own selfhosted auto-defaults apply as if this
+// provisioner had never passed a tuning flag at all.
 func tuningFlags(cc profileCoreConfig) []string {
 	var args []string
 	if cc.PollMin != "" {
@@ -402,16 +396,14 @@ func buildURI(cfg *config.Config, cc profileCoreConfig, name string) (string, er
 }
 
 // resolvedTuningQuery reports what the server process is ACTUALLY going to
-// run with — the operator's own override where given, else the correct
-// auto-default for this mode: selfhosted auto-applies a faster
-// poll-min/poll-max/coalesce preset for its own local WebDAV (main.go's
-// "-mode selfhosted" branch, upstream), everything else uses the plain
-// generic defaults (docs/tuning.md). chunk-size/puts/read-min/read-max
-// don't have a selfhosted-specific auto-default, so they're the same
-// either way. Getting this right matters: the client URI is the only
-// place these values reach the client at all, so if it reported something
-// other than what the server truly does, the two sides would silently poll/
-// chunk/prefetch at mismatched rates.
+// run with — the operator's override where given, else the correct
+// auto-default for this mode: selfhosted uses a faster poll-min/poll-max/
+// coalesce preset, everything else uses the plain generic defaults.
+// chunk-size/puts/read-min/read-max have no selfhosted-specific default, so
+// they're the same either way. Matters because the client URI is the only
+// place these values reach the client — if it reported something other
+// than what the server does, the two sides would poll/chunk/prefetch at
+// mismatched rates.
 func resolvedTuningQuery(cc profileCoreConfig) url.Values {
 	pollMin, pollMax, coalesce := "200ms", "500ms", "10ms"
 	if cc.ConnMode != "server" {
@@ -450,12 +442,10 @@ func resolvedTuningQuery(cc profileCoreConfig) url.Values {
 	}
 }
 
-// buildSelfhostedURI matches webdav-tunnel's own selfhostedClientURI
-// (tunnel/selfhosted.go): scheme reflects THIS profile's own TLS cert/key —
-// there's no panel-wide default or reverse-proxy TLS termination model
-// here, the operator points -webdav-tls-cert/-webdav-tls-key straight at
-// real files. "enc"/"dns" carry the profile's actual settings since neither
-// is negotiated any other way.
+// buildSelfhostedURI matches webdav-tunnel's own selfhostedClientURI:
+// scheme reflects THIS profile's own TLS cert/key — no panel-wide default
+// or reverse-proxy TLS termination, the operator points
+// -webdav-tls-cert/-webdav-tls-key straight at real files.
 func buildSelfhostedURI(cfg *config.Config, cc profileCoreConfig, name string) string {
 	scheme := "webdav"
 	if cc.TLSCertFile != "" && cc.TLSKeyFile != "" {
@@ -481,9 +471,8 @@ func buildSelfhostedURI(cfg *config.Config, cc profileCoreConfig, name string) s
 
 // buildServerURI packs the primary backend into the URI's own userinfo/host
 // and any additional ones as repeated, percent-encoded "backend=" nested
-// webdav://login:pass@host URIs — the exact format webdav-tunnel's own
-// tunnel.ClientURI produces for multi-backend rotation (docs/modes.md
-// "Multiple backends in one URI").
+// webdav://login:pass@host URIs — the format webdav-tunnel's own
+// tunnel.ClientURI produces for multi-backend rotation.
 func buildServerURI(cc profileCoreConfig, name string) (string, error) {
 	if len(cc.Backends) == 0 {
 		return "", fmt.Errorf("webdav server profile has no backends configured")

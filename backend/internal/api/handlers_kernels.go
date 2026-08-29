@@ -109,14 +109,13 @@ type installReleaseRequest struct {
 	Version string `json:"version"` // release tag; empty = latest
 }
 
-// installTurnable, installFreeTurn and installXray all kick off the actual
-// download as a background Job (same model as buildOlcrtc below) instead of
-// blocking the request until it finishes: a plain synchronous request has
-// no way to tell the operator "still installing" if they reload the Ядра
-// page mid-download, since the "installing..." state lived only in the
-// browser tab's own React state. Polling getKernelJob (by kernel name, not
-// by an id the frontend would otherwise have to remember across a reload)
-// fixes that uniformly for all four kernels, including olcRTC's build.
+// installTurnable, installFreeTurn, installXray and installWebDAV all kick
+// off the actual download as a background Job (same model as buildOlcrtc
+// below) instead of blocking the request until it finishes: a plain
+// synchronous request has no way to tell the operator "still installing" if
+// they reload the Kernels page mid-download. Polling getKernelJob (by
+// kernel name, not a per-request id the frontend would have to remember
+// across a reload) fixes that uniformly for all five kernels.
 
 func (s *Server) installTurnable(c *gin.Context) {
 	var req installReleaseRequest
