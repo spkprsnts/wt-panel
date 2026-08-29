@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"sync"
 
 	"wtpanel/internal/config"
@@ -208,6 +209,9 @@ func (p *Provisioner) applyLogicalDefaults(profile *models.Profile) (profileCore
 	if cc.Transport == "" {
 		cc.Transport = "tcp"
 	}
+	if cc.Mode == "" {
+		cc.Mode = "udp"
+	}
 	if cc.ConnectHost == "" {
 		cc.ConnectHost = p.cfg.FreeTurnDefaultConnectHost
 	}
@@ -233,6 +237,7 @@ func (p *Provisioner) ensureProcess(profile *models.Profile, cc profileCoreConfi
 	args := []string{
 		"-listen", fmt.Sprintf("%s:%d", p.cfg.FreeTurnListenHost, cc.Port),
 		"-connect", fmt.Sprintf("%s:%d", cc.ConnectHost, cc.ConnectPort),
+		"-mode", cc.Mode,
 		"-obf-profile", cc.ObfProfile,
 	}
 	if cc.ObfProfile != "none" && cc.ObfKey != "" {
@@ -240,6 +245,22 @@ func (p *Provisioner) ensureProcess(profile *models.Profile, cc profileCoreConfi
 	}
 	if cc.ObfProfile != "none" && cc.ObfTiming != "" {
 		args = append(args, "-obf-timing", cc.ObfTiming)
+	}
+	// -kcp-* flags tune the ARQ layer -mode tcp uses to carry a TCP stream
+	// inside TURN's UDP-only relay — upstream rejects them outright in
+	// -mode udp, so they're only ever passed alongside it.
+	if cc.Mode == "tcp" && cc.KCP != nil {
+		k := cc.KCP
+		args = append(args,
+			"-kcp-nodelay", strconv.Itoa(k.NoDelay),
+			"-kcp-interval", strconv.Itoa(k.Interval),
+			"-kcp-resend", strconv.Itoa(k.Resend),
+			"-kcp-nc", strconv.Itoa(k.NC),
+			"-kcp-sndwnd", strconv.Itoa(k.SndWnd),
+			"-kcp-rcvwnd", strconv.Itoa(k.RcvWnd),
+			"-kcp-mtu", strconv.Itoa(k.MTU),
+			"-kcp-acknodelay="+strconv.FormatBool(k.ACKNoDelay),
+		)
 	}
 
 	sup, exists := p.supervisors[profile.ID]
@@ -284,7 +305,10 @@ func buildURI(cfg *config.Config, cc profileCoreConfig) string {
 		Peer:      fmt.Sprintf("%s:%d", cfg.PublicIP, cc.Port),
 		Links:     cc.Links,
 		Transport: cc.Transport,
-		Mode:      "udp",
+		Mode:      cc.Mode,
+	}
+	if cc.Mode == "tcp" && cc.KCP != nil {
+		payload.KCP = cc.KCP
 	}
 	if cc.ObfProfile != "" && cc.ObfProfile != "none" {
 		payload.Obf = cc.ObfProfile

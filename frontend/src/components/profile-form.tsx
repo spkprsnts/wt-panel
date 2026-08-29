@@ -200,23 +200,49 @@ const initialOlcrtc: OlcrtcState = {
 interface FreeturnState {
   links: string[]
   transport: "tcp" | "udp"
+  // "udp" (default) relays UDP datagrams transparently — WireGuard/
+  // AmneziaWG/Hysteria backends. "tcp" forwards a TCP stream (KCP+smux
+  // over the same UDP-only TURN relay) — Xray/sing-box/VLESS backends.
+  // Upstream free-turn-proxy dropped this entirely in v3.0.0 and brought
+  // it back in v3.2.0 alongside the KCP tuning fields below.
+  mode: "udp" | "tcp"
   port: string
   connectHost: string
   connectPort: string
   obfProfile: "rtpopus" | "rtpopus2" | "rtpopus3" | "none"
   obfKey: string
   obfTiming: string
+  // KCP tunes the ARQ layer carrying that TCP stream — only sent when
+  // mode is "tcp" (upstream rejects these flags outright otherwise).
+  // Defaults below match upstream's own (docs/flags.md's "KCP" table).
+  kcpNoDelay: string
+  kcpInterval: string
+  kcpResend: string
+  kcpNC: string
+  kcpSndWnd: string
+  kcpRcvWnd: string
+  kcpMTU: string
+  kcpAckNoDelay: boolean
 }
 
 const initialFreeturn: FreeturnState = {
   links: [],
   transport: "tcp",
+  mode: "udp",
   port: "",
   connectHost: "127.0.0.1",
   connectPort: "",
   obfProfile: "rtpopus",
   obfKey: "",
   obfTiming: "",
+  kcpNoDelay: "1",
+  kcpInterval: "20",
+  kcpResend: "2",
+  kcpNC: "1",
+  kcpSndWnd: "512",
+  kcpRcvWnd: "512",
+  kcpMTU: "1200",
+  kcpAckNoDelay: true,
 }
 
 // Login/Password are infra (auto-generated server-side on first save if
@@ -412,18 +438,28 @@ function parseCoreConfig(
   }
   // freeturn
   const links = Array.isArray(cfg.links) ? cfg.links.filter((l): l is string => typeof l === "string") : initialFreeturn.links
+  const kcp = cfg.kcp && typeof cfg.kcp === "object" ? (cfg.kcp as Record<string, unknown>) : {}
   return {
     tn: initialTurnable,
     oc: initialOlcrtc,
     ft: {
       links,
       transport: (str(cfg.transport, initialFreeturn.transport) as FreeturnState["transport"]),
+      mode: (str(cfg.mode, initialFreeturn.mode) as FreeturnState["mode"]),
       port: num(cfg.port, initialFreeturn.port),
       connectHost: str(cfg.connect_host, initialFreeturn.connectHost),
       connectPort: num(cfg.connect_port, initialFreeturn.connectPort),
       obfProfile: (str(cfg.obf_profile, initialFreeturn.obfProfile) as FreeturnState["obfProfile"]),
       obfKey: str(cfg.obf_key, initialFreeturn.obfKey),
       obfTiming: str(cfg.obf_timing, initialFreeturn.obfTiming),
+      kcpNoDelay: num(kcp.nodelay, initialFreeturn.kcpNoDelay),
+      kcpInterval: num(kcp.interval, initialFreeturn.kcpInterval),
+      kcpResend: num(kcp.resend, initialFreeturn.kcpResend),
+      kcpNC: num(kcp.nc, initialFreeturn.kcpNC),
+      kcpSndWnd: num(kcp.sndwnd, initialFreeturn.kcpSndWnd),
+      kcpRcvWnd: num(kcp.rcvwnd, initialFreeturn.kcpRcvWnd),
+      kcpMTU: num(kcp.mtu, initialFreeturn.kcpMTU),
+      kcpAckNoDelay: typeof kcp.acknodelay === "boolean" ? kcp.acknodelay : initialFreeturn.kcpAckNoDelay,
     },
     wd: initialWebdav,
   }
@@ -538,12 +574,25 @@ function buildCoreConfig(
     provider: "vk",
     links: ft.links,
     transport: ft.transport,
+    mode: ft.mode,
     ...(Number(ft.port) > 0 && { port: Number(ft.port) }),
     connect_host: ft.connectHost,
     connect_port: Number(ft.connectPort),
     obf_profile: ft.obfProfile,
     ...(ft.obfKey && { obf_key: ft.obfKey }),
     ...(ft.obfTiming && { obf_timing: ft.obfTiming }),
+    ...(ft.mode === "tcp" && {
+      kcp: {
+        nodelay: Number(ft.kcpNoDelay),
+        interval: Number(ft.kcpInterval),
+        resend: Number(ft.kcpResend),
+        nc: Number(ft.kcpNC),
+        sndwnd: Number(ft.kcpSndWnd),
+        rcvwnd: Number(ft.kcpRcvWnd),
+        mtu: Number(ft.kcpMTU),
+        acknodelay: ft.kcpAckNoDelay,
+      },
+    }),
   }
 }
 
@@ -657,6 +706,10 @@ export function ProfileForm({
     rtpopus3: "rtpopus3",
     none: t("profileForm.freeturn.obfProfileNone"),
   }
+  const freeturnModeLabels: Record<FreeturnState["mode"], string> = {
+    udp: t("profileForm.freeturn.modeUdp"),
+    tcp: t("profileForm.freeturn.modeTcp"),
+  }
   // Lets the footer's submit button (rendered outside this <form>, so it
   // can stay pinned below the scrolling fields — see the render below)
   // still submit it via the standard form="..." attribute.
@@ -763,6 +816,10 @@ export function ProfileForm({
     // (see inferRouteSocket) — picking a UDP-based inbound (hysteria2,
     // wireguard, or vless/trojan over mKCP) while route socket stayed on
     // its old "tcp" value would silently forward to the wrong socket type.
+    // FreeTurn has the same problem one level up: its own tunnel -mode has
+    // to match the inbound's transport too (udp-relay for hysteria2/
+    // wireguard/mKCP, tcp-forwarder for everything else — VLESS/Trojan/
+    // VMess over raw tcp/ws/grpc/http-upgrade/xhttp), same inference.
     if (coreType === "turnable") {
       const routeSocket = inferRouteSocket(inbound)
       setTn((s) => ({
@@ -773,7 +830,12 @@ export function ProfileForm({
         routeTransport: routeSocket === "udp" ? "none" : "kcp",
       }))
     } else if (coreType === "freeturn") {
-      setFt((s) => ({ ...s, connectHost: "127.0.0.1", connectPort: String(inbound.Port) }))
+      setFt((s) => ({
+        ...s,
+        connectHost: "127.0.0.1",
+        connectPort: String(inbound.Port),
+        mode: inferRouteSocket(inbound),
+      }))
     }
   }
 
@@ -782,18 +844,18 @@ export function ProfileForm({
   // xrayManualWireGuard) alongside the plain URI one; olcRTC keeps URI-only.
   const supportsWireGuardManual = coreType === "turnable" || coreType === "freeturn"
 
-  // FreeTurn only ever forwards over UDP (its own -connect target has to be
-  // a UDP listener) — vless/trojan inbounds are typically TCP-based, so
-  // only hysteria2/wireguard ones are real forwarding targets here. olcRTC
-  // and WebDAV are the opposite restriction: both are SOCKS5-native kernels
-  // with no WireGuard-compatible transport of their own, so a wireguard
-  // inbound is never a valid pick for either.
+  // olcRTC and WebDAV are SOCKS5-native kernels with no WireGuard-compatible
+  // transport of their own, so a wireguard inbound is never a valid pick for
+  // either. FreeTurn used to have the mirror-image restriction (UDP-relay
+  // only, so only hysteria2/wireguard inbounds were real forwarding
+  // targets) — lifted now that it can also forward a TCP stream (-mode tcp,
+  // KCP+smux over the same TURN relay) to vless/trojan/vmess-style TCP
+  // inbounds, same as Turnable already could; handlePickInbound's
+  // inferRouteSocket call picks the matching mode automatically.
   function visibleInboundsFor(ct: CoreType, list: XrayInbound[]) {
-    return ct === "freeturn"
-      ? list.filter((ib) => ib.Protocol === "hysteria2" || ib.Protocol === "wireguard")
-      : ct === "olcrtc" || ct === "webdav"
-        ? list.filter((ib) => ib.Protocol !== "wireguard")
-        : list
+    return ct === "olcrtc" || ct === "webdav"
+      ? list.filter((ib) => ib.Protocol !== "wireguard")
+      : list
   }
   const visibleInbounds = visibleInboundsFor(coreType, inbounds)
 
@@ -1663,7 +1725,7 @@ export function ProfileForm({
                 onChange={(v) => setFt({ ...ft, connectHost: v })}
               />
             </SectionItem>
-            <SectionItem position="bottom">
+            <SectionItem position="middle">
               <TextFieldRow
                 id="connect-port"
                 label={t("profileForm.portLabel")}
@@ -1671,10 +1733,135 @@ export function ProfileForm({
                 value={ft.connectPort}
                 onChange={(v) => setFt({ ...ft, connectPort: v })}
                 required
-                placeholder="51820"
+                placeholder={ft.mode === "tcp" ? "443" : "51820"}
               />
             </SectionItem>
+            <SectionItem position="bottom">
+              <div className="flex w-full flex-col gap-1">
+                <label className="text-title-medium text-on-surface">{t("profileForm.freeturn.modeLabel")}</label>
+                <Select
+                  value={ft.mode}
+                  onValueChange={(v) => setFt({ ...ft, mode: (v as FreeturnState["mode"]) ?? initialFreeturn.mode })}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue>{(v: FreeturnState["mode"] | null) => labelFor(freeturnModeLabels, v)}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(freeturnModeLabels).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </SectionItem>
           </SectionGroup>
+
+          {ft.mode === "tcp" && (
+            <Disclosure title={t("profileForm.freeturn.kcpSettingsTitle")}>
+              <SectionGroup>
+                <SectionItem position="top">
+                  <div className="flex w-full flex-col gap-1">
+                    <label className="text-title-medium text-on-surface">{t("profileForm.freeturn.kcpNoDelayLabel")}</label>
+                    <Select
+                      value={ft.kcpNoDelay}
+                      onValueChange={(v) => setFt({ ...ft, kcpNoDelay: v ?? initialFreeturn.kcpNoDelay })}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue>
+                          {(v: string | null) =>
+                            v === "0" ? t("profileForm.freeturn.kcpNoDelayNormal") : t("profileForm.freeturn.kcpNoDelayFast")
+                          }
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">{t("profileForm.freeturn.kcpNoDelayNormal")}</SelectItem>
+                        <SelectItem value="1">{t("profileForm.freeturn.kcpNoDelayFast")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </SectionItem>
+                <SectionItem position="middle">
+                  <TextFieldRow
+                    id="kcp-interval"
+                    label={t("profileForm.freeturn.kcpIntervalLabel")}
+                    type="number"
+                    value={ft.kcpInterval}
+                    onChange={(v) => setFt({ ...ft, kcpInterval: v })}
+                  />
+                </SectionItem>
+                <SectionItem position="middle">
+                  <TextFieldRow
+                    id="kcp-resend"
+                    label={t("profileForm.freeturn.kcpResendLabel")}
+                    type="number"
+                    value={ft.kcpResend}
+                    onChange={(v) => setFt({ ...ft, kcpResend: v })}
+                  />
+                </SectionItem>
+                <SectionItem position="middle">
+                  <div className="flex w-full flex-col gap-1">
+                    <label className="text-title-medium text-on-surface">{t("profileForm.freeturn.kcpNCLabel")}</label>
+                    <Select
+                      value={ft.kcpNC}
+                      onValueChange={(v) => setFt({ ...ft, kcpNC: v ?? initialFreeturn.kcpNC })}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue>
+                          {(v: string | null) => (v === "0" ? t("profileForm.freeturn.kcpNCOn") : t("profileForm.freeturn.kcpNCOff"))}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">{t("profileForm.freeturn.kcpNCOn")}</SelectItem>
+                        <SelectItem value="1">{t("profileForm.freeturn.kcpNCOff")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </SectionItem>
+                <SectionItem position="middle">
+                  <TextFieldRow
+                    id="kcp-sndwnd"
+                    label={t("profileForm.freeturn.kcpSndWndLabel")}
+                    type="number"
+                    value={ft.kcpSndWnd}
+                    onChange={(v) => setFt({ ...ft, kcpSndWnd: v })}
+                  />
+                </SectionItem>
+                <SectionItem position="middle">
+                  <TextFieldRow
+                    id="kcp-rcvwnd"
+                    label={t("profileForm.freeturn.kcpRcvWndLabel")}
+                    type="number"
+                    value={ft.kcpRcvWnd}
+                    onChange={(v) => setFt({ ...ft, kcpRcvWnd: v })}
+                  />
+                </SectionItem>
+                <SectionItem position="middle">
+                  <TextFieldRow
+                    id="kcp-mtu"
+                    label={t("profileForm.freeturn.kcpMtuLabel")}
+                    type="number"
+                    value={ft.kcpMTU}
+                    onChange={(v) => setFt({ ...ft, kcpMTU: v })}
+                    supportingText={t("profileForm.freeturn.kcpMtuHint")}
+                  />
+                </SectionItem>
+                <SectionItem
+                  position="bottom"
+                  role="switch"
+                  aria-checked={ft.kcpAckNoDelay}
+                  onClick={() => setFt({ ...ft, kcpAckNoDelay: !ft.kcpAckNoDelay })}
+                >
+                  <SwitchRow
+                    label={t("profileForm.freeturn.kcpAckNoDelayLabel")}
+                    checked={ft.kcpAckNoDelay}
+                    onCheckedChange={(v) => setFt({ ...ft, kcpAckNoDelay: v })}
+                  />
+                </SectionItem>
+              </SectionGroup>
+            </Disclosure>
+          )}
 
           <SectionGroup>
             <SectionItem position={ft.obfProfile === "none" ? "single" : "top"}>

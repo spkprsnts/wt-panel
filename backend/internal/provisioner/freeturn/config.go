@@ -33,6 +33,23 @@ type profileCoreConfig struct {
 	Links     []string `json:"links"`     // VK Calls ids, per docs/providers.md
 	Transport string   `json:"transport"` // "tcp" or "udp", must match server -obf-profile expectations
 
+	// Mode is the tunnel type ("-mode" on both client and server, must
+	// match — see upstream docs/modes.md): "udp" (default) relays UDP
+	// datagrams transparently, for WireGuard/AmneziaWG/Hysteria backends;
+	// "tcp" forwards a TCP stream (KCP+smux over the same UDP-only TURN
+	// relay), for Xray/sing-box/VLESS-style backends. Upstream dropped this
+	// mode entirely in v3.0.0 and brought it back in v3.2.0 alongside KCP
+	// below — ConnectPort's own doc comment (WG 51820 vs Xray 443) already
+	// hints at exactly this split, this field is what actually selects it.
+	Mode string `json:"mode,omitempty"`
+
+	// KCP tunes the ARQ layer carrying that TCP stream (the "-kcp-*"
+	// flags), only meaningful (and only valid to pass to the process at
+	// all) when Mode == "tcp" — nil means "let the binary use its own
+	// built-in defaults" rather than "all zero", since 0 is itself a
+	// meaningful explicit value for a couple of these fields (NoDelay/NC).
+	KCP *kcpOpts `json:"kcp,omitempty"`
+
 	ConnectHost string `json:"connect_host,omitempty"` // local backend's host, e.g. 127.0.0.1
 	ConnectPort int    `json:"connect_port,omitempty"` // required, no default — depends on the local service
 
@@ -41,6 +58,26 @@ type profileCoreConfig struct {
 	ObfTiming  string `json:"obf_timing,omitempty"`  // e.g. "10ms" inter-packet delay for RTP mimicry; only with ObfProfile != "none"
 
 	Port int `json:"port"`
+}
+
+// kcpOpts mirrors free-turn-proxy's own "kcp" wire object exactly (its
+// internal/uri/uri.go KCP struct / docs/uri.md) — same field names and
+// JSON keys — so it can be embedded verbatim in both this package's own
+// stored CoreConfig and the client-facing freeturnURI without remapping.
+// See docs/flags.md's "KCP" table for defaults/ranges: NoDelay 0|1 (def 1),
+// Interval ms (def 20), Resend fast-retransmit-after-N-dupacks (def 2,
+// 0=off), NC congestion-control 0=on|1=off (def 1), SndWnd/RcvWnd in
+// packets (def 512/512), MTU bytes (def 1200, valid 300..1350),
+// ACKNoDelay (def true).
+type kcpOpts struct {
+	NoDelay    int  `json:"nodelay"`
+	Interval   int  `json:"interval"`
+	Resend     int  `json:"resend"`
+	NC         int  `json:"nc"`
+	SndWnd     int  `json:"sndwnd"`
+	RcvWnd     int  `json:"rcvwnd"`
+	MTU        int  `json:"mtu"`
+	ACKNoDelay bool `json:"acknodelay"`
 }
 
 // freeturnURI mirrors the base64url(JSON) payload documented in
@@ -53,6 +90,7 @@ type freeturnURI struct {
 	Sub       string   `json:"sub,omitempty"`
 	Transport string   `json:"transport"`
 	Mode      string   `json:"mode"`
+	KCP       *kcpOpts `json:"kcp,omitempty"` // only set when Mode == "tcp" — see kcpOpts' own doc comment
 
 	// Obf/Key/Obft must mirror the -obf-profile/-obf-key/-obf-timing flags
 	// the server process is actually started with (see ensureProcess) — the
