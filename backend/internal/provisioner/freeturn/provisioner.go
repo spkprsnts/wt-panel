@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 
 	"wtpanel/internal/config"
@@ -300,12 +301,16 @@ func (p *Provisioner) profileDir(externalID string) string {
 
 func buildURI(cfg *config.Config, cc profileCoreConfig) string {
 	payload := freeturnURI{
-		V:         1,
-		Provider:  cc.Provider,
-		Peer:      fmt.Sprintf("%s:%d", cfg.PublicIP, cc.Port),
-		Links:     cc.Links,
-		Transport: cc.Transport,
-		Mode:      cc.Mode,
+		V:        1,
+		Provider: cc.Provider,
+		Peer:     fmt.Sprintf("%s:%d", cfg.PublicIP, cc.Port),
+		Links:    strings.Join(cc.Links, ","),
+	}
+	if cc.Transport != "" && cc.Transport != "tcp" {
+		payload.Transport = cc.Transport
+	}
+	if cc.Mode != "" && cc.Mode != "udp" {
+		payload.Mode = cc.Mode
 	}
 	if cc.Mode == "tcp" && cc.KCP != nil {
 		payload.KCP = cc.KCP

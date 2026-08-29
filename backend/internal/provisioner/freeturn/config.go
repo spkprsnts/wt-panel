@@ -81,16 +81,23 @@ type kcpOpts struct {
 }
 
 // freeturnURI mirrors the base64url(JSON) payload documented in
-// upstream docs/uri.md / docs/sub.md.
+// upstream docs/uri.md / docs/sub.md — including the WireTurn app's own
+// parser (AppPreferences.kt's FreeTurnConfig.parse), which is stricter than
+// the doc table alone shows: it reads "links" via Gson's asString, so this
+// MUST be a single comma-joined string, never a JSON array. This field used
+// to be []string, which Gson can't coerce to a string at all — the parser
+// throws, parse() catches it and returns null, and the *entire* URI (every
+// other field along with it) silently fails to import. See buildURI, which
+// joins profileCoreConfig.Links (bare VK Calls ids) into this shape.
 type freeturnURI struct {
 	V         int      `json:"v"`
 	Provider  string   `json:"provider"`
-	Peer      string   `json:"peer"`  // host:port of this profile's dedicated freeturn server process
-	Links     []string `json:"links"` // bare VK Calls ids — see profileCoreConfig.Links above
+	Peer      string   `json:"peer"`            // host:port of this profile's dedicated freeturn server process
+	Links     string   `json:"links,omitempty"` // comma-joined bare VK Calls ids
 	Sub       string   `json:"sub,omitempty"`
-	Transport string   `json:"transport"`
-	Mode      string   `json:"mode"`
-	KCP       *kcpOpts `json:"kcp,omitempty"` // only set when Mode == "tcp" — see kcpOpts' own doc comment
+	Transport string   `json:"transport,omitempty"` // omitted at the "tcp" default, matching the app's own generator
+	Mode      string   `json:"mode,omitempty"`      // omitted at the "udp" default, matching the app's own generator
+	KCP       *kcpOpts `json:"kcp,omitempty"`       // only set when Mode == "tcp" — see kcpOpts' own doc comment
 
 	// Obf/Key/Obft must mirror the -obf-profile/-obf-key/-obf-timing flags
 	// the server process is actually started with (see ensureProcess) — the
