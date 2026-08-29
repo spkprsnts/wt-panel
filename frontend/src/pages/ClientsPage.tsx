@@ -253,13 +253,15 @@ export function ClientsPage() {
                   }
                 >
                   <TableCell>
-                    <Icon
-                      name="chevron_right"
-                      size={18}
-                      className={`text-on-surface-variant transition-all ${
-                        expanded === client.ID ? "rotate-90" : ""
-                      }`}
-                    />
+                    <span className="flex items-center justify-center">
+                      <Icon
+                        name="chevron_right"
+                        size={22}
+                        className={`text-on-surface-variant transition-all ${
+                          expanded === client.ID ? "rotate-90" : ""
+                        }`}
+                      />
+                    </span>
                   </TableCell>
                   <TableCell>{client.Name}</TableCell>
                   <TableCell>
