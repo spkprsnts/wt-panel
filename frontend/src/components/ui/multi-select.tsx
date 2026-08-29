@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 import { Icon } from "@/components/icon"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { POPUP_SURFACE } from "@/components/ui/popup-surface"
 
 export interface MultiSelectOption {
   value: string
@@ -113,7 +114,7 @@ function MultiSelect({
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Positioner align="start" sideOffset={4}>
-          <PopoverPrimitive.Popup className="z-50 w-(--anchor-width) min-w-32 rounded-xs bg-surface-container p-1 text-on-surface shadow-elevation-2">
+          <PopoverPrimitive.Popup className={cn(POPUP_SURFACE, "z-50 w-(--anchor-width) min-w-32 p-1")}>
             {allowCustom && (
               <div className="flex gap-1 p-1">
                 <Input

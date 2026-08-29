@@ -1,7 +1,8 @@
 import * as React from "react"
 
-import { useT } from "@/lib/i18n"
+import { useT, useLanguage } from "@/lib/i18n"
 import { api, type BuildJob, type Commit, type KernelStatus, type Release } from "@/lib/api"
+import { formatDateTime } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -27,13 +28,9 @@ import { Icon } from "@/components/icon"
 // SettingsPage's restartPollTimeoutMs for the same fix applied there first.
 const kernelJobPollTimeoutMs = 10000
 
-function formatDate(iso?: string) {
-  if (!iso) return null
-  return new Date(iso).toLocaleString("ru-RU")
-}
-
 function StatusLine({ status }: { status?: KernelStatus }) {
   const t = useT()
+  const [language] = useLanguage()
   if (!status) return <p className="text-sm text-on-surface-variant">{t("common.loading")}</p>
   if (!status.installed) {
     return <Badge variant="secondary">{t("kernels.notInstalled")}</Badge>
@@ -42,7 +39,8 @@ function StatusLine({ status }: { status?: KernelStatus }) {
     <div className="flex flex-wrap items-center gap-2 text-sm">
       <Badge>{status.version}</Badge>
       <span className="text-on-surface-variant">
-        {status.source === "build" ? t("kernels.sourceBuild") : t("kernels.sourceRelease")} · {formatDate(status.installedAt)}
+        {status.source === "build" ? t("kernels.sourceBuild") : t("kernels.sourceRelease")}
+        {status.installedAt && ` · ${formatDateTime(status.installedAt, language)}`}
       </span>
     </div>
   )
@@ -171,6 +169,67 @@ function JobLog({ job }: { job: BuildJob | null }) {
   )
 }
 
+// PickerSelect is the "pick one item from a refreshable list" shape shared
+// by ReleaseKernelCard's release picker and OlcrtcKernelCard's commit
+// picker — label+RefreshButton row, loading/empty states, and a Select
+// whose trigger label and item list both derive from the same itemLabel so
+// they can't drift apart (same reasoning as profile-form.tsx's labelFor).
+function PickerSelect<T>({
+  label,
+  items,
+  itemKey,
+  itemLabel,
+  value,
+  onValueChange,
+  refreshing,
+  onRefresh,
+  loadingText,
+  emptyText,
+}: {
+  label: string
+  items: T[] | null
+  itemKey: (item: T) => string
+  itemLabel: (item: T) => React.ReactNode
+  value: string
+  onValueChange: (v: string) => void
+  refreshing: boolean
+  onRefresh: () => void
+  loadingText: string
+  emptyText?: string
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <Label>{label}</Label>
+        <RefreshButton refreshing={refreshing} onClick={onRefresh} />
+      </div>
+      {items === null ? (
+        <p className="text-sm text-on-surface-variant">{loadingText}</p>
+      ) : emptyText && items.length === 0 ? (
+        <p className="text-sm text-on-surface-variant">{emptyText}</p>
+      ) : (
+        <Select value={value} onValueChange={(v) => onValueChange(v ?? "")}>
+          <SelectTrigger className="w-full">
+            <SelectValue>
+              {(v: string | null) => {
+                const item = items.find((i) => itemKey(i) === v)
+                return item ? itemLabel(item) : v
+              }}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {items.map((item) => (
+              <SelectItem key={itemKey(item)} value={itemKey(item)}>
+                {itemLabel(item)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+    </div>
+  )
+}
+
 function ReleaseKernelCard({
   title,
   description,
@@ -231,36 +290,18 @@ function ReleaseKernelCard({
       <CardContent className="flex flex-col gap-4">
         <StatusLine status={status} />
 
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <Label>{t("kernels.releaseVersionLabel")}</Label>
-            <RefreshButton refreshing={refreshing} onClick={handleRefresh} />
-          </div>
-          {releases === null ? (
-            <p className="text-sm text-on-surface-variant">{t("kernels.loadingReleases")}</p>
-          ) : releases.length === 0 ? (
-            <p className="text-sm text-on-surface-variant">{t("kernels.noReleases")}</p>
-          ) : (
-            <Select value={selected} onValueChange={(v) => setSelected(v ?? "")}>
-              <SelectTrigger className="w-full">
-                <SelectValue>
-                  {(v: string | null) => {
-                    const r = releases.find((r) => r.tag_name === v)
-                    return r ? `${r.name || r.tag_name}${r.prerelease ? " (pre-release)" : ""}` : v
-                  }}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {releases.map((r) => (
-                  <SelectItem key={r.tag_name} value={r.tag_name}>
-                    {r.name || r.tag_name}
-                    {r.prerelease ? " (pre-release)" : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </div>
+        <PickerSelect
+          label={t("kernels.releaseVersionLabel")}
+          items={releases}
+          itemKey={(r) => r.tag_name}
+          itemLabel={(r) => `${r.name || r.tag_name}${r.prerelease ? " (pre-release)" : ""}`}
+          value={selected}
+          onValueChange={setSelected}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          loadingText={t("kernels.loadingReleases")}
+          emptyText={t("kernels.noReleases")}
+        />
 
         {error && <p className="text-sm text-error">{error}</p>}
 
@@ -324,33 +365,17 @@ function OlcrtcKernelCard({ status, onInstalled }: { status?: KernelStatus; onIn
       <CardContent className="flex flex-col gap-4">
         <StatusLine status={status} />
 
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <Label>{t("kernels.olcrtc.commitLabel")}</Label>
-            <RefreshButton refreshing={refreshing} onClick={handleRefresh} />
-          </div>
-          {commits === null ? (
-            <p className="text-sm text-on-surface-variant">{t("kernels.olcrtc.loadingCommits")}</p>
-          ) : (
-            <Select value={selected} onValueChange={(v) => setSelected(v ?? "")}>
-              <SelectTrigger className="w-full">
-                <SelectValue>
-                  {(v: string | null) => {
-                    const c = commits.find((c) => c.sha === v)
-                    return c ? `${c.sha.slice(0, 7)} — ${c.commit.message.split("\n")[0].slice(0, 60)}` : v
-                  }}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {commits.map((c) => (
-                  <SelectItem key={c.sha} value={c.sha}>
-                    {c.sha.slice(0, 7)} — {c.commit.message.split("\n")[0].slice(0, 60)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </div>
+        <PickerSelect
+          label={t("kernels.olcrtc.commitLabel")}
+          items={commits}
+          itemKey={(c) => c.sha}
+          itemLabel={(c) => `${c.sha.slice(0, 7)} — ${c.commit.message.split("\n")[0].slice(0, 60)}`}
+          value={selected}
+          onValueChange={setSelected}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          loadingText={t("kernels.olcrtc.loadingCommits")}
+        />
 
         <div className="flex flex-col gap-2">
           <Label htmlFor="custom-ref">{t("kernels.olcrtc.customRefLabel")}</Label>

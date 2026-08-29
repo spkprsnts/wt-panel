@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox"
+import { KeyField } from "@/components/ui/key-field"
+import { Disclosure } from "@/components/ui/disclosure"
 import { MultiSelect } from "@/components/ui/multi-select"
 import {
   Select,
@@ -24,6 +26,16 @@ const CORE_LABELS: Record<CoreType, TranslationKey> = {
   olcrtc: "profileForm.core.olcrtc",
   freeturn: "profileForm.core.freeturn",
   webdav: "profileForm.core.webdav",
+}
+
+// labelFor reads a Select's current value out of a value→label map — shared
+// by every enum-valued Select field below (connection type, proto,
+// encryption, route transport, obfProfile, ...) so the label shown in the
+// trigger is always derived from the exact same map used to render the
+// SelectItem list, instead of a separately hand-written ternary chain that
+// could drift out of sync with it.
+function labelFor<T extends string>(map: Record<T, string>, v: T | null): string | null {
+  return v !== null && v in map ? map[v] : v
 }
 
 // Turnable/FreeTurn have no transport of their own that survives on the
@@ -86,68 +98,6 @@ function VkCallHint() {
       {t("profileForm.vkHint.line2")} <code>"https://vk.com/call/join/"</code>
       {t("profileForm.vkHint.line2b")}
     </p>
-  )
-}
-
-function AdvancedFields({ label, children }: { label?: string; children: React.ReactNode }) {
-  const t = useT()
-  return (
-    <details className="rounded-md border p-3 text-sm">
-      <summary className="cursor-pointer font-medium text-on-surface-variant">
-        {label ?? t("profileForm.advancedSettings")}
-      </summary>
-      <div className="mt-3 flex flex-col gap-3">{children}</div>
-    </details>
-  )
-}
-
-function KeyField({
-  id,
-  label,
-  value,
-  onChange,
-  onGenerate,
-  placeholder,
-}: {
-  id: string
-  label: string
-  value: string
-  onChange: (v: string) => void
-  onGenerate: () => Promise<unknown>
-  placeholder?: string
-}) {
-  const t = useT()
-  const [generating, setGenerating] = React.useState(false)
-  const [genError, setGenError] = React.useState<string | null>(null)
-
-  async function handleGenerate() {
-    setGenerating(true)
-    setGenError(null)
-    try {
-      await onGenerate()
-    } catch (err) {
-      setGenError(err instanceof Error ? err.message : t("profileForm.keyField.generateFailed"))
-    } finally {
-      setGenerating(false)
-    }
-  }
-  return (
-    <div className="flex flex-col gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      <div className="flex gap-2">
-        <Input
-          id={id}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder ?? t("profileForm.keyField.placeholder")}
-          className="font-mono text-xs"
-        />
-        <Button type="button" variant="outline" size="sm" onClick={handleGenerate} disabled={generating}>
-          {generating ? "..." : t("profileForm.keyField.generate")}
-        </Button>
-      </div>
-      {genError && <p className="text-xs text-error">{genError}</p>}
-    </div>
   )
 }
 
@@ -676,6 +626,33 @@ export function ProfileForm({
   onSubmit: (payload: ProfileSubmitPayload) => Promise<void>
 }) {
   const t = useT()
+  // Value→label maps for every enum-valued Select field below — see
+  // labelFor's own doc comment for why these are shared between the
+  // trigger's SelectValue and the SelectContent item list instead of each
+  // maintaining its own copy of the same labels.
+  const connectionTypeLabels: Record<TurnableState["connectionType"], string> = {
+    relay: t("profileForm.turnable.connectionTypeRelay"),
+    direct: t("profileForm.turnable.connectionTypeDirect"),
+  }
+  const protoLabels: Record<TurnableState["proto"], string> = {
+    srtp: t("profileForm.turnable.protoSrtp"),
+    dtls: "DTLS",
+    none: t("profileForm.turnable.protoNone"),
+  }
+  const routeTransportLabels: Record<TurnableState["routeTransport"], string> = {
+    none: t("profileForm.turnable.transportNoneUdp"),
+    kcp: t("profileForm.turnable.transportKcpTcp"),
+  }
+  const encryptionLabels: Record<TurnableState["encryption"], string> = {
+    handshake: t("profileForm.turnable.encryptionHandshake"),
+    full: t("profileForm.turnable.encryptionFull"),
+  }
+  const obfProfileLabels: Record<FreeturnState["obfProfile"], string> = {
+    rtpopus: t("profileForm.freeturn.obfProfileRecommended"),
+    rtpopus2: "rtpopus2",
+    rtpopus3: "rtpopus3",
+    none: t("profileForm.freeturn.obfProfileNone"),
+  }
   // Lets the footer's submit button (rendered outside this <form>, so it
   // can stay pinned below the scrolling fields — see the render below)
   // still submit it via the standard form="..." attribute.
@@ -1081,18 +1058,15 @@ export function ProfileForm({
             >
               <SelectTrigger className="w-full">
                 <SelectValue>
-                  {(v: string | null) =>
-                    v === "relay"
-                      ? t("profileForm.turnable.connectionTypeRelay")
-                      : v === "direct"
-                        ? t("profileForm.turnable.connectionTypeDirect")
-                        : v
-                  }
+                  {(v: TurnableState["connectionType"] | null) => labelFor(connectionTypeLabels, v)}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="relay">{t("profileForm.turnable.connectionTypeRelay")}</SelectItem>
-                <SelectItem value="direct">{t("profileForm.turnable.connectionTypeDirect")}</SelectItem>
+                {Object.entries(connectionTypeLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -1101,22 +1075,14 @@ export function ProfileForm({
             <Label>{t("profileForm.turnable.protocol")}</Label>
             <Select value={tn.proto} onValueChange={(v) => setTn({ ...tn, proto: v as TurnableState["proto"] })}>
               <SelectTrigger className="w-full">
-                <SelectValue>
-                  {(v: string | null) =>
-                    v === "srtp"
-                      ? t("profileForm.turnable.protoSrtp")
-                      : v === "dtls"
-                        ? "DTLS"
-                        : v === "none"
-                          ? t("profileForm.turnable.protoNone")
-                          : v
-                  }
-                </SelectValue>
+                <SelectValue>{(v: TurnableState["proto"] | null) => labelFor(protoLabels, v)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="srtp">{t("profileForm.turnable.protoSrtp")}</SelectItem>
-                <SelectItem value="dtls">DTLS</SelectItem>
-                <SelectItem value="none">{t("profileForm.turnable.protoNone")}</SelectItem>
+                {Object.entries(protoLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -1222,18 +1188,15 @@ export function ProfileForm({
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue>
-                        {(v: string | null) =>
-                          v === "none"
-                            ? t("profileForm.turnable.transportNoneUdp")
-                            : v === "kcp"
-                              ? t("profileForm.turnable.transportKcpTcp")
-                              : v
-                        }
+                        {(v: TurnableState["routeTransport"] | null) => labelFor(routeTransportLabels, v)}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">{t("profileForm.turnable.transportNoneUdp")}</SelectItem>
-                      <SelectItem value="kcp">{t("profileForm.turnable.transportKcpTcp")}</SelectItem>
+                      {Object.entries(routeTransportLabels).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1248,19 +1211,14 @@ export function ProfileForm({
               onValueChange={(v) => setTn({ ...tn, encryption: v as TurnableState["encryption"] })}
             >
               <SelectTrigger className="w-full">
-                <SelectValue>
-                  {(v: string | null) =>
-                    v === "handshake"
-                      ? t("profileForm.turnable.encryptionHandshake")
-                      : v === "full"
-                        ? t("profileForm.turnable.encryptionFull")
-                        : v
-                  }
-                </SelectValue>
+                <SelectValue>{(v: TurnableState["encryption"] | null) => labelFor(encryptionLabels, v)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="handshake">{t("profileForm.turnable.encryptionHandshake")}</SelectItem>
-                <SelectItem value="full">{t("profileForm.turnable.encryptionFull")}</SelectItem>
+                {Object.entries(encryptionLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -1270,6 +1228,10 @@ export function ProfileForm({
             label={t("profileForm.turnable.pubKeyLabel")}
             value={tn.pubKey}
             onChange={(v) => setTn({ ...tn, pubKey: v })}
+            placeholder={t("profileForm.keyField.placeholder")}
+            generateLabel={t("profileForm.keyField.generate")}
+            generatingLabel="..."
+            generateFailedLabel={t("profileForm.keyField.generateFailed")}
             onGenerate={() =>
               api.keygenTurnable().then(({ pubKey, privKey }) =>
                 setTn((s) => ({ ...s, pubKey, privKey }))
@@ -1347,6 +1309,10 @@ export function ProfileForm({
             label={t("profileForm.olcrtc.cryptoKeyLabel")}
             value={oc.cryptoKey}
             onChange={(v) => setOc({ ...oc, cryptoKey: v })}
+            placeholder={t("profileForm.keyField.placeholder")}
+            generateLabel={t("profileForm.keyField.generate")}
+            generatingLabel="..."
+            generateFailedLabel={t("profileForm.keyField.generateFailed")}
             onGenerate={() => api.keygenHex32().then(({ key }) => setOc((s) => ({ ...s, cryptoKey: key })))}
           />
 
@@ -1365,7 +1331,7 @@ export function ProfileForm({
             />
           </div>
 
-          <AdvancedFields>
+          <Disclosure title={t("profileForm.advancedSettings")}>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="flex flex-col gap-2">
                 {/* min-h-10 (~2 lines of text-sm) reserves the same label
@@ -1417,7 +1383,7 @@ export function ProfileForm({
               />
               <p className="text-xs text-on-surface-variant">{t("profileForm.olcrtc.maxSessionDurationHint")}</p>
             </div>
-          </AdvancedFields>
+          </Disclosure>
 
           <div className="flex flex-col gap-2">
             <Label>{t("profileForm.olcrtc.transportLabel")}</Label>
@@ -1447,7 +1413,7 @@ export function ProfileForm({
           </div>
 
           {oc.transport === "vp8channel" && (
-            <AdvancedFields label={t("profileForm.advancedTransportSettings")}>
+            <Disclosure title={t("profileForm.advancedTransportSettings")}>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="vp8-fps">VP8 stream FPS</Label>
@@ -1458,11 +1424,11 @@ export function ProfileForm({
                   <Input id="vp8-batch" type="number" value={oc.vp8Batch} onChange={(e) => setOc({ ...oc, vp8Batch: e.target.value })} />
                 </div>
               </div>
-            </AdvancedFields>
+            </Disclosure>
           )}
 
           {oc.transport === "seichannel" && (
-            <AdvancedFields label={t("profileForm.advancedTransportSettings")}>
+            <Disclosure title={t("profileForm.advancedTransportSettings")}>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="sei-fps">H264 stream FPS</Label>
@@ -1481,11 +1447,11 @@ export function ProfileForm({
                   <Input id="sei-ack" type="number" value={oc.seiAck} onChange={(e) => setOc({ ...oc, seiAck: e.target.value })} />
                 </div>
               </div>
-            </AdvancedFields>
+            </Disclosure>
           )}
 
           {oc.transport === "videochannel" && (
-            <AdvancedFields label={t("profileForm.advancedTransportSettings")}>
+            <Disclosure title={t("profileForm.advancedTransportSettings")}>
               <div className="flex flex-col gap-2">
                 <Label>Codec</Label>
                 <Select
@@ -1544,7 +1510,7 @@ export function ProfileForm({
                   </div>
                 </div>
               )}
-            </AdvancedFields>
+            </Disclosure>
           )}
         </>
       )}
@@ -1626,21 +1592,14 @@ export function ProfileForm({
               onValueChange={(v) => setFt({ ...ft, obfProfile: v as FreeturnState["obfProfile"] })}
             >
               <SelectTrigger className="w-full">
-                <SelectValue>
-                  {(v: string | null) =>
-                    v === "rtpopus"
-                      ? t("profileForm.freeturn.obfProfileRecommended")
-                      : v === "none"
-                        ? t("profileForm.freeturn.obfProfileNone")
-                        : v
-                  }
-                </SelectValue>
+                <SelectValue>{(v: FreeturnState["obfProfile"] | null) => labelFor(obfProfileLabels, v)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="rtpopus">{t("profileForm.freeturn.obfProfileRecommended")}</SelectItem>
-                <SelectItem value="rtpopus2">rtpopus2</SelectItem>
-                <SelectItem value="rtpopus3">rtpopus3</SelectItem>
-                <SelectItem value="none">{t("profileForm.freeturn.obfProfileNone")}</SelectItem>
+                {Object.entries(obfProfileLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -1651,12 +1610,16 @@ export function ProfileForm({
               label={t("profileForm.freeturn.obfKeyLabel")}
               value={ft.obfKey}
               onChange={(v) => setFt({ ...ft, obfKey: v })}
+              placeholder={t("profileForm.keyField.placeholder")}
+              generateLabel={t("profileForm.keyField.generate")}
+              generatingLabel="..."
+              generateFailedLabel={t("profileForm.keyField.generateFailed")}
               onGenerate={() => api.keygenHex32().then(({ key }) => setFt((s) => ({ ...s, obfKey: key })))}
             />
           )}
 
           {ft.obfProfile !== "none" && (
-            <AdvancedFields>
+            <Disclosure title={t("profileForm.advancedSettings")}>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="obf-timing">{t("profileForm.freeturn.obfTimingLabel")}</Label>
                 <Input
@@ -1669,7 +1632,7 @@ export function ProfileForm({
                   {t("profileForm.freeturn.obfTimingNote")}
                 </p>
               </div>
-            </AdvancedFields>
+            </Disclosure>
           )}
         </>
       )}
@@ -1881,7 +1844,7 @@ export function ProfileForm({
             </div>
           )}
 
-          <AdvancedFields>
+          <Disclosure title={t("profileForm.advancedSettings")}>
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
@@ -1982,7 +1945,7 @@ export function ProfileForm({
             <p className="text-xs text-on-surface-variant">
               {t("profileForm.webdav.tuningNote")}
             </p>
-          </AdvancedFields>
+          </Disclosure>
         </>
       )}
 

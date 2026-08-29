@@ -2,6 +2,7 @@ import * as React from "react"
 
 import { useT } from "@/lib/i18n"
 import { api, type Client, type Profile } from "@/lib/api"
+import { formatBytes } from "@/lib/utils"
 import { useDialogPrompt } from "@/components/dialog-prompt"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -27,7 +28,7 @@ import { EditProfileDialog } from "@/components/edit-profile-dialog"
 import { ProfileLogsDialog } from "@/components/profile-logs-dialog"
 import { QrDialog } from "@/components/qr-dialog"
 import { Icon } from "@/components/icon"
-import { SectionGroup, SectionItem } from "@/components/ui/section"
+import { SectionGroup, SectionItem, sectionPosition } from "@/components/ui/section"
 
 // parseCoreConfigJSON is the shared best-effort JSON.parse both
 // profileSummaryBadges and profilePort need — a profile saved before a
@@ -146,17 +147,6 @@ function ProfilePortLabel({ profile }: { profile: Profile }) {
     [profile.CoreConfig, profile.CoreType]
   )
   return <>{port !== null ? `:${port}` : ""}</>
-}
-
-function formatBytes(n: number, units: string[]): string {
-  if (n <= 0) return "0"
-  let i = 0
-  let v = n
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024
-    i++
-  }
-  return `${v.toFixed(1)} ${units[i]}`
 }
 
 export function ClientsPage() {
@@ -339,15 +329,7 @@ export function ClientsPage() {
                         {(client.Profiles ?? []).map((profile, index, profiles) => (
                           <SectionItem
                             key={profile.ID}
-                            position={
-                              profiles.length === 1
-                                ? "single"
-                                : index === 0
-                                  ? "top"
-                                  : index === profiles.length - 1
-                                    ? "bottom"
-                                    : "middle"
-                            }
+                            position={sectionPosition(index, profiles.length)}
                             className="flex-wrap gap-3 text-sm"
                           >
                             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">

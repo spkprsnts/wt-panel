@@ -3,6 +3,7 @@ import { Link } from "react-router-dom"
 
 import { useT } from "@/lib/i18n"
 import { api, type Client, type CoreType, type KernelStatus, type SystemStats } from "@/lib/api"
+import { formatBytes } from "@/lib/utils"
 import {
   Card,
   CardContent,
@@ -25,17 +26,6 @@ const CORE_LABELS: Record<CoreType | "xray", string> = {
 // Profile.CoreType is never "xray", so the "profiles per kernel" breakdown
 // below iterates this list, not every CORE_LABELS key.
 const PROFILE_CORE_TYPES: CoreType[] = ["turnable", "olcrtc", "webdav", "freeturn"]
-
-function formatBytes(bytes: number, units: string[]): string {
-  if (!bytes) return `0 ${units[0]}`
-  let v = bytes
-  let i = 0
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024
-    i++
-  }
-  return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`
-}
 
 function UsageStatCard({
   label,

@@ -30,6 +30,18 @@ function SectionGroup({
 
 type ItemPosition = "top" | "middle" | "bottom" | "single"
 
+// sectionPosition derives a SectionItem's position from its place in a
+// dynamic list (see WireTurn's AppExceptionsScreen.kt for the same
+// index-driven pattern this ports) — shared so every list-backed
+// SectionGroup (ClientsPage's profiles, SettingsPage's config dump, ...)
+// computes it identically instead of each re-deriving its own ternary.
+function sectionPosition(index: number, length: number): ItemPosition {
+  if (length === 1) return "single"
+  if (index === 0) return "top"
+  if (index === length - 1) return "bottom"
+  return "middle"
+}
+
 // 20px on the corners that face the group's outer boundary, 4px ("joint")
 // on the corners facing a neighboring item — matches SectionItem's
 // Top/Middle/Bottom/Single cornerSize(20dp)/smallCornerSize(4dp) split.
@@ -237,4 +249,13 @@ function TextFieldRow({
   )
 }
 
-export { SectionGroup, SectionItem, RowLabel, LabelGroup, SwitchRow, TextFieldRow, type ItemPosition }
+export {
+  SectionGroup,
+  SectionItem,
+  RowLabel,
+  LabelGroup,
+  SwitchRow,
+  TextFieldRow,
+  sectionPosition,
+  type ItemPosition,
+}

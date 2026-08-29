@@ -35,16 +35,47 @@ export class ApiError extends Error {
   }
 }
 
+// authHeaders is shared by request()/downloadFile()/uploadFile() — the only
+// header every one of them needs unconditionally. request() layers its own
+// Content-Type on top; uploadFile() deliberately doesn't (see its own doc
+// comment on why FormData needs the browser's own boundary header instead).
+function authHeaders(init?: HeadersInit): Headers {
+  const headers = new Headers(init)
+  const token = getToken()
+  if (token) headers.set("Authorization", `Bearer ${token}`)
+  return headers
+}
+
+// handleErrors centralizes the 401→logout-redirect and !res.ok→ApiError
+// handling shared by request()/downloadFile()/uploadFile().
+//
+// /api/login is excluded from the 401 redirect: its own 401s (wrong
+// password, totp_required, a wrong/expired TOTP code) are meaningful
+// in-context responses LoginPage needs to actually read — not "your session
+// expired". Redirecting to /login here would just reload the login page out
+// from under LoginPage's own catch block before it ever gets to look at the
+// response, wiping out its state (which step it's on, any error) and making
+// a correct password + 2FA look like it always fails with no explanation.
+async function handleErrors(res: Response, path: string): Promise<void> {
+  if (res.status === 401 && path !== "/api/login") {
+    clearToken()
+    window.location.href = BASE_PATH + "/login"
+    throw new ApiError(401, "unauthorized")
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }))
+    throw new ApiError(res.status, body.error ?? res.statusText)
+  }
+}
+
 // timeoutMs is deliberately not part of RequestInit — fetch() has no
 // built-in timeout, and most callers here are fine waiting on whatever the
 // browser's own TCP/TLS timeouts eventually decide. It exists for callers
 // that poll in a loop where a single hung request must not be able to wedge
 // that loop forever — see SettingsPage's PanelRestartDialog for why.
 async function request<T>(path: string, options: RequestInit = {}, timeoutMs?: number): Promise<T> {
-  const token = getToken()
-  const headers = new Headers(options.headers)
+  const headers = authHeaders(options.headers)
   headers.set("Content-Type", "application/json")
-  if (token) headers.set("Authorization", `Bearer ${token}`)
 
   let signal = options.signal
   let timer: number | undefined
@@ -63,22 +94,7 @@ async function request<T>(path: string, options: RequestInit = {}, timeoutMs?: n
   } finally {
     if (timer !== undefined) window.clearTimeout(timer)
   }
-  // /api/login is excluded: its own 401s (wrong password, totp_required, a
-  // wrong/expired TOTP code) are meaningful in-context responses LoginPage
-  // needs to actually read — not "your session expired". Redirecting to
-  // /login here would just reload the login page out from under LoginPage's
-  // own catch block before it ever gets to look at the response, wiping
-  // out its state (which step it's on, any error) and making a correct
-  // password + 2FA look like it always fails with no explanation.
-  if (res.status === 401 && path !== "/api/login") {
-    clearToken()
-    window.location.href = BASE_PATH + "/login"
-    throw new ApiError(401, "unauthorized")
-  }
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: res.statusText }))
-    throw new ApiError(res.status, body.error ?? res.statusText)
-  }
+  await handleErrors(res, path)
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
 }
@@ -88,20 +104,8 @@ async function request<T>(path: string, options: RequestInit = {}, timeoutMs?: n
 // href> can't carry the Bearer token, so the file has to come through
 // fetch() and get handed to the browser as an object URL instead.
 async function downloadFile(path: string, signal?: AbortSignal): Promise<void> {
-  const token = getToken()
-  const headers = new Headers()
-  if (token) headers.set("Authorization", `Bearer ${token}`)
-
-  const res = await fetch(BASE_PATH + path, { headers, signal })
-  if (res.status === 401) {
-    clearToken()
-    window.location.href = BASE_PATH + "/login"
-    throw new ApiError(401, "unauthorized")
-  }
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: res.statusText }))
-    throw new ApiError(res.status, body.error ?? res.statusText)
-  }
+  const res = await fetch(BASE_PATH + path, { headers: authHeaders(), signal })
+  await handleErrors(res, path)
   const blob = await res.blob()
   const disposition = res.headers.get("Content-Disposition") ?? ""
   const filename = /filename="?([^"]+)"?/.exec(disposition)?.[1] ?? "wt_export.json"
@@ -127,26 +131,14 @@ async function uploadFile<T>(
   extraFields?: Record<string, string>,
   signal?: AbortSignal
 ): Promise<T> {
-  const token = getToken()
-  const headers = new Headers()
-  if (token) headers.set("Authorization", `Bearer ${token}`)
-
   const form = new FormData()
   form.append(fieldName, file)
   for (const [key, value] of Object.entries(extraFields ?? {})) {
     form.append(key, value)
   }
 
-  const res = await fetch(BASE_PATH + path, { method: "POST", headers, body: form, signal })
-  if (res.status === 401) {
-    clearToken()
-    window.location.href = BASE_PATH + "/login"
-    throw new ApiError(401, "unauthorized")
-  }
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: res.statusText }))
-    throw new ApiError(res.status, body.error ?? res.statusText)
-  }
+  const res = await fetch(BASE_PATH + path, { method: "POST", headers: authHeaders(), body: form, signal })
+  await handleErrors(res, path)
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
 }

@@ -3,7 +3,8 @@ import { Link } from "react-router-dom"
 
 import { api, type Client, type KernelStatus, type XrayClient, type XrayInbound, type XrayProtocol } from "@/lib/api"
 import { useDialogPrompt } from "@/components/dialog-prompt"
-import { useT } from "@/lib/i18n"
+import { useT, useLanguage } from "@/lib/i18n"
+import { formatDateOnly } from "@/lib/utils"
 import { Icon } from "@/components/icon"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -11,6 +12,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { MultiSelect } from "@/components/ui/multi-select"
+import { KeyField } from "@/components/ui/key-field"
+import { Disclosure } from "@/components/ui/disclosure"
 import { Switch } from "@/components/ui/switch"
 import {
   Select,
@@ -87,51 +90,6 @@ function SwitchField({
     <div className="flex items-center gap-2">
       <Switch id={id} checked={checked} onCheckedChange={onChange} />
       <Label htmlFor={id}>{label}</Label>
-    </div>
-  )
-}
-
-function AdvancedSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <details className="rounded-md border p-3 text-sm" open>
-      <summary className="cursor-pointer font-medium text-on-surface-variant">{title}</summary>
-      <div className="mt-3 flex flex-col gap-3">{children}</div>
-    </details>
-  )
-}
-
-function KeyInput({
-  id,
-  label,
-  value,
-  onChange,
-  onGenerate,
-}: {
-  id: string
-  label: string
-  value: string
-  onChange: (v: string) => void
-  onGenerate: () => Promise<unknown>
-}) {
-  const t = useT()
-  const [generating, setGenerating] = React.useState(false)
-  async function handleGenerate() {
-    setGenerating(true)
-    try {
-      await onGenerate()
-    } finally {
-      setGenerating(false)
-    }
-  }
-  return (
-    <div className="flex flex-col gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      <div className="flex gap-2">
-        <Input id={id} value={value} onChange={(e) => onChange(e.target.value)} className="font-mono text-xs" />
-        <Button type="button" variant="outline" size="sm" onClick={handleGenerate} disabled={generating}>
-          {generating ? "..." : t("common.generate")}
-        </Button>
-      </div>
     </div>
   )
 }
@@ -638,7 +596,7 @@ function TlsFields({
   }
 
   return (
-    <AdvancedSection title={t("xray.tlsSettingsTitle")}>
+    <Disclosure defaultOpen title={t("xray.tlsSettingsTitle")}>
       <div className="flex flex-col gap-2">
         <Button type="button" variant="outline" size="sm" onClick={handleUsePanelCert}>
           {t("xray.usePanelCert")}
@@ -750,7 +708,7 @@ function TlsFields({
       <SwitchField id="tls-reject-unknown-sni" label="rejectUnknownSni" checked={f.tlsRejectUnknownSni} onChange={(v) => setF({ ...f, tlsRejectUnknownSni: v })} />
       <SwitchField id="tls-disable-system-root" label="disableSystemRoot" checked={f.tlsDisableSystemRoot} onChange={(v) => setF({ ...f, tlsDisableSystemRoot: v })} />
       <SwitchField id="tls-session-resumption" label="enableSessionResumption" checked={f.tlsEnableSessionResumption} onChange={(v) => setF({ ...f, tlsEnableSessionResumption: v })} />
-    </AdvancedSection>
+    </Disclosure>
   )
 }
 
@@ -774,7 +732,7 @@ function RealityFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   return (
-    <AdvancedSection title={t("xray.reality.title")}>
+    <Disclosure defaultOpen title={t("xray.reality.title")}>
       <div className="flex flex-col gap-2">
         <Label htmlFor="reality-target">{t("xray.reality.target")}</Label>
         <Input id="reality-target" value={f.realityTarget} onChange={(e) => setF({ ...f, realityTarget: e.target.value })} placeholder="example.com:443" />
@@ -798,11 +756,14 @@ function RealityFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
           </SelectContent>
         </Select>
       </div>
-      <KeyInput
+      <KeyField
         id="reality-priv"
         label={t("xray.reality.privateKey")}
         value={f.realityPrivateKey}
         onChange={(v) => setF({ ...f, realityPrivateKey: v })}
+        generateLabel={t("common.generate")}
+        generatingLabel="..."
+        generateFailedLabel={t("common.generateFailed")}
         onGenerate={() =>
           api.keygenReality().then(({ privateKey, publicKey }) =>
             setF((s) => ({ ...s, realityPrivateKey: privateKey, realityPublicKey: publicKey }))
@@ -853,7 +814,7 @@ function RealityFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<
         <Input id="reality-maxtimediff" type="number" value={f.realityMaxTimediff} onChange={(e) => setF({ ...f, realityMaxTimediff: e.target.value })} />
       </div>
       <p className="text-xs text-on-surface-variant">{t("xray.reality.advancedNote")}</p>
-    </AdvancedSection>
+    </Disclosure>
   )
 }
 
@@ -869,7 +830,7 @@ function FallbacksEditor({ f, setF }: { f: InboundFormState; setF: React.Dispatc
     setF({ ...f, fallbacks: [...f.fallbacks, { name: "", alpn: "", path: "", dest: "", xver: "0" }] })
   }
   return (
-    <AdvancedSection title={`Fallbacks (${f.fallbacks.length})`}>
+    <Disclosure defaultOpen title={`Fallbacks (${f.fallbacks.length})`}>
       {f.fallbacks.map((fb, i) => (
         <div key={i} className="grid grid-cols-2 items-end gap-2 rounded border p-2 sm:grid-cols-5">
           <div className="flex flex-col gap-1">
@@ -896,7 +857,7 @@ function FallbacksEditor({ f, setF }: { f: InboundFormState; setF: React.Dispatc
       <Button type="button" variant="outline" size="sm" onClick={add}>
         {t("xray.fallbacks.add")}
       </Button>
-    </AdvancedSection>
+    </Disclosure>
   )
 }
 
@@ -1238,11 +1199,14 @@ function InboundFormDialog({
 
           {protocol === "wireguard" && (
             <>
-              <KeyInput
+              <KeyField
                 id="wg-secret"
                 label={t("xray.inboundForm.wgSecretKey")}
                 value={f.wgSecretKey}
                 onChange={(v) => setF({ ...f, wgSecretKey: v })}
+                generateLabel={t("common.generate")}
+                generatingLabel="..."
+                generateFailedLabel={t("common.generateFailed")}
                 onGenerate={() =>
                   api.keygenWireGuard().then(({ privateKey, publicKey }) =>
                     setF((s) => ({ ...s, wgSecretKey: privateKey, wgPublicKey: publicKey }))
@@ -1266,7 +1230,7 @@ function InboundFormDialog({
             </>
           )}
 
-          <AdvancedSection title="Sniffing">
+          <Disclosure defaultOpen title="Sniffing">
             <SwitchField id="sniffing-enabled" label={t("xray.inboundForm.sniffingEnable")} checked={f.sniffingEnabled} onChange={(v) => setF({ ...f, sniffingEnabled: v })} />
             {f.sniffingEnabled && (
               <div className="flex flex-col gap-2">
@@ -1278,7 +1242,7 @@ function InboundFormDialog({
                 />
               </div>
             )}
-          </AdvancedSection>
+          </Disclosure>
 
           {error && <p className="text-sm text-error">{error}</p>}
         </div>
@@ -1295,6 +1259,7 @@ function InboundFormDialog({
 
 function ClientIdentity({ config }: { config: string }) {
   const t = useT()
+  const [language] = useLanguage()
   let parsed: Record<string, unknown> = {}
   try {
     parsed = JSON.parse(config)
@@ -1309,7 +1274,7 @@ function ClientIdentity({ config }: { config: string }) {
   const totalGB = typeof parsed.totalGB === "number" && parsed.totalGB > 0 ? `${(parsed.totalGB / 1024 ** 3).toFixed(1)} GB` : "∞"
   const expiry =
     typeof parsed.expiryTime === "number" && parsed.expiryTime > 0
-      ? new Date(parsed.expiryTime).toLocaleDateString()
+      ? formatDateOnly(parsed.expiryTime, language)
       : "—"
   return (
     <div className="flex flex-col">

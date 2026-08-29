@@ -9,7 +9,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { CardDescription, CardTitle } from "@/components/ui/card"
-import { SectionGroup, SectionItem, LabelGroup, SwitchRow, TextFieldRow } from "@/components/ui/section"
+import {
+  SectionGroup,
+  SectionItem,
+  LabelGroup,
+  SwitchRow,
+  TextFieldRow,
+  sectionPosition,
+} from "@/components/ui/section"
 import {
   Dialog,
   DialogContent,
@@ -974,15 +981,7 @@ function ConfigCard() {
           {entries.map(([key, value], index) => (
             <SectionItem
               key={key}
-              position={
-                entries.length === 1
-                  ? "single"
-                  : index === 0
-                    ? "top"
-                    : index === entries.length - 1
-                      ? "bottom"
-                      : "middle"
-              }
+              position={sectionPosition(index, entries.length)}
               className="justify-between gap-4"
             >
               <span className="text-body-medium text-on-surface-variant">

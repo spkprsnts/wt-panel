@@ -1,9 +1,7 @@
 import * as React from "react"
 
-import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
-import { Icon } from "@/components/icon"
-import { Button } from "@/components/ui/button"
+import { ToggleButton } from "@/components/ui/toggle-button"
 import { getEffectiveTheme, setTheme, type Theme } from "@/lib/theme"
 
 // Reads the currently-applied theme (already set synchronously by
@@ -26,20 +24,13 @@ export function ThemeToggle({
     setThemeState(next)
   }
 
-  const iconName = theme === "dark" ? "light_mode" : "dark_mode"
-  const label = theme === "dark" ? t("themeToggle.light") : t("themeToggle.dark")
-
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size={showLabel ? "default" : "icon"}
-      className={cn(showLabel && "w-full justify-start gap-3", className)}
+    <ToggleButton
+      icon={theme === "dark" ? "light_mode" : "dark_mode"}
+      label={theme === "dark" ? t("themeToggle.light") : t("themeToggle.dark")}
       onClick={toggle}
-      title={label}
-    >
-      <Icon name={iconName} size={20} className="shrink-0" />
-      {showLabel && label}
-    </Button>
+      showLabel={showLabel}
+      className={className}
+    />
   )
 }

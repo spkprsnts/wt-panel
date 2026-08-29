@@ -2,6 +2,8 @@ import * as React from "react"
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
 
 import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
+import { POPUP_SURFACE } from "@/components/ui/popup-surface"
 
 export interface ComboboxOption {
   value: string
@@ -98,7 +100,7 @@ function Combobox({
             initialFocus={false}
             id={listboxId}
             role="listbox"
-            className="z-50 max-h-64 w-(--anchor-width) overflow-y-auto rounded-xs bg-surface-container p-1 text-on-surface shadow-elevation-2"
+            className={cn(POPUP_SURFACE, "z-50 max-h-64 w-(--anchor-width) overflow-y-auto p-1")}
           >
             {filtered.length === 0 ? (
               <p className="px-3 py-2 text-body-medium text-on-surface-variant">{noMatchesText}</p>
