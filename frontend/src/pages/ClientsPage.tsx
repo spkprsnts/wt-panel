@@ -232,9 +232,11 @@ export function ClientsPage() {
 
   return (
     <div className="mx-auto max-w-5xl p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{t("sidebar.nav.clients")}</h1>
-        <CreateClientDialog onCreated={load} />
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <h1 className="min-w-0 text-xl font-semibold">{t("sidebar.nav.clients")}</h1>
+        <div className="shrink-0">
+          <CreateClientDialog onCreated={load} />
+        </div>
       </div>
 
       {error && <p className="mb-4 text-sm text-error">{error}</p>}

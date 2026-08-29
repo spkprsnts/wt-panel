@@ -177,14 +177,16 @@ export function CallRoomsPage() {
 
   return (
     <div className="mx-auto max-w-5xl p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex flex-col gap-2">
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <div className="flex min-w-0 flex-col gap-2">
           <h1 className="text-xl font-semibold">{t("sidebar.nav.rooms")}</h1>
           <p className="text-sm text-on-surface-variant">
             {t("rooms.pageDescription")}
           </p>
         </div>
-        <RoomDialog onSaved={load} />
+        <div className="shrink-0">
+          <RoomDialog onSaved={load} />
+        </div>
       </div>
 
       {error && <p className="mb-4 text-sm text-error">{error}</p>}

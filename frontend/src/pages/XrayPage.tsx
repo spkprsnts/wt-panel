@@ -1293,7 +1293,7 @@ function ClientIdentity({ config }: { config: string }) {
   try {
     parsed = JSON.parse(config)
   } catch {
-    return <span className="font-mono text-xs text-on-surface-variant">{config}</span>
+    return <span className="font-mono text-xs break-all text-on-surface-variant">{config}</span>
   }
   const identityKeys = ["id", "flow", "password", "auth", "privateKey", "publicKey"]
   const identity = identityKeys
@@ -1307,7 +1307,7 @@ function ClientIdentity({ config }: { config: string }) {
       : "—"
   return (
     <div className="flex flex-col">
-      <span className="font-mono text-xs text-on-surface-variant">{identity || "—"}</span>
+      <span className="font-mono text-xs break-all text-on-surface-variant">{identity || "—"}</span>
       <span className="text-xs text-on-surface-variant">
         {t("xray.clientIdentity.traffic")}: {totalGB} · {t("xray.clientIdentity.ipLimit")}: {typeof parsed.limitIp === "number" && parsed.limitIp > 0 ? parsed.limitIp : "∞"} · {t("xray.clientIdentity.until")}: {expiry} ·{" "}
         {parsed.enable === false ? t("xray.clientIdentity.disabled") : t("xray.clientIdentity.enabled")}
@@ -1396,12 +1396,18 @@ function InboundClientsDialog({ inbound, allClients, onChanged }: { inbound: Xra
           <div className="flex flex-col gap-2 rounded-md border p-3">
             {attached.length === 0 && <p className="text-sm text-on-surface-variant">{t("xray.inboundClients.none")}</p>}
             {attached.map((xc) => (
-              <div key={xc.ID} className="flex items-center justify-between gap-2 text-sm">
-                <div className="flex flex-col">
+              <div key={xc.ID} className="flex items-start justify-between gap-2 text-sm">
+                <div className="flex min-w-0 flex-col">
                   <span>{clientName(xc.ClientID)}</span>
                   <ClientIdentity config={xc.Config} />
                 </div>
-                <Button size="sm" variant="destructive" disabled={busy} onClick={() => handleDetach(xc.ID)}>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={busy}
+                  onClick={() => handleDetach(xc.ID)}
+                  className="shrink-0"
+                >
                   {t("xray.inboundClients.detach")}
                 </Button>
               </div>
@@ -1608,8 +1614,8 @@ export function XrayPage() {
 
   return (
     <div className="mx-auto max-w-5xl p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex flex-col gap-2">
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <div className="flex min-w-0 flex-col gap-2">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-semibold">Xray</h1>
             <XrayStatusBadge />
@@ -1618,7 +1624,7 @@ export function XrayPage() {
             {t("xray.page.description")}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex shrink-0 gap-2">
           <XrayLogsDialog />
           <InboundFormDialog nextNumber={inbounds.length + 1} onSaved={load} />
         </div>
