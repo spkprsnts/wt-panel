@@ -248,13 +248,13 @@ function AccountCard() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="flex flex-col gap-1.5">
         <CardTitle>{t("settings.account.title")}</CardTitle>
         <CardDescription>
           {username ? `${t("settings.account.loggedInAs")} ${username}` : t("common.loading")}
         </CardDescription>
       </div>
-      <form onSubmit={handleSubmit} className="flex max-w-sm flex-col gap-4">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <SectionGroup>
           <SectionItem position="top">
             <TextFieldRow
@@ -442,7 +442,7 @@ function PanelNetworkCard() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
+      <div className="flex flex-col gap-1.5">
         <CardTitle>{t("settings.network.title")}</CardTitle>
         <CardDescription>{t("settings.network.description")}</CardDescription>
       </div>
@@ -462,7 +462,7 @@ function PanelNetworkCard() {
       {!loaded ? (
         <p className="text-sm text-on-surface-variant">{t("common.loading")}</p>
       ) : (
-        <form onSubmit={handleSubmit} className="flex max-w-sm flex-col gap-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <SectionGroup>
             <SectionItem position="top">
               <TextFieldRow
@@ -487,7 +487,7 @@ function PanelNetworkCard() {
                 label={t("settings.network.listenIpLabel")}
                 value={listenIp}
                 onChange={setListenIp}
-                placeholder={t("settings.network.listenIpPlaceholder")}
+                supportingText={t("settings.network.listenIpPlaceholder")}
               />
             </SectionItem>
             <SectionItem position="middle">
@@ -495,7 +495,7 @@ function PanelNetworkCard() {
                 label={t("settings.network.listenDomainLabel")}
                 value={listenDomain}
                 onChange={setListenDomain}
-                placeholder={t("settings.network.listenDomainPlaceholder")}
+                supportingText={t("settings.network.listenDomainPlaceholder")}
               />
             </SectionItem>
             <SectionItem position="middle">
@@ -765,7 +765,7 @@ function PanelUpdateCard() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
+      <div className="flex flex-col gap-1.5">
         <CardTitle>{t("settings.update.title")}</CardTitle>
         <CardDescription>{t("settings.update.description")}</CardDescription>
       </div>
@@ -883,7 +883,7 @@ function PanelBackupCard() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
+      <div className="flex flex-col gap-1.5">
         <CardTitle>{t("settings.backup.title")}</CardTitle>
         <CardDescription>{t("settings.backup.description")}</CardDescription>
       </div>
@@ -944,7 +944,7 @@ function ConfigCard() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
+      <div className="flex flex-col gap-1.5">
         <CardTitle>{t("settings.config.title")}</CardTitle>
         <CardDescription>{t("settings.config.description")}</CardDescription>
       </div>
@@ -984,7 +984,7 @@ export function SettingsPage() {
     <div className="mx-auto max-w-3xl p-6">
       <h1 className="mb-6 text-xl font-semibold">{t("settings.pageTitle")}</h1>
       <Tabs defaultValue="account">
-        <TabsList>
+        <TabsList className="mb-2">
           <TabsTrigger value="account">{t("settings.account.title")}</TabsTrigger>
           <TabsTrigger value="network">{t("settings.network.title")}</TabsTrigger>
           <TabsTrigger value="update">{t("settings.update.title")}</TabsTrigger>
