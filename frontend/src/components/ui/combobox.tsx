@@ -47,6 +47,7 @@ function Combobox({
   // triggering event's target against this ref and cancels the close when
   // it's actually our own input, same intent as the old Anchor workaround.
   const inputRef = React.useRef<HTMLInputElement>(null)
+  const listboxId = React.useId()
 
   const filtered = React.useMemo(() => {
     const q = value.trim().toLowerCase()
@@ -80,6 +81,10 @@ function Combobox({
         value={value}
         autoComplete="off"
         required={required}
+        role="combobox"
+        aria-expanded={open && options.length > 0}
+        aria-controls={listboxId}
+        aria-autocomplete="list"
         onChange={(e) => {
           onChange(e.target.value)
           setOpen(true)
@@ -91,6 +96,8 @@ function Combobox({
         <PopoverPrimitive.Positioner anchor={inputRef} align="start" sideOffset={4}>
           <PopoverPrimitive.Popup
             initialFocus={false}
+            id={listboxId}
+            role="listbox"
             className="z-50 max-h-64 w-(--anchor-width) overflow-y-auto rounded-xs bg-surface-container p-1 text-on-surface shadow-elevation-2"
           >
             {filtered.length === 0 ? (
@@ -100,6 +107,8 @@ function Combobox({
                 <button
                   type="button"
                   key={o.value}
+                  role="option"
+                  aria-selected={o.value === value}
                   onClick={() => {
                     onChange(o.value)
                     setOpen(false)

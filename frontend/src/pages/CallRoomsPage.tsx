@@ -63,6 +63,25 @@ function RoomDialog({
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
+  // Re-seeds the fields from `room` every time the dialog opens — this
+  // instance stays mounted for the whole table row, so without this,
+  // reopening Edit after `room` changed underneath it (another save's
+  // load(), or reopening after closing without submitting) would show
+  // stale local values that then overwrite the newer server data on save.
+  // Keyed on room?.ID, not the room object itself: `rooms` (and thus every
+  // row's `room` reference) is rebuilt on every load(), so depending on the
+  // object would reset this open dialog's in-progress edits whenever *any*
+  // other row's save triggered a reload.
+  React.useEffect(() => {
+    if (!open) return
+    setProvider(room?.Provider ?? "vk")
+    setRoomId(room?.RoomID ?? "")
+    setLabel(room?.Label ?? "")
+    setNotes(room?.Notes ?? "")
+    setError(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, room?.ID])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)

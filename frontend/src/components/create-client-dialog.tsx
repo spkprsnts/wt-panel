@@ -15,17 +15,23 @@ import { ClientForm, emptyClientFormValues, type ClientSubmitPayload } from "@/c
 export function CreateClientDialog({ onCreated }: { onCreated: () => void }) {
   const t = useT()
   const [open, setOpen] = React.useState(false)
+  // Bumped on open (not just after a successful submit) so closing without
+  // submitting and reopening doesn't resurrect the abandoned draft.
   const [formKey, setFormKey] = React.useState(0)
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next)
+    if (next) setFormKey((k) => k + 1)
+  }
 
   async function handleSubmit(payload: ClientSubmitPayload) {
     await api.createClient(payload)
     setOpen(false)
-    setFormKey((k) => k + 1)
     onCreated()
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger render={<Button>{t("clientDialogs.createTrigger")}</Button>} />
       <DialogContent>
         <DialogHeader>

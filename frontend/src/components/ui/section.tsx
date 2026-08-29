@@ -46,12 +46,20 @@ function SectionItem({
   disabled,
   className,
   children,
+  role,
+  "aria-checked": ariaChecked,
 }: {
   position?: ItemPosition
   onClick?: () => void
   disabled?: boolean
   className?: string
   children: React.ReactNode
+  // For a row whose onClick toggles something it contains (e.g. a
+  // SwitchRow) — puts the real accessible semantics on this single button
+  // instead of the row and its inner control both being separate,
+  // redundant tab stops. See SwitchRow's own doc comment.
+  role?: "switch"
+  "aria-checked"?: boolean
 }) {
   const classes = cn(
     "flex min-h-18 items-center bg-surface px-4 py-3.5 text-on-surface transition-colors",
@@ -63,7 +71,14 @@ function SectionItem({
 
   if (onClick) {
     return (
-      <button type="button" className={classes} onClick={onClick} disabled={disabled}>
+      <button
+        type="button"
+        className={classes}
+        onClick={onClick}
+        disabled={disabled}
+        role={role}
+        aria-checked={ariaChecked}
+      >
         {children}
       </button>
     )
@@ -98,10 +113,16 @@ function LabelGroup({
 }
 
 // Meant to live inside a SectionItem whose own onClick does the actual
-// toggle (`onClick={() => onCheckedChange(!checked)}`) — matches WireTurn's
-// shared-interaction-source pattern, where SwitchRow never adds a second
-// ripple/click of its own. The inner Switch still stops its click from
-// bubbling so a direct hit on the thumb doesn't fire the row handler twice.
+// toggle (`onClick={() => onCheckedChange(!checked)}`, with
+// role="switch"/aria-checked passed to that SectionItem — see its own doc
+// comment) — matches WireTurn's shared-interaction-source pattern, where
+// SwitchRow never adds a second ripple/click of its own. The inner Switch
+// is presentational (tabIndex=-1, aria-hidden): nesting a second real
+// role="switch" inside the row's own button would both be invalid HTML
+// (no focusable descendants inside <button>) and give keyboard/AT users two
+// redundant stops for one control. It still stops its own click from
+// bubbling so a direct mouse hit on the thumb doesn't fire the row handler
+// twice.
 function SwitchRow({
   label,
   checked,
@@ -123,6 +144,8 @@ function SwitchRow({
         onCheckedChange={onCheckedChange}
         disabled={disabled}
         onClick={(e) => e.stopPropagation()}
+        tabIndex={-1}
+        aria-hidden="true"
       />
     </div>
   )

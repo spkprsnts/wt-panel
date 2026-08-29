@@ -35,6 +35,8 @@ function MultiSelect({
   className,
   allowCustom = true,
   customValuePlaceholder = "Custom value...",
+  removeOptionLabel = (label) => `Remove ${label}`,
+  addCustomValueLabel = "Add",
 }: {
   options: MultiSelectOption[]
   value: string[]
@@ -46,6 +48,11 @@ function MultiSelect({
   // doesn't import the app's own i18n hook, so this one bit of built-in
   // copy is a plain prop instead.
   customValuePlaceholder?: string
+  // Accessible names for the icon-only chip-remove and add-custom-value
+  // buttons — neither has visible text, so without these a screen reader
+  // announces an unlabeled button.
+  removeOptionLabel?: (label: string) => string
+  addCustomValueLabel?: string
 }) {
   const [open, setOpen] = React.useState(false)
   const [customValue, setCustomValue] = React.useState("")
@@ -62,10 +69,16 @@ function MultiSelect({
 
   return (
     <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
+      {/* nativeButton=false + a <div> render: the chip pills below each need
+          their own real, independently focusable remove <button> — nesting
+          one inside a real <button> (the previous render) is invalid HTML
+          (no interactive descendants allowed) and made the remove control
+          unreachable by keyboard/AT. Base UI still gives this div the same
+          role="button"/tabIndex/keyboard-activation behavior. */}
       <PopoverPrimitive.Trigger
+        nativeButton={false}
         render={
-          <button
-            type="button"
+          <div
             className={cn(
               "flex min-h-14 w-full flex-wrap items-center gap-1.5 rounded-t-xs border-b-2 border-on-surface-variant bg-surface-container-highest px-4 py-2.5 text-body-large text-on-surface transition-colors outline-none focus-visible:border-primary",
               className
@@ -74,23 +87,28 @@ function MultiSelect({
         }
       >
         {value.length === 0 && <span className="text-on-surface-variant">{placeholder}</span>}
-        {value.map((v) => (
-          <span
-            key={v}
-            className="flex items-center gap-1 rounded-sm bg-secondary-container px-2 py-1 text-label-large text-on-secondary-container"
-          >
-            {options.find((o) => o.value === v)?.label ?? v}
-            <Icon
-              name="close"
-              size={16}
-              className="cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation()
-                toggle(v)
-              }}
-            />
-          </span>
-        ))}
+        {value.map((v) => {
+          const label = options.find((o) => o.value === v)?.label ?? v
+          return (
+            <span
+              key={v}
+              className="flex items-center gap-1 rounded-sm bg-secondary-container px-2 py-1 text-label-large text-on-secondary-container"
+            >
+              {label}
+              <button
+                type="button"
+                aria-label={removeOptionLabel(label)}
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  toggle(v)
+                }}
+              >
+                <Icon name="close" size={16} />
+              </button>
+            </span>
+          )
+        })}
         <Icon name="keyboard_arrow_down" className="ml-auto text-on-surface-variant" />
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
@@ -110,7 +128,13 @@ function MultiSelect({
                   placeholder={customValuePlaceholder}
                   className="h-10"
                 />
-                <Button type="button" size="sm" className="h-10" onClick={addCustom}>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-10"
+                  onClick={addCustom}
+                  aria-label={addCustomValueLabel}
+                >
                   <Icon name="add" size={18} />
                 </Button>
               </div>

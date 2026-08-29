@@ -67,7 +67,11 @@ function TotpEnableDialog({ onEnabled }: { onEnabled: () => void }) {
         setQrDataUri(res.qrDataUri)
       })
       .catch((err) => setLoadError(err instanceof Error ? err.message : t("settings.account.totp.setupFailed")))
-  }, [open, t])
+    // `t` is intentionally excluded: switching language while this dialog is
+    // open must not re-run setup, which would silently mint a brand-new
+    // secret/QR and invalidate whatever the operator already scanned.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   async function handleConfirm(e: React.FormEvent) {
     e.preventDefault()
@@ -831,13 +835,23 @@ function PanelBackupCard() {
   // just replace that with the old, now-wrong machine's identity. Turning
   // it on is for the same-machine case (undoing a mistake, rolling back).
   const [restoreNetworkSettings, setRestoreNetworkSettings] = React.useState(false)
+  // Aborts an in-flight download/restore if the card unmounts (e.g. the
+  // operator navigates away mid-transfer) — downloadFile/uploadFile have no
+  // timeout of their own (a large backup legitimately takes a while), so
+  // without this the request would just keep running with nothing left to
+  // update when it eventually resolves.
+  const transferAbortRef = React.useRef<AbortController | null>(null)
+  React.useEffect(() => () => transferAbortRef.current?.abort(), [])
 
   async function handleDownload() {
     setError(null)
     setDownloading(true)
+    const controller = new AbortController()
+    transferAbortRef.current = controller
     try {
-      await api.downloadPanelBackup()
+      await api.downloadPanelBackup(controller.signal)
     } catch (err) {
+      if (controller.signal.aborted) return
       setError(err instanceof Error ? err.message : t("settings.backup.downloadFailed"))
     } finally {
       setDownloading(false)
@@ -871,11 +885,14 @@ function PanelBackupCard() {
     // uploads the file and swaps the live DB synchronously before
     // responding, so the dialog needs to open before that call, not after.
     setRestoring(true)
+    const controller = new AbortController()
+    transferAbortRef.current = controller
     try {
       const before = await api.getSettings()
       setBeforeBootId(before.bootId)
-      await api.restorePanelBackup(file, restoreNetworkSettings)
+      await api.restorePanelBackup(file, restoreNetworkSettings, controller.signal)
     } catch (err) {
+      if (controller.signal.aborted) return
       setRestoring(false)
       setError(err instanceof Error ? err.message : t("settings.backup.restoreFailed"))
     }
@@ -897,6 +914,8 @@ function PanelBackupCard() {
       <SectionGroup className="max-w-lg">
         <SectionItem
           position="single"
+          role="switch"
+          aria-checked={restoreNetworkSettings}
           onClick={() => setRestoreNetworkSettings(!restoreNetworkSettings)}
         >
           <SwitchRow

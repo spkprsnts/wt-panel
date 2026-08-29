@@ -87,12 +87,12 @@ async function request<T>(path: string, options: RequestInit = {}, timeoutMs?: n
 // Content-Disposition: attachment and saves it client-side — a plain <a
 // href> can't carry the Bearer token, so the file has to come through
 // fetch() and get handed to the browser as an object URL instead.
-async function downloadFile(path: string): Promise<void> {
+async function downloadFile(path: string, signal?: AbortSignal): Promise<void> {
   const token = getToken()
   const headers = new Headers()
   if (token) headers.set("Authorization", `Bearer ${token}`)
 
-  const res = await fetch(BASE_PATH + path, { headers })
+  const res = await fetch(BASE_PATH + path, { headers, signal })
   if (res.status === 401) {
     clearToken()
     window.location.href = BASE_PATH + "/login"
@@ -124,7 +124,8 @@ async function uploadFile<T>(
   path: string,
   fieldName: string,
   file: File,
-  extraFields?: Record<string, string>
+  extraFields?: Record<string, string>,
+  signal?: AbortSignal
 ): Promise<T> {
   const token = getToken()
   const headers = new Headers()
@@ -136,7 +137,7 @@ async function uploadFile<T>(
     form.append(key, value)
   }
 
-  const res = await fetch(BASE_PATH + path, { method: "POST", headers, body: form })
+  const res = await fetch(BASE_PATH + path, { method: "POST", headers, body: form, signal })
   if (res.status === 401) {
     clearToken()
     window.location.href = BASE_PATH + "/login"
@@ -444,11 +445,13 @@ export const api = {
       url: string
       wireturnLink: string
     }>(`/api/clients/${clientId}/subscription-links`),
-  downloadClientExport: (clientId: number) => downloadFile(`/api/clients/${clientId}/export`),
+  downloadClientExport: (clientId: number, signal?: AbortSignal) =>
+    downloadFile(`/api/clients/${clientId}/export`, signal),
 
   getProfileLinks: (profileId: number) =>
     request<{ kernelUri: string; wireturnLink: string }>(`/api/profiles/${profileId}/links`),
-  downloadProfileExport: (profileId: number) => downloadFile(`/api/profiles/${profileId}/export`),
+  downloadProfileExport: (profileId: number, signal?: AbortSignal) =>
+    downloadFile(`/api/profiles/${profileId}/export`, signal),
 
   keygenTurnable: () =>
     request<{ pubKey: string; privKey: string }>("/api/keygen/turnable", { method: "POST" }),
@@ -588,11 +591,15 @@ export const api = {
     ),
   updatePanel: () =>
     request<{ updating: boolean; version: string }>("/api/settings/panel/update", { method: "POST" }),
-  downloadPanelBackup: () => downloadFile("/api/settings/panel/backup"),
-  restorePanelBackup: (file: File, restoreNetworkSettings: boolean) =>
-    uploadFile<{ restoring: boolean }>("/api/settings/panel/restore", "backup", file, {
-      restoreNetworkSettings: String(restoreNetworkSettings),
-    }),
+  downloadPanelBackup: (signal?: AbortSignal) => downloadFile("/api/settings/panel/backup", signal),
+  restorePanelBackup: (file: File, restoreNetworkSettings: boolean, signal?: AbortSignal) =>
+    uploadFile<{ restoring: boolean }>(
+      "/api/settings/panel/restore",
+      "backup",
+      file,
+      { restoreNetworkSettings: String(restoreNetworkSettings) },
+      signal
+    ),
 
   getAccount: () => request<{ username: string; totpEnabled: boolean }>("/api/account"),
   changePassword: (currentPassword: string, newPassword: string) =>

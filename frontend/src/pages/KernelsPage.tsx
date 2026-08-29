@@ -61,12 +61,18 @@ function useKernelJob(kernelName: string, onInstalled: () => void) {
   const [job, setJob] = React.useState<BuildJob | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const pollRef = React.useRef<number | null>(null)
+  // Set once start() kicks off a fresh job — guards the mount-time "what's
+  // already running" fetch below from overwriting it with a stale snapshot
+  // if that fetch resolves late, after the operator already clicked
+  // Install/Build.
+  const startedRef = React.useRef(false)
 
   const poll = React.useCallback(
     (jobId: string) => {
       pollRef.current = window.setTimeout(async () => {
         try {
           const updated = await api.getKernelJob(kernelName, kernelJobPollTimeoutMs)
+          setError(null)
           if (!updated) return
           setJob(updated)
           if (updated.status === "running") {
@@ -75,7 +81,11 @@ function useKernelJob(kernelName: string, onInstalled: () => void) {
             onInstalled()
           }
         } catch (err) {
+          // A transient error (timeout, dropped connection) must not kill the
+          // chain — the build keeps running server-side regardless, so keep
+          // polling rather than stranding the UI on a stale "running" state.
           setError(err instanceof Error ? err.message : String(err))
+          poll(jobId)
         }
       }, 2000)
     },
@@ -83,10 +93,11 @@ function useKernelJob(kernelName: string, onInstalled: () => void) {
   )
 
   React.useEffect(() => {
+    startedRef.current = false
     api
       .getKernelJob(kernelName)
       .then((existing) => {
-        if (!existing) return
+        if (!existing || startedRef.current) return
         setJob(existing)
         if (existing.status === "running") poll(existing.id)
       })
@@ -98,6 +109,7 @@ function useKernelJob(kernelName: string, onInstalled: () => void) {
 
   function start(trigger: () => Promise<BuildJob>) {
     setError(null)
+    startedRef.current = true
     return trigger()
       .then((started) => {
         setJob(started)
@@ -349,8 +361,6 @@ function OlcrtcKernelCard({ status, onInstalled }: { status?: KernelStatus; onIn
             placeholder={t("kernels.olcrtc.customRefPlaceholder")}
           />
         </div>
-
-        {error && <p className="text-sm text-error">{error}</p>}
 
         {error && <p className="text-sm text-error">{error}</p>}
 

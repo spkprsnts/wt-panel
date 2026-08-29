@@ -31,6 +31,8 @@ export const common = {
     "common.customValue": "Своё значение...",
     "common.notice": "Уведомление",
     "common.moreActions": "Ещё действия",
+    "common.remove": "Убрать",
+    "common.add": "Добавить",
   },
   en: {
     "common.save": "Save",
@@ -58,5 +60,7 @@ export const common = {
     "common.customValue": "Custom value...",
     "common.notice": "Notice",
     "common.moreActions": "More actions",
+    "common.remove": "Remove",
+    "common.add": "Add",
   },
 }

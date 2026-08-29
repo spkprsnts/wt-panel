@@ -53,7 +53,22 @@ const OLCRTC_ROOM_ID_HINT_KEYS: Record<OlcrtcState["provider"], TranslationKey> 
 function useCallRooms(provider: RoomProvider): CallRoom[] {
   const [rooms, setRooms] = React.useState<CallRoom[]>([])
   React.useEffect(() => {
-    api.listCallRooms(provider).then(setRooms).catch(() => setRooms([]))
+    let cancelled = false
+    // Guards against a stale response landing after a newer one if the
+    // operator switches provider again before the first fetch resolves —
+    // without this, an out-of-order response can overwrite rooms with
+    // suggestions from a provider that's no longer selected.
+    api
+      .listCallRooms(provider)
+      .then((res) => {
+        if (!cancelled) setRooms(res)
+      })
+      .catch(() => {
+        if (!cancelled) setRooms([])
+      })
+    return () => {
+      cancelled = true
+    }
   }, [provider])
   return rooms
 }
@@ -792,12 +807,14 @@ export function ProfileForm({
   // and WebDAV are the opposite restriction: both are SOCKS5-native kernels
   // with no WireGuard-compatible transport of their own, so a wireguard
   // inbound is never a valid pick for either.
-  const visibleInbounds =
-    coreType === "freeturn"
-      ? inbounds.filter((ib) => ib.Protocol === "hysteria2" || ib.Protocol === "wireguard")
-      : coreType === "olcrtc" || coreType === "webdav"
-        ? inbounds.filter((ib) => ib.Protocol !== "wireguard")
-        : inbounds
+  function visibleInboundsFor(ct: CoreType, list: XrayInbound[]) {
+    return ct === "freeturn"
+      ? list.filter((ib) => ib.Protocol === "hysteria2" || ib.Protocol === "wireguard")
+      : ct === "olcrtc" || ct === "webdav"
+        ? list.filter((ib) => ib.Protocol !== "wireguard")
+        : list
+  }
+  const visibleInbounds = visibleInboundsFor(coreType, inbounds)
 
   // Dual Route (docs/subscriptions.md §3) only applies to the VLESS-mode
   // overlay (vless/trojan/hysteria2 link) — WireGuard mode has no
@@ -1026,6 +1043,13 @@ export function ProfileForm({
             const ct = v as CoreType
             setCoreType(ct)
             if (mode === "create") setXrayEnabled(defaultXrayEnabledForCore(ct))
+            // The picked inbound may no longer be a valid target for the new
+            // core (e.g. a wireguard inbound is never valid for olcRTC/WebDAV) —
+            // clear it rather than silently keeping a filtered-out selection
+            // that would show as a bare ID and still get submitted.
+            if (xrayInboundId && !visibleInboundsFor(ct, inbounds).some((ib) => String(ib.ID) === xrayInboundId)) {
+              setXrayInboundId("")
+            }
           }}
           disabled={mode === "edit"}
         >
@@ -1535,6 +1559,8 @@ export function ProfileForm({
               onChange={(v) => setFt({ ...ft, links: v })}
               placeholder={t("profileForm.callIdComboPlaceholder")}
               customValuePlaceholder={t("common.customValue")}
+              removeOptionLabel={(label) => `${t("common.remove")}: ${label}`}
+              addCustomValueLabel={t("common.add")}
             />
             <VkCallHint />
           </div>

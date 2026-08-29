@@ -689,6 +689,8 @@ function TlsFields({
           onChange={(v) => setF({ ...f, tlsAlpn: v })}
           placeholder={`${t("xray.alpnDefaultPrefix")}: ${alpnDefault.join(", ")}`}
           customValuePlaceholder={t("common.customValue")}
+          removeOptionLabel={(label) => `${t("common.remove")}: ${label}`}
+          addCustomValueLabel={t("common.add")}
         />
       </div>
       <div className="flex flex-col gap-2">
@@ -1131,8 +1133,12 @@ function InboundFormDialog({
       setF(existing ? formFromInbound(existing) : emptyForm(defaultRemark))
       setError(null)
     }
+    // Keyed on existing?.ID, not the existing object itself: `inbounds` (and
+    // thus every row's `existing` reference) is rebuilt on every load(), so
+    // depending on the object would reset this open form's in-progress edits
+    // whenever *any* other row changed (delete, attach/detach a client, ...).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, existing])
+  }, [open, existing?.ID])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
