@@ -6,13 +6,23 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"wtpanel/internal/models"
 )
 
+// orderProfilesBySortOrder is shared by every Preload("Profiles", ...) below
+// so a client's profiles always come back in their saved display order (see
+// models.Profile.SortOrder) rather than GORM's default primary-key order —
+// ties (existing rows predating this field, all SortOrder 0) fall back to id,
+// which matches their original creation order anyway.
+func orderProfilesBySortOrder(db *gorm.DB) *gorm.DB {
+	return db.Order("sort_order, id")
+}
+
 func (s *Server) listClients(c *gin.Context) {
 	var clients []models.Client
-	if err := s.db.Preload("Profiles.XrayInbound").Find(&clients).Error; err != nil {
+	if err := s.db.Preload("Profiles", orderProfilesBySortOrder).Preload("Profiles.XrayInbound").Find(&clients).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -133,7 +143,7 @@ func (s *Server) loadClient(c *gin.Context) (*models.Client, error) {
 		return nil, err
 	}
 	var client models.Client
-	if err := s.db.Preload("Profiles.XrayInbound").First(&client, id).Error; err != nil {
+	if err := s.db.Preload("Profiles", orderProfilesBySortOrder).Preload("Profiles.XrayInbound").First(&client, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "client not found"})
 		return nil, err
 	}

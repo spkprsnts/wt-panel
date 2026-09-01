@@ -144,6 +144,8 @@ export interface Profile {
   ExternalID: string
   Name: string
   CoreType: CoreType
+  SortOrder: number
+  Recommended: boolean
   CoreConfig: string
   Enabled: boolean
   XrayEnabled: boolean
@@ -412,8 +414,22 @@ export const api = {
   deleteProfile: (id: number) =>
     request<void>(`/api/profiles/${id}`, { method: "DELETE" }),
 
+  // profileIds must list every profile belonging to clientId, exactly once,
+  // in the new desired order — see the backend's reorderProfiles doc comment.
+  reorderProfiles: (clientId: number, profileIds: number[]) =>
+    request<void>(`/api/clients/${clientId}/profiles/reorder`, {
+      method: "PUT",
+      body: JSON.stringify({ profileIds }),
+    }),
+
   restartProfile: (id: number) =>
     request<Profile>(`/api/profiles/${id}/restart`, { method: "POST" }),
+
+  setProfileRecommended: (id: number, recommended: boolean) =>
+    request<Profile>(`/api/profiles/${id}/recommend`, {
+      method: "PUT",
+      body: JSON.stringify({ recommended }),
+    }),
 
   getProfileLogs: (id: number, tail?: number) =>
     request<{ log: string; running: boolean; pid: number }>(

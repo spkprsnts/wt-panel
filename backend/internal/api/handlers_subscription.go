@@ -161,7 +161,7 @@ func (s *Server) handleSubscription(c *gin.Context) {
 	}
 
 	var client models.Client
-	if err := s.db.Preload("Profiles").First(&client, token.ClientID).Error; err != nil {
+	if err := s.db.Preload("Profiles", orderProfilesBySortOrder).First(&client, token.ClientID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "client not found"})
 		return
 	}
@@ -207,9 +207,7 @@ func (s *Server) handleSubscription(c *gin.Context) {
 		for _, profile := range client.Profiles {
 			bundle.Profiles = append(bundle.Profiles, s.buildBundleProfile(profile))
 		}
-		if len(bundle.Profiles) > 0 {
-			bundle.RecommendedProfileID = bundle.Profiles[0].ID
-		}
+		bundle.RecommendedProfileID = recommendedProfileID(client.Profiles)
 	}
 
 	c.Header("Profile-Title", client.Name)
@@ -231,6 +229,23 @@ func (s *Server) handleSubscription(c *gin.Context) {
 // buildBundleProfile resolves one Profile row into the wire-format
 // BundleProfile the subscription (and the admin panel's own QR/export
 // endpoints) all share, so the two can never drift apart.
+// recommendedProfileID picks the client's explicitly Profile.Recommended
+// profile if one is set, else falls back to the first profile in list order
+// (already SortOrder-sorted by the caller's Preload) — the behavior from
+// before Recommended existed, so an operator who's never touched the new
+// menu item sees no change.
+func recommendedProfileID(profiles []models.Profile) string {
+	for _, p := range profiles {
+		if p.Recommended {
+			return p.ExternalID
+		}
+	}
+	if len(profiles) > 0 {
+		return profiles[0].ExternalID
+	}
+	return ""
+}
+
 func (s *Server) buildBundleProfile(profile models.Profile) BundleProfile {
 	bp := BundleProfile{
 		ID:          profile.ExternalID,

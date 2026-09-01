@@ -91,10 +91,12 @@ func New(db *gorm.DB, cfg *config.Config, authSvc *auth.Service, registry *provi
 		authorized.DELETE("/clients/:id", s.deleteClient)
 
 		authorized.POST("/clients/:id/profiles", s.createProfile)
+		authorized.PUT("/clients/:id/profiles/reorder", s.reorderProfiles)
 		authorized.PUT("/profiles/:id", s.updateProfile)
 		authorized.DELETE("/profiles/:id", s.deleteProfile)
 		authorized.GET("/profiles/:id/logs", s.getProfileLogs)
 		authorized.POST("/profiles/:id/restart", s.restartProfile)
+		authorized.PUT("/profiles/:id/recommend", s.setProfileRecommended)
 		authorized.GET("/profiles/:id/links", s.profileLinks)
 		authorized.GET("/profiles/:id/export", s.exportProfile)
 

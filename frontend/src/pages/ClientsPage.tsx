@@ -99,6 +99,23 @@ function xraySummaryLabel(profile: Profile): string {
   return scheme ? `${scheme} (URI)` : "xray (URI)"
 }
 
+// Mirrors the backend's recommendedProfileID (handlers_subscription.go),
+// including the enabled-only filter handleSubscription applies before ever
+// calling it: a disabled profile has no process running, so it's dropped
+// from the bundle entirely — a Recommended pin on one doesn't carry over,
+// it's as if nothing were pinned. So the explicit-pin branch here requires
+// Enabled too, same as the automatic-fallback branch already did. Used to
+// star the profile that's *actually* going out in the subscription, not
+// just the explicitly pinned one — unmarking a pin doesn't mean "no profile
+// is recommended", it means "fall back to this automatic pick".
+function effectiveRecommendedId(profiles: Profile[]): number | null {
+  return (
+    profiles.find((p) => p.Recommended && p.Enabled)?.ID ??
+    profiles.find((p) => p.Enabled)?.ID ??
+    null
+  )
+}
+
 // Wraps profileSummaryBadges in a useMemo keyed on the two fields it
 // actually reads, not on `profile` itself — ClientsPage's 10s poll replaces
 // the whole `clients` array every tick even when nothing changed, which
@@ -147,6 +164,7 @@ export function ClientsPage() {
   const [expanded, setExpanded] = React.useState<number | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [restartingId, setRestartingId] = React.useState<number | null>(null)
+  const [reorderingId, setReorderingId] = React.useState<number | null>(null)
   // Which profile's Edit/Logs dialog is currently open — same single-active-
   // ID convention as restartingId above. Triggered from a DropdownMenuItem
   // (see the profile row below), not each dialog's own DialogTrigger:
@@ -196,6 +214,37 @@ export function ClientsPage() {
       await alert(err instanceof Error ? err.message : t("clientsPage.restartFailed"), { title: t("common.error") })
     } finally {
       setRestartingId(null)
+    }
+  }
+
+  // Swaps `profile` with its neighbor in the given direction and sends the
+  // client's full new profile order — see api.reorderProfiles.
+  async function handleMoveProfile(client: Client, profile: Profile, direction: -1 | 1) {
+    const profiles = client.Profiles ?? []
+    const index = profiles.findIndex((p) => p.ID === profile.ID)
+    const target = index + direction
+    if (index < 0 || target < 0 || target >= profiles.length) return
+
+    const ids = profiles.map((p) => p.ID)
+    ;[ids[index], ids[target]] = [ids[target], ids[index]]
+
+    setReorderingId(profile.ID)
+    try {
+      await api.reorderProfiles(client.ID, ids)
+      load()
+    } catch (err) {
+      await alert(err instanceof Error ? err.message : t("clientsPage.reorderFailed"), { title: t("common.error") })
+    } finally {
+      setReorderingId(null)
+    }
+  }
+
+  async function handleSetRecommended(profile: Profile, recommended: boolean) {
+    try {
+      await api.setProfileRecommended(profile.ID, recommended)
+      load()
+    } catch (err) {
+      await alert(err instanceof Error ? err.message : t("clientsPage.setRecommendedFailed"), { title: t("common.error") })
     }
   }
 
@@ -307,7 +356,9 @@ export function ClientsPage() {
                           </p>
                         )}
                         <SectionGroup>
-                        {(client.Profiles ?? []).map((profile, index, profiles) => (
+                        {(() => {
+                          const recommendedId = effectiveRecommendedId(client.Profiles ?? [])
+                          return (client.Profiles ?? []).map((profile, index, profiles) => (
                           <SectionItem
                             key={profile.ID}
                             position={sectionPosition(index, profiles.length)}
@@ -323,6 +374,29 @@ export function ClientsPage() {
                               <div className="min-w-16">
                                 <Badge variant="outline">{profile.CoreType}</Badge>
                               </div>
+                              {/* The pin (profile.Recommended) and the effective pick
+                                  (profile.ID === recommendedId) are shown independently, not as
+                                  one merged badge — a pin on a disabled profile is still a pin
+                                  (full-color star, just dimmed to mark it inactive) even though
+                                  it isn't what the subscription actually sends; that's instead
+                                  whichever *other* profile ends up as the plain outline star. */}
+                              {profile.Recommended && (
+                                <Icon
+                                  name="star"
+                                  filled
+                                  size={16}
+                                  className={profile.Enabled ? "text-amber-500" : "text-amber-500/40"}
+                                  title={profile.Enabled ? t("clientsPage.recommendedTitle") : t("clientsPage.recommendedPinnedInactiveTitle")}
+                                />
+                              )}
+                              {!profile.Recommended && profile.ID === recommendedId && (
+                                <Icon
+                                  name="star"
+                                  size={16}
+                                  className="text-on-surface-variant/50"
+                                  title={t("clientsPage.recommendedDefaultTitle")}
+                                />
+                              )}
                               <span>{profile.Name}</span>
                               {!profile.Enabled && (
                                 <Badge variant="secondary">{t("clientsPage.profileDisabled")}</Badge>
@@ -340,6 +414,24 @@ export function ClientsPage() {
                               <ProfilePortLabel profile={profile} />
                             </span>
                             <div className="flex shrink-0 items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                title={t("clientsPage.moveProfileUp")}
+                                disabled={index === 0 || reorderingId !== null}
+                                onClick={() => handleMoveProfile(client, profile, -1)}
+                              >
+                                <Icon name="arrow_upward" size={18} />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                title={t("clientsPage.moveProfileDown")}
+                                disabled={index === profiles.length - 1 || reorderingId !== null}
+                                onClick={() => handleMoveProfile(client, profile, 1)}
+                              >
+                                <Icon name="arrow_downward" size={18} />
+                              </Button>
                               <QrDialog
                                 title={`${t("clientsPage.profileTitle")} — ${profile.Name}`}
                                 trigger={
@@ -370,6 +462,12 @@ export function ClientsPage() {
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => setLogsProfileId(profile.ID)}>
                                     <Icon name="history" size={18} /> {t("profileLogs.trigger")}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleSetRecommended(profile, !profile.Recommended)}
+                                  >
+                                    <Icon name="star" filled={profile.Recommended} size={18} />
+                                    {profile.Recommended ? t("clientsPage.unmarkRecommended") : t("clientsPage.markRecommended")}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     disabled={restartingId === profile.ID || !profile.Enabled}
@@ -410,7 +508,8 @@ export function ClientsPage() {
                               onOpenChange={(o) => setLogsProfileId(o ? profile.ID : null)}
                             />
                           </SectionItem>
-                        ))}
+                          ))
+                        })()}
                         </SectionGroup>
                       </div>
                     </TableCell>

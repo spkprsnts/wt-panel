@@ -76,6 +76,37 @@ type Profile struct {
 	ExternalID string   `gorm:"uniqueIndex;not null"` // stable "id" field per WireTurn spec
 	Name       string   `gorm:"not null"`
 	CoreType   CoreType `gorm:"not null"`
+	// SortOrder is this profile's position within its client's list (0 =
+	// first), set via the reorderProfiles endpoint and defaulting to
+	// creation order (see createProfile) for new ones. Not just cosmetic:
+	// handleSubscription/exportClientProfiles iterate client.Profiles in
+	// this order, and the first one becomes the bundle's
+	// RecommendedProfileID — so this is what a real WireTurn client
+	// connects with by default.
+	//
+	// Unlike Enabled/Enable elsewhere in this file, a gorm "default:0" tag
+	// here is safe: SQLite's ALTER TABLE requires NOT NULL columns to have
+	// one (needed for this column to migrate onto an existing DB at all),
+	// and 0 is genuinely the right value for a from-scratch first profile —
+	// there's no true-vs-omitted-false mismatch for GORM's create-time
+	// zero-value-becomes-the-tag-default behavior to cause data loss with.
+	SortOrder int `gorm:"not null;index;default:0"`
+
+	// Recommended flags this as the client's preferred profile — surfaced as
+	// ProfileBundle.RecommendedProfileID (see recommendedProfileID in
+	// handlers_subscription.go), set via setProfileRecommended. At most one
+	// profile per client should have this set; that handler enforces it by
+	// clearing every sibling first. Falls back to the first profile in
+	// SortOrder when none is marked, matching the behavior before this field
+	// existed.
+	//
+	// Needs an explicit "not null;default:false" (same reasoning as
+	// SortOrder's tag above — false matches the Go zero value, so there's no
+	// Enabled-style true-vs-omitted-false footgun): without it, existing
+	// rows migrate in as SQL NULL rather than false, and database/sql then
+	// errors scanning NULL into a non-pointer bool on every later query that
+	// touches this column.
+	Recommended bool `gorm:"not null;default:false"`
 
 	// CoreConfig holds the core-specific provisioning data as JSON,
 	// shape depends on CoreType (see provisioner packages for the structs).

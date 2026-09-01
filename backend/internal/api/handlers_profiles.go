@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"wtpanel/internal/models"
 )
@@ -28,11 +29,24 @@ func (s *Server) createProfile(c *gin.Context) {
 		return
 	}
 
+	// New profiles append after every existing one for this client, rather
+	// than a raw count (which would collide if profiles were ever deleted
+	// and SortOrder now has gaps).
+	var maxOrder int
+	if err := s.db.Model(&models.Profile{}).
+		Where("client_id = ?", client.ID).
+		Select("COALESCE(MAX(sort_order), -1)").
+		Scan(&maxOrder).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	profile := models.Profile{
 		ClientID:            client.ID,
 		ExternalID:          uuid.New().String(),
 		Name:                req.Name,
 		CoreType:            coreType,
+		SortOrder:           maxOrder + 1,
 		CoreConfig:          string(req.CoreConfig),
 		Enabled:             true,
 		XrayEnabled:         req.XrayEnabled,
@@ -182,6 +196,97 @@ func (s *Server) updateProfile(c *gin.Context) {
 			c.Error(err)
 		}
 	}
+	s.registry.FillStatus(&profile)
+	c.JSON(http.StatusOK, profile)
+}
+
+// reorderProfiles sets the display order of every profile belonging to one
+// client at once. Requires the full current set of that client's profile
+// IDs, each exactly once, rather than a partial move — simpler to validate
+// than a single-item move-up/move-down, and the frontend always computes
+// the full new order locally before sending it anyway. This order isn't
+// just cosmetic: see models.Profile.SortOrder's doc comment.
+func (s *Server) reorderProfiles(c *gin.Context) {
+	client, err := s.loadClient(c)
+	if err != nil {
+		return
+	}
+
+	var req ReorderProfilesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if len(req.ProfileIDs) != len(client.Profiles) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "profileIds must list every profile belonging to this client, exactly once"})
+		return
+	}
+	belongsToClient := make(map[uint]bool, len(client.Profiles))
+	for _, p := range client.Profiles {
+		belongsToClient[p.ID] = true
+	}
+	seen := make(map[uint]bool, len(req.ProfileIDs))
+	for _, id := range req.ProfileIDs {
+		if !belongsToClient[id] || seen[id] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "profileIds must list every profile belonging to this client, exactly once"})
+			return
+		}
+		seen[id] = true
+	}
+
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		for i, id := range req.ProfileIDs {
+			if err := tx.Model(&models.Profile{}).Where("id = ?", id).Update("sort_order", i).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// setProfileRecommended marks (or unmarks) one profile as its client's
+// recommended pick. Marking one clears every sibling profile's flag in the
+// same transaction, since at most one can be recommended per client — see
+// models.Profile.Recommended.
+func (s *Server) setProfileRecommended(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid profile id"})
+		return
+	}
+	var profile models.Profile
+	if err := s.db.First(&profile, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "profile not found"})
+		return
+	}
+
+	var req SetRecommendedRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		if req.Recommended {
+			if err := tx.Model(&models.Profile{}).
+				Where("client_id = ? AND id <> ?", profile.ClientID, profile.ID).
+				Update("recommended", false).Error; err != nil {
+				return err
+			}
+		}
+		return tx.Model(&profile).Update("recommended", req.Recommended).Error
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	profile.Recommended = req.Recommended
 	s.registry.FillStatus(&profile)
 	c.JSON(http.StatusOK, profile)
 }

@@ -109,3 +109,14 @@ type ProfileRequest struct {
 	XrayHcInterval    string `json:"xrayHcInterval"`
 	XrayMux           string `json:"xrayMux"`
 }
+
+// ReorderProfilesRequest must list every profile ID belonging to the target
+// client, exactly once, in the new desired order — see reorderProfiles.
+type ReorderProfilesRequest struct {
+	ProfileIDs []uint `json:"profileIds" binding:"required"`
+}
+
+// SetRecommendedRequest — see setProfileRecommended.
+type SetRecommendedRequest struct {
+	Recommended bool `json:"recommended"`
+}
