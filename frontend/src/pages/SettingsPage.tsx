@@ -6,8 +6,8 @@ import { useT } from "@/lib/i18n"
 import type { TranslationKey } from "@/i18n"
 import { Icon } from "@/components/icon"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { OtpInput } from "@/components/ui/otp-input"
 import { CardDescription, CardTitle } from "@/components/ui/card"
 import {
   SectionGroup,
@@ -77,12 +77,13 @@ function TotpEnableDialog({ onEnabled }: { onEnabled: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  async function handleConfirm(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleConfirm(e?: React.FormEvent, codeOverride?: string) {
+    e?.preventDefault()
+    if (loading) return
     setConfirmError(null)
     setLoading(true)
     try {
-      await api.confirmTotpSetup(secret, code)
+      await api.confirmTotpSetup(secret, codeOverride ?? code)
       setOpen(false)
       onEnabled()
     } catch (err) {
@@ -113,20 +114,19 @@ function TotpEnableDialog({ onEnabled }: { onEnabled: () => void }) {
             <img src={qrDataUri} alt="QR" className="mx-auto size-48 rounded-md border p-2" />
             <code className="break-all rounded-md border bg-surface-variant p-2 text-center text-xs">{secret}</code>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="totp-confirm-code">{t("settings.account.totp.codeLabel")}</Label>
-              <Input
+              <Label id="totp-confirm-code-label">{t("settings.account.totp.codeLabel")}</Label>
+              <OtpInput
                 id="totp-confirm-code"
-                inputMode="numeric"
-                maxLength={6}
+                aria-labelledby="totp-confirm-code-label"
                 value={code}
-                onChange={(e) => setCode(e.target.value)}
+                onChange={setCode}
+                onComplete={(v) => handleConfirm(undefined, v)}
                 autoFocus
-                required
               />
             </div>
             {confirmError && <p className="text-sm text-error">{confirmError}</p>}
             <DialogFooter>
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled={loading || code.length !== 6}>
                 {loading ? t("common.saving") : t("settings.account.totp.confirmButton")}
               </Button>
             </DialogFooter>
@@ -153,12 +153,13 @@ function TotpDisableDialog({ onDisabled }: { onDisabled: () => void }) {
     }
   }, [open])
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleSubmit(e?: React.FormEvent, codeOverride?: string) {
+    e?.preventDefault()
+    if (loading) return
     setError(null)
     setLoading(true)
     try {
-      await api.disableTotp(code)
+      await api.disableTotp(codeOverride ?? code)
       setOpen(false)
       onDisabled()
     } catch (err) {
@@ -184,20 +185,19 @@ function TotpDisableDialog({ onDisabled }: { onDisabled: () => void }) {
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="totp-disable-code">{t("settings.account.totp.codeLabel")}</Label>
-            <Input
+            <Label id="totp-disable-code-label">{t("settings.account.totp.codeLabel")}</Label>
+            <OtpInput
               id="totp-disable-code"
-              inputMode="numeric"
-              maxLength={6}
+              aria-labelledby="totp-disable-code-label"
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              onChange={setCode}
+              onComplete={(v) => handleSubmit(undefined, v)}
               autoFocus
-              required
             />
           </div>
           {error && <p className="text-sm text-error">{error}</p>}
           <DialogFooter>
-            <Button type="submit" variant="destructive" disabled={loading}>
+            <Button type="submit" variant="destructive" disabled={loading || code.length !== 6}>
               {loading ? t("common.saving") : t("settings.account.totp.disableButton")}
             </Button>
           </DialogFooter>

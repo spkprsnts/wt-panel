@@ -6,6 +6,7 @@ import { useT } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { OtpInput } from "@/components/ui/otp-input"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
 import {
@@ -30,12 +31,17 @@ export function LoginPage() {
   const [error, setError] = React.useState<string | null>(null)
   const [loading, setLoading] = React.useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  // `totpOverride` lets the OtpInput's onComplete submit with the code it
+  // just computed directly, instead of going through setCode + waiting a
+  // render for `code` state to catch up (which, at the moment onComplete
+  // fires, is still one render behind).
+  async function handleSubmit(e?: React.FormEvent, totpOverride?: string) {
+    e?.preventDefault()
+    if (loading) return
     setError(null)
     setLoading(true)
     try {
-      const { token } = await api.login(username, password, step === "totp" ? code : undefined)
+      const { token } = await api.login(username, password, step === "totp" ? (totpOverride ?? code) : undefined)
       setToken(token)
       navigate("/dashboard")
     } catch (err) {
@@ -99,15 +105,13 @@ export function LoginPage() {
               </>
             ) : (
               <div className="flex flex-col gap-2">
-                <Label htmlFor="totp-code">{t("login.totpCode")}</Label>
-                <Input
+                <Label id="totp-code-label">{t("login.totpCode")}</Label>
+                <OtpInput
                   id="totp-code"
-                  name="code"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={6}
+                  aria-labelledby="totp-code-label"
                   value={code}
-                  onChange={(e) => setCode(e.target.value)}
+                  onChange={setCode}
+                  onComplete={(v) => handleSubmit(undefined, v)}
                   autoFocus
                 />
               </div>
