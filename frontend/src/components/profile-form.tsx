@@ -842,11 +842,6 @@ export function ProfileForm({
                   </Button>
                 )}
               </div>
-              {coreType === "freeturn" && (
-                <p className="text-body-small text-on-surface-variant">
-                  {t("profileForm.xray.freeturnNote")}
-                </p>
-              )}
             </div>
           </SectionItem>
           {!xrayInboundId && (
