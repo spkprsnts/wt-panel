@@ -44,30 +44,30 @@ export function ProfileLogsDialog({
     }
   }
 
-  function handleOpenChange(next: boolean) {
-    onOpenChange(next)
-    if (next) {
-      setLoading(true)
-      fetchLogs()
-      pollRef.current = window.setInterval(fetchLogs, 3000)
-    } else if (pollRef.current) {
-      window.clearInterval(pollRef.current)
-      pollRef.current = null
+  // Opening happens by the parent flipping the `open` prop (from a dropdown
+  // menu item, not a DialogTrigger), which Base UI's onOpenChange doesn't
+  // fire for — that callback only covers the dialog's own internal close
+  // actions (Escape, backdrop click, the X button). So fetching/polling has
+  // to watch `open` directly rather than live in onOpenChange.
+  React.useEffect(() => {
+    if (!open) return
+    setLoading(true)
+    fetchLogs()
+    pollRef.current = window.setInterval(fetchLogs, 3000)
+    return () => {
+      if (pollRef.current) {
+        window.clearInterval(pollRef.current)
+        pollRef.current = null
+      }
     }
-  }
+  }, [open, profileId])
 
   React.useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
   }, [log])
 
-  React.useEffect(() => {
-    return () => {
-      if (pollRef.current) window.clearInterval(pollRef.current)
-    }
-  }, [])
-
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[80vh] overflow-hidden sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
