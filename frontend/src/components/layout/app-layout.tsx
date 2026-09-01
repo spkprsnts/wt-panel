@@ -5,10 +5,7 @@ import { Icon } from "@/components/icon"
 import { Button } from "@/components/ui/button"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 
-// Below md there's no room for AppSidebar's permanent aside (even
-// collapsed, it still eats fixed width alongside the page content) — this
-// bar replaces it with a hamburger trigger that opens the same nav as an
-// off-canvas drawer instead (see AppSidebar's own mobile Dialog).
+// Below md there's no room for AppSidebar's permanent aside, so this bar swaps in a hamburger that opens the same nav as an off-canvas drawer (see AppSidebar's mobile Dialog).
 export function AppLayout() {
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false)
 

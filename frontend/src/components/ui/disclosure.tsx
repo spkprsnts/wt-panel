@@ -1,9 +1,6 @@
 import * as React from "react"
 
-// Disclosure is a plain native <details>/<summary> wrapper — was duplicated
-// near-identically between profile-form.tsx's AdvancedFields (closed by
-// default) and XrayPage.tsx's AdvancedSection (open by default) before this
-// got pulled out; defaultOpen replaces that hardcoded difference.
+// A plain native <details>/<summary> wrapper; defaultOpen covers both the closed-by-default and open-by-default call sites.
 function Disclosure({
   title,
   defaultOpen,

@@ -39,10 +39,8 @@ function TabsList({ className, ...props }: TabsPrimitive.List.Props) {
             }
           />
         }
-        // M3 primary-tab indicator is a fixed 24px width centered under the
-        // active tab, not a full-tab-width underline (that's secondary
-        // tabs) — Base UI's Indicator only exposes the active tab's
-        // position/size as --active-tab-* vars, so center against those.
+        // M3 primary-tab indicator is a fixed 24px width centered under the active tab (not a full-width underline), computed
+        // from Base UI's --active-tab-* position/size vars since Indicator exposes no centering of its own.
         className="absolute -bottom-px left-[calc(var(--active-tab-left)+(var(--active-tab-width)-1.5rem)/2)] h-0.75 w-6 rounded-t-xs bg-primary"
       />
     </TabsPrimitive.List>

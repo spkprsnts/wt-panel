@@ -11,12 +11,9 @@ import (
 	"wtpanel/internal/models"
 )
 
-// renderSubscriptionHTML is the "open the subscription link in a plain
-// browser" page (see handleSubscription's format negotiation) — the
-// 3x-ui-style info page: traffic, a QR/button to add the subscription
-// straight into the WireTurn app via its wt://\wireturn:// deep-link
-// scheme (docs/subscriptions.md §4), and a plain-text listing of what's in
-// it for anyone who'd rather copy a link by hand.
+// renderSubscriptionHTML is the "open the subscription link in a plain browser" page (see
+// handleSubscription's format negotiation): traffic, a QR/button for the wireturn:// deep link
+// (§4), and a plain-text profile listing.
 func (s *Server) renderSubscriptionHTML(c *gin.Context, client models.Client, bundle ProfileBundle, subURL string, expired bool) {
 	wireturnLink := buildSubscriptionWireturnLink(subURL)
 
@@ -64,12 +61,9 @@ func (s *Server) renderSubscriptionHTML(c *gin.Context, client models.Client, bu
 		HasLimit:   bundle.BytesTotal > 0,
 		UsedPct:    usedPct,
 		SubURL:     subURL,
-		// template.URL marks these pre-vetted-safe: html/template's default
-		// URL sanitizer only allows a fixed scheme allowlist (http/https/
-		// mailto/…) in href/src and silently rewrites anything else —
-		// custom scheme (wireturn://) and data: URIs alike — to "#ZgotmplZ".
-		// Both values are backend-generated, never derived from unescaped
-		// user input, so trusting them here doesn't reopen an XSS hole.
+		// template.URL bypasses html/template's scheme allowlist, which would otherwise rewrite the
+		// custom wireturn:// / data: URIs to "#ZgotmplZ". Safe only because both values are
+		// backend-generated, never derived from unescaped user input.
 		WireturnLink: template.URL(wireturnLink),
 		QRDataURI:    template.URL(qrDataURI(wireturnLink)),
 		Profiles:     views,

@@ -30,9 +30,7 @@ import { QrDialog } from "@/components/qr-dialog"
 import { Icon } from "@/components/icon"
 import { SectionGroup, SectionItem, sectionPosition } from "@/components/ui/section"
 
-// Shared best-effort JSON.parse for profileSummaryBadges and profilePort —
-// a profile saved before a field existed, or a parse failure, just means
-// fewer badges/no port, never an error.
+// Best-effort JSON.parse shared by profileSummaryBadges/profilePort — a missing field or parse failure just means fewer badges/no port, never an error.
 function parseCoreConfigJSON(profile: Profile): Record<string, unknown> {
   try {
     return profile.CoreConfig ? JSON.parse(profile.CoreConfig) : {}
@@ -41,15 +39,7 @@ function parseCoreConfigJSON(profile: Profile): Record<string, unknown> {
   }
 }
 
-// Pulls a couple of the most distinguishing fields out of a profile's own
-// CoreConfig JSON, since the CoreType badge alone doesn't tell two profiles
-// of the same core apart at a glance (provider/transport for olcRTC;
-// connection type/proto/route socket for Turnable; connection mode for
-// WebDAV), plus a SOCKS5 marker for an outbound proxy (see profile-form.tsx's
-// oc/wd.proxyUpstream). The port is NOT included here (see profilePort) so
-// it can render in its own fixed-width slot and line up down the list.
-// Values are the raw technical strings used elsewhere on this page — not
-// translated.
+// Pulls the most distinguishing fields out of a profile's CoreConfig JSON, since the CoreType badge alone doesn't tell two profiles of the same core apart. Port is excluded (see profilePort) so it can render in its own fixed-width slot. Values are raw technical strings, not translated.
 function profileSummaryBadges(profile: Profile): string[] {
   const cfg = parseCoreConfigJSON(profile)
   const str = (v: unknown) => (typeof v === "string" && v ? v : null)
@@ -75,12 +65,7 @@ function profileSummaryBadges(profile: Profile): string[] {
   return fields.filter((v): v is string => v !== null)
 }
 
-// The port half of what profileSummaryBadges used to include inline, split
-// out to render in its own fixed-width column. null for olcRTC (a pure
-// client library, no local listener) and WebDAV "server" mode (relays to
-// external backends). The backend always persists `port` once provisioned
-// (no `omitempty` on that field — see provisioner/config.go), auto-assigned
-// or not, so this reflects the real running port.
+// The port, rendered in its own fixed-width column. null for olcRTC (no local listener) and WebDAV "server" mode (relays to external backends); otherwise reflects the real running port.
 function profilePort(profile: Profile): number | null {
   if (profile.CoreType === "olcrtc") return null
   const cfg = parseCoreConfigJSON(profile)
@@ -88,10 +73,7 @@ function profilePort(profile: Profile): number | null {
   return typeof cfg.port === "number" && cfg.port > 0 ? cfg.port : null
 }
 
-// What the Xray overlay badge shows: the picked inbound's protocol when
-// there is one, otherwise the protocol sniffed from the manual fallback
-// (a URI's scheme, or "wireguard" for a manual WG config) — "xray (URI)"
-// alone didn't distinguish a manual hysteria2 link from a manual vless one.
+// What the Xray overlay badge shows: the picked inbound's protocol, else the protocol sniffed from the manual fallback (URI scheme, or "wireguard").
 function xraySummaryLabel(profile: Profile): string {
   if (profile.XrayInbound) return profile.XrayInbound.Protocol
   if (profile.XrayManualWireGuard) return "wireguard (WG)"
@@ -99,15 +81,7 @@ function xraySummaryLabel(profile: Profile): string {
   return scheme ? `${scheme} (URI)` : "xray (URI)"
 }
 
-// Mirrors the backend's recommendedProfileID (handlers_subscription.go),
-// including the enabled-only filter handleSubscription applies before ever
-// calling it: a disabled profile has no process running, so it's dropped
-// from the bundle entirely — a Recommended pin on one doesn't carry over,
-// it's as if nothing were pinned. So the explicit-pin branch here requires
-// Enabled too, same as the automatic-fallback branch already did. Used to
-// star the profile that's *actually* going out in the subscription, not
-// just the explicitly pinned one — unmarking a pin doesn't mean "no profile
-// is recommended", it means "fall back to this automatic pick".
+// Mirrors the backend's recommendedProfileID: a Recommended pin only counts if that profile is also Enabled, else falls back to the first Enabled profile.
 function effectiveRecommendedId(profiles: Profile[]): number | null {
   return (
     profiles.find((p) => p.Recommended && p.Enabled)?.ID ??
@@ -116,10 +90,7 @@ function effectiveRecommendedId(profiles: Profile[]): number | null {
   )
 }
 
-// Wraps profileSummaryBadges in a useMemo keyed on the two fields it
-// actually reads, not on `profile` itself — ClientsPage's 10s poll replaces
-// the whole `clients` array every tick even when nothing changed, which
-// would otherwise re-run JSON.parse on every profile's config forever.
+// Memoized on the two fields actually read, not on `profile` itself — the 10s poll replaces the whole `clients` array every tick even when nothing changed.
 function ProfileSummaryBadges({ profile }: { profile: Profile }) {
   const badges = React.useMemo(
     () => profileSummaryBadges(profile),
@@ -136,9 +107,7 @@ function ProfileSummaryBadges({ profile }: { profile: Profile }) {
   )
 }
 
-// Same memoization pattern as ProfileSummaryBadges, applied to profilePort
-// — kept as a separate component so the fixed-width column only re-renders
-// this, not the whole badge row.
+// Same memoization pattern as ProfileSummaryBadges, kept separate so the fixed-width column only re-renders this, not the whole badge row.
 function ProfilePortLabel({ profile }: { profile: Profile }) {
   const port = React.useMemo(
     () => profilePort(profile),
@@ -165,15 +134,7 @@ export function ClientsPage() {
   const [error, setError] = React.useState<string | null>(null)
   const [restartingId, setRestartingId] = React.useState<number | null>(null)
   const [reorderingId, setReorderingId] = React.useState<number | null>(null)
-  // Which profile's Edit/Logs dialog is currently open — same single-active-
-  // ID convention as restartingId above. Triggered from a DropdownMenuItem
-  // (see the profile row below), not each dialog's own DialogTrigger:
-  // nesting a Dialog inside a DropdownMenuItem is a known Base UI footgun —
-  // the dropdown's close-on-select and outside-click dismissal can race
-  // with the dialog opening and stomp on it. Lifting open state here, with
-  // EditProfileDialog/ProfileLogsDialog unconditionally mounted per row
-  // (open just toggles, never unmount/remount — see EditProfileDialog's
-  // openCount comment), sidesteps the whole class of bug.
+  // Which profile's Edit/Logs dialog is open. Triggered from a DropdownMenuItem, not the dialog's own DialogTrigger: nesting a Dialog inside a DropdownMenuItem is a Base UI footgun — the dropdown's close-on-select can race with the dialog opening. Lifting state here, with the dialogs unconditionally mounted per row (open just toggles), sidesteps it.
   const [editingProfileId, setEditingProfileId] = React.useState<number | null>(null)
   const [logsProfileId, setLogsProfileId] = React.useState<number | null>(null)
 
@@ -186,8 +147,7 @@ export function ClientsPage() {
 
   React.useEffect(() => {
     load()
-    // Profile status (Running/PID) is a live snapshot, not pushed — poll so
-    // the expanded profile list doesn't silently go stale.
+    // Profile status (Running/PID) is a live snapshot, not pushed — poll so the expanded list doesn't go stale.
     const interval = window.setInterval(load, 10000)
     return () => window.clearInterval(interval)
   }, [load])
@@ -217,8 +177,7 @@ export function ClientsPage() {
     }
   }
 
-  // Swaps `profile` with its neighbor in the given direction and sends the
-  // client's full new profile order — see api.reorderProfiles.
+  // Swaps `profile` with its neighbor and sends the client's full new profile order.
   async function handleMoveProfile(client: Client, profile: Profile, direction: -1 | 1) {
     const profiles = client.Profiles ?? []
     const index = profiles.findIndex((p) => p.ID === profile.ID)
@@ -374,12 +333,7 @@ export function ClientsPage() {
                               <div className="min-w-16">
                                 <Badge variant="outline">{profile.CoreType}</Badge>
                               </div>
-                              {/* The pin (profile.Recommended) and the effective pick
-                                  (profile.ID === recommendedId) are shown independently, not as
-                                  one merged badge — a pin on a disabled profile is still a pin
-                                  (full-color star, just dimmed to mark it inactive) even though
-                                  it isn't what the subscription actually sends; that's instead
-                                  whichever *other* profile ends up as the plain outline star. */}
+                              {/* Pin and effective pick are separate badges: a pin on a disabled profile still shows, dimmed. */}
                               {profile.Recommended && (
                                 <Icon
                                   name="star"
@@ -406,10 +360,7 @@ export function ClientsPage() {
                                 <Badge variant="secondary">{xraySummaryLabel(profile)}</Badge>
                               )}
                             </div>
-                            {/* Fixed width so ports line up in their own
-                                column instead of landing wherever they fall
-                                among the summary badges above, which vary
-                                in count/length per core type. */}
+                            {/* Fixed width so ports line up instead of landing wherever they fall among the summary badges above. */}
                             <span className="w-12 shrink-0 text-right font-mono text-xs text-on-surface-variant">
                               <ProfilePortLabel profile={profile} />
                             </span>
@@ -492,9 +443,7 @@ export function ClientsPage() {
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
-                            {/* Unconditionally mounted (not `{editingProfileId === profile.ID && <.../>}`)
-                                so toggling open never unmounts/remounts these — see
-                                the editingProfileId/logsProfileId state comment above. */}
+                            {/* Unconditionally mounted so toggling open never unmounts/remounts these — see editingProfileId's comment above. */}
                             <EditProfileDialog
                               profile={profile}
                               open={editingProfileId === profile.ID}

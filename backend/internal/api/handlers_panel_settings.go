@@ -14,9 +14,8 @@ import (
 	"wtpanel/internal/models"
 )
 
-// getPanelSettings returns the panel's own network/TLS settings — the
-// editable counterpart to getSettings' read-only env dump. Assumes the
-// singleton row (id 1) exists — seeded at startup, see db.seedPanelSettings.
+// getPanelSettings returns the panel's own network/TLS settings, the editable counterpart to
+// getSettings' read-only env dump. Assumes the singleton row (id 1) exists — see db.seedPanelSettings.
 func (s *Server) getPanelSettings(c *gin.Context) {
 	var ps models.PanelSettings
 	if err := s.db.First(&ps, 1).Error; err != nil {
@@ -37,10 +36,8 @@ type panelSettingsRequest struct {
 	WebDAVPublicHost string `json:"webdavPublicHost"`
 }
 
-// updatePanelSettings persists the new network/TLS settings but — same as
-// 3x-ui's own panel settings — doesn't apply them to the running process:
-// main.go only reads this row once at startup to build the http.Server, so
-// the response always carries restartRequired so the frontend can say so.
+// updatePanelSettings persists the new network/TLS settings but doesn't apply them to the running
+// process — main.go only reads this row once at startup — so the response carries restartRequired.
 func (s *Server) updatePanelSettings(c *gin.Context) {
 	var req panelSettingsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -72,16 +69,11 @@ func (s *Server) updatePanelSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"settings": ps, "restartRequired": true})
 }
 
-// restartPanel triggers a real self-restart: main.go relaunches the same
-// binary (a fresh process re-reads PanelSettings and every other config
-// value) and gracefully shuts down this one via the same SIGTERM-based
-// teardown as a manual stop. Kernel processes come back on their own once
-// the new process's registry.RestoreAll runs, so the tunnel interruption is
-// real but brief.
-//
-// The restart signal is sent after a short delay in a goroutine, once the
-// response is already written, so the client gets the "restarting"
-// confirmation instead of the connection dying mid-request.
+// restartPanel triggers a real self-restart: main.go relaunches the same binary (re-reading
+// PanelSettings and config) and gracefully tears this one down; kernel processes come back once the
+// new process's registry.RestoreAll runs, so the interruption is real but brief. The signal is sent
+// after a short delay, once the response is already written, so the client gets its confirmation
+// instead of the connection dying mid-request.
 func (s *Server) restartPanel(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"restarting": true})
 	go func() {
@@ -93,14 +85,10 @@ func (s *Server) restartPanel(c *gin.Context) {
 	}()
 }
 
-// checkPanelUpdate looks up the newest wt-panel GitHub Release (force=true:
-// this is an explicit, infrequent operator action, not a page-load path, so
-// it should hit GitHub fresh rather than serve ListReleases' own 10-minute
-// cache) and compares its tag against s.version. Release tags are "vX.Y.Z"
-// while s.version is baked in without the "v" (goreleaser's {{.Version}}
-// strips it), so TrimPrefix makes the two comparable. updateAvailable is
-// always false for a "dev" build (plain `go build`/`go run`, not a real
-// release binary) — nothing on GitHub to meaningfully compare against.
+// checkPanelUpdate looks up the newest wt-panel GitHub Release (force=true bypasses ListReleases'
+// 10-minute cache, since this is an explicit, infrequent action) and compares its tag against
+// s.version, TrimPrefix-ing the release's "vX.Y.Z" to match goreleaser's unprefixed {{.Version}}.
+// updateAvailable is always false for a "dev" build.
 func (s *Server) checkPanelUpdate(c *gin.Context) {
 	releases, err := kernels.ListReleases("spkprsnts", "wt-panel", 1, true)
 	if err != nil {
@@ -121,15 +109,11 @@ func (s *Server) checkPanelUpdate(c *gin.Context) {
 	})
 }
 
-// updatePanel downloads the newest wt-panel release and swaps it in for the
-// currently-running binary, then triggers the same self-restart mechanism
-// restartPanel does. Safe to overwrite the running executable's path
-// directly: DownloadBinary/os.Rename here target a ".new" file first and
-// only rename it over the real path once the download fully succeeds, and
-// even the rename itself doesn't disturb this already-running process —
-// Linux keeps a running executable's old inode open until it exits, so the
-// swap only affects the NEXT process started from that path, which is
-// exactly the relaunchSelf that follows.
+// updatePanel downloads the newest wt-panel release, swaps it in, then triggers the same
+// self-restart restartPanel does. Safe to overwrite the running executable's path: the download
+// targets a ".new" file first, and even the rename doesn't disturb this process — Linux keeps a
+// running executable's old inode open until it exits, so the swap only affects the next process
+// started from that path (relaunchSelf).
 func (s *Server) updatePanel(c *gin.Context) {
 	if s.version == "dev" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "обновление недоступно для сборки из исходников (dev)"})

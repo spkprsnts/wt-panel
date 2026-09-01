@@ -6,10 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
-// open/onOpenChange are controlled by the caller (ClientsPage's dropdown
-// menu triggers this) rather than an internal useState + DialogTrigger —
-// see that call site's own comment for why a Dialog can't safely be
-// nested inside a DropdownMenuItem.
+// open/onOpenChange are controlled by the caller (ClientsPage's dropdown menu) since a Dialog can't safely nest inside a DropdownMenuItem.
 export function ProfileLogsDialog({
   profileId,
   profileName,
@@ -44,11 +41,7 @@ export function ProfileLogsDialog({
     }
   }
 
-  // Opening happens by the parent flipping the `open` prop (from a dropdown
-  // menu item, not a DialogTrigger), which Base UI's onOpenChange doesn't
-  // fire for — that callback only covers the dialog's own internal close
-  // actions (Escape, backdrop click, the X button). So fetching/polling has
-  // to watch `open` directly rather than live in onOpenChange.
+  // The parent flips `open` directly (a dropdown item, not a DialogTrigger); Base UI's onOpenChange only covers the dialog's own internal closes, so polling has to watch `open` itself.
   React.useEffect(() => {
     if (!open) return
     setLoading(true)

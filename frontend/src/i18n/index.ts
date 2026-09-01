@@ -1,13 +1,6 @@
-// Merges every dictionary/*.ts fragment into two flat lookup tables.
-// Deliberately static imports + explicit spreads, not glob-based
-// auto-discovery: spreading each fragment's `ru` object into one literal
-// lets TypeScript infer the exact key union (TranslationKey below), and
-// `en`'s explicit `Record<TranslationKey, string>` annotation then makes
-// TypeScript refuse to compile if a fragment added a `ru` key without a
-// matching `en` one (or vice versa).
-//
-// New fragments are wired in here by hand — this is the one file in the
-// i18n system where concurrent edits could collide.
+// Merges every dictionary/*.ts fragment into two flat lookup tables. Static imports + spreads, not glob auto-discovery: `ru`'s
+// literal spread lets TypeScript infer TranslationKey, and `en`'s Record<TranslationKey, string> annotation then makes it
+// refuse to compile if a fragment's `ru`/`en` keys ever diverge. New fragments are wired in here by hand.
 import { common } from "./dictionaries/common"
 import { sidebar } from "./dictionaries/sidebar"
 import { login } from "./dictionaries/login"

@@ -14,24 +14,18 @@ import (
 	"wtpanel/internal/models"
 )
 
-// runSetting implements `wt-panel setting ...` — an offline counterpart to
-// the Settings page's API that opens the same sqlite file directly via
-// db.Open, with no HTTP server, provisioner.Registry, or xray.Manager
-// started. install.sh's `wtp` menu is the intended caller: recovering a
-// panel that won't even start, where the API-based route can't help. The
-// caller must stop the systemd service first, to avoid a concurrent-write
-// race with a live server process holding the same sqlite file open.
+// runSetting implements `wt-panel setting ...` — an offline counterpart to the Settings page's API
+// that opens the sqlite file directly, with no HTTP server or kernel processes started. Intended for
+// install.sh's `wtp` menu, to recover a panel that won't even start. The caller must stop the
+// systemd service first, to avoid a concurrent-write race with a live server process.
 func runSetting(args []string) {
 	fs := flag.NewFlagSet("setting", flag.ExitOnError)
 	show := fs.Bool("show", false, "print current settings and exit")
 	password := fs.String("password", "", "set the admin password (min 8 characters)")
 	webBasePath := fs.String("webBasePath", "", "set the panel's URI base path (must start and end with /)")
 	clearTLS := fs.Bool("clearTls", false, "clear the configured TLS cert/key/domain, reverting to plain HTTP")
-	// clearTOTP is the break-glass recovery for 2FA: disableTotp itself
-	// requires a valid code, so an admin locked out (wrong device time, a
-	// botched import, lost phone) can't self-service through the API or UI
-	// at all — same "stop the service, fix the DB directly" escape hatch as
-	// clearTls.
+	// clearTOTP is the break-glass recovery for 2FA: disableTotp requires a valid code, so a locked-out
+	// admin can't self-service through the API/UI at all — same escape hatch as clearTls.
 	clearTOTP := fs.Bool("clearTotp", false, "disable 2FA for the admin account (use when locked out and unable to enter a valid code)")
 	fs.Parse(args)
 

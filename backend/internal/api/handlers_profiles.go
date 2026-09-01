@@ -29,9 +29,7 @@ func (s *Server) createProfile(c *gin.Context) {
 		return
 	}
 
-	// New profiles append after every existing one for this client, rather
-	// than a raw count (which would collide if profiles were ever deleted
-	// and SortOrder now has gaps).
+	// Append after every existing profile; a raw count would collide once SortOrder has gaps from deletions.
 	var maxOrder int
 	if err := s.db.Model(&models.Profile{}).
 		Where("client_id = ?", client.ID).
@@ -62,14 +60,9 @@ func (s *Server) createProfile(c *gin.Context) {
 		profile.Enabled = *req.Enabled
 	}
 
-	// Insert first so profile.ID is the real, permanent database id before
-	// AddProfile ever runs — every provisioner keys its process-supervisor
-	// map by profile.ID, and that map entry has to be findable by every
-	// later Status/Logs/UpdateProfile/RemoveProfile call. Provisioning
-	// against a zero ID (the zero-value before Create assigns one) would
-	// store the supervisor under a key nothing ever looks up again —
-	// RemoveProfile in particular would then silently fail to find and
-	// stop the process, orphaning it.
+	// Insert first so profile.ID is the real database id before AddProfile runs — provisioners key
+	// their process-supervisor map by profile.ID, so a zero ID would orphan the process: RemoveProfile
+	// would never find it to stop it.
 	if err := s.db.Create(&profile).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -96,13 +89,9 @@ func (s *Server) createProfile(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	// AddProfile always fully provisions AND starts the process (port/keys
-	// have to be allocated regardless of Enabled, so the profile has real
-	// state to restore later) — a profile created disabled just gets
-	// stopped again immediately after, rather than teaching every
-	// provisioner a separate "provision but don't start" mode. Best-effort:
-	// a failure here shouldn't fail profile creation, matching
-	// teardownProfile's own error-collection convention.
+	// AddProfile always fully provisions and starts the process; a profile created disabled just gets
+	// stopped again immediately, rather than adding a "provision but don't start" mode to every
+	// provisioner. Best-effort, like teardownProfile.
 	if !profile.Enabled {
 		if err := s.registry.Stop(&profile); err != nil {
 			c.Error(err)
@@ -112,12 +101,9 @@ func (s *Server) createProfile(c *gin.Context) {
 	c.JSON(http.StatusCreated, profile)
 }
 
-// updateProfile applies logical changes (name, xray overlay, per-core
-// logical fields like call_id/room_id/peers/transport). Infra fields
-// (ports, generated secrets) are preserved by the provisioner itself —
-// see the "UpdateProfile" contract in provisioner/common — and because
-// every kernel here runs one process per profile, this never disturbs any
-// other profile's connection.
+// updateProfile applies logical changes (name, xray overlay, per-core fields); infra fields
+// (ports, generated secrets) are preserved by the provisioner itself — see provisioner/common's
+// "UpdateProfile" contract.
 func (s *Server) updateProfile(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -186,11 +172,8 @@ func (s *Server) updateProfile(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	// UpdateProfile above always (re)starts the process to apply whatever
-	// infra-relevant fields changed — same "start it, then immediately stop
-	// it back" compromise as createProfile for a profile that should end up
-	// disabled, rather than adding a second "update but don't start"
-	// codepath to every provisioner.
+	// UpdateProfile above always (re)starts the process; same start-then-stop compromise as
+	// createProfile for a profile that should end up disabled.
 	if !profile.Enabled {
 		if err := s.registry.Stop(&profile); err != nil {
 			c.Error(err)
@@ -200,12 +183,8 @@ func (s *Server) updateProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, profile)
 }
 
-// reorderProfiles sets the display order of every profile belonging to one
-// client at once. Requires the full current set of that client's profile
-// IDs, each exactly once, rather than a partial move — simpler to validate
-// than a single-item move-up/move-down, and the frontend always computes
-// the full new order locally before sending it anyway. This order isn't
-// just cosmetic: see models.Profile.SortOrder's doc comment.
+// reorderProfiles sets display order for a client's profiles from the full set of IDs (each exactly
+// once), not a partial move — simpler to validate, and the frontend always computes the full order anyway.
 func (s *Server) reorderProfiles(c *gin.Context) {
 	client, err := s.loadClient(c)
 	if err != nil {
@@ -251,9 +230,7 @@ func (s *Server) reorderProfiles(c *gin.Context) {
 }
 
 // setProfileRecommended marks (or unmarks) one profile as its client's
-// recommended pick. Marking one clears every sibling profile's flag in the
-// same transaction, since at most one can be recommended per client — see
-// models.Profile.Recommended.
+// recommended pick, clearing any sibling's flag in the same transaction.
 func (s *Server) setProfileRecommended(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -291,9 +268,8 @@ func (s *Server) setProfileRecommended(c *gin.Context) {
 	c.JSON(http.StatusOK, profile)
 }
 
-// getProfileLogs returns the tail of a profile's process log. Accepts an
-// optional ?tail=N query param (bytes, default 64KiB) so a very old/verbose
-// log doesn't get sent whole every time the UI opens it.
+// getProfileLogs returns the tail of a profile's process log; optional ?tail=N (bytes, default
+// 64KiB) avoids sending a very old/verbose log whole every time the UI opens it.
 func (s *Server) getProfileLogs(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -325,11 +301,8 @@ func (s *Server) getProfileLogs(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"log": log, "running": running, "pid": pid})
 }
 
-// restartProfile is the manual counterpart to the automatic crash restart
-// ProcessSupervisor now does on its own — for an operator who wants to
-// kick a stuck/misbehaving process right away instead of waiting for it to
-// crash, or after fixing something out-of-band (e.g. a route the profile
-// depends on).
+// restartProfile is the manual counterpart to ProcessSupervisor's automatic crash restart, for an
+// operator who wants to kick a stuck process right away.
 func (s *Server) restartProfile(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -342,10 +315,7 @@ func (s *Server) restartProfile(c *gin.Context) {
 		return
 	}
 	if !profile.Enabled {
-		// Restart always leaves the process running, which would silently
-		// bring a disabled profile back to life without the DB's Enabled
-		// column agreeing — turn it on via the profile form instead, which
-		// keeps the two in sync.
+		// Restart would leave the process running while the DB's Enabled column disagrees; enable via the form instead.
 		c.JSON(http.StatusBadRequest, gin.H{"error": "profile is disabled — enable it first"})
 		return
 	}
@@ -357,10 +327,8 @@ func (s *Server) restartProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, profile)
 }
 
-// profileLinks is the admin panel's QR-dialog data source for a single
-// profile: the kernel's own documented URI (turnable://, freeturn://, …)
-// alongside a wireturn:// deep link wrapping just this one profile — a
-// subscription-less, self-contained import (§4).
+// profileLinks is the QR-dialog data source for a single profile: the kernel's own URI
+// (turnable://, freeturn://, …) alongside a self-contained wireturn:// deep link (§4).
 func (s *Server) profileLinks(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -384,9 +352,8 @@ func (s *Server) profileLinks(c *gin.Context) {
 	})
 }
 
-// exportProfile is the admin panel's "скачать wt-*.json" action for a
-// single profile — the same Profile JSON shape as exportClientProfiles,
-// just a lone object instead of an array (both are valid per §5.4/§5.5).
+// exportProfile is the "download wt-*.json" action for a single profile — same shape as
+// exportClientProfiles, a lone object instead of an array (both valid per §5.4/§5.5).
 func (s *Server) exportProfile(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -425,9 +392,8 @@ func (s *Server) deleteProfile(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// teardownProfile best-effort tears down server-side state; a provisioning
-// error here shouldn't block deleting the panel-side record, so it's logged
-// via gin's error collector rather than aborting the request.
+// teardownProfile best-effort tears down server-side state, logging failures via gin's error
+// collector rather than blocking deletion of the panel-side record.
 func (s *Server) teardownProfile(c *gin.Context, profile *models.Profile) {
 	prov, err := s.registry.For(profile.CoreType)
 	if err != nil {

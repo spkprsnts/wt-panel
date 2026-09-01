@@ -16,9 +16,7 @@ type CallRoomRequest struct {
 	Notes    string `json:"notes"`
 }
 
-// listCallRooms optionally filters by ?provider=vk — the create-profile
-// dialog uses this to only show rooms relevant to the provider it's
-// currently configuring.
+// listCallRooms optionally filters by ?provider=vk, used by the create-profile dialog.
 func (s *Server) listCallRooms(c *gin.Context) {
 	q := s.db.Order("updated_at desc")
 	if provider := c.Query("provider"); provider != "" {

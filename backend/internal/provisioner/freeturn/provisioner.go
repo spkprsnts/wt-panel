@@ -1,11 +1,8 @@
 // Package freeturn provisions server-side state for the "freeturn" kernel:
 // https://github.com/samosvalishe/free-turn-proxy
 //
-// Each profile gets its own dedicated process and own port, same as the
-// other three kernels, so editing/removing one profile never restarts
-// anyone else's. Client-id allowlisting (clients.json) is deliberately not
-// used — see profileCoreConfig's doc comment — so there's no CLI
-// bookkeeping here, just process args.
+// Each profile gets its own dedicated process and port, so editing or
+// removing one never restarts another's. No client-id allowlisting (clients.json) — see profileCoreConfig.
 package freeturn
 
 import (
@@ -104,9 +101,8 @@ func (p *Provisioner) UpdateProfile(ctx context.Context, profile *models.Profile
 	if err := p.ensureProcess(profile, cc); err != nil {
 		return "", err
 	}
-	// Provider/Links/Transport only affect the client-facing URI payload,
-	// never the running process's flags — ensureProcess only restarts if
-	// something infra-relevant (port/connect/obf-*) actually changed.
+	// Provider/Links/Transport only affect the client-facing URI, never
+	// process flags — ensureProcess restarts only if something infra-relevant (port/connect/obf-*) changed.
 	return p.persistAndBuildURI(profile, cc), nil
 }
 
@@ -225,10 +221,8 @@ func (p *Provisioner) applyLogicalDefaults(profile *models.Profile) (profileCore
 	return cc, nil
 }
 
-// ensureProcess (re)starts this profile's process only if it isn't running
-// yet or its infra-relevant flags actually changed — so editing
-// Provider/Links/Transport on an existing profile never causes a restart,
-// only a genuine port/connect/obfuscation change does.
+// ensureProcess (re)starts the process only if it isn't running yet or its
+// infra-relevant flags changed — editing Provider/Links/Transport never restarts it.
 func (p *Provisioner) ensureProcess(profile *models.Profile, cc profileCoreConfig) error {
 	dir := p.profileDir(profile.ExternalID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {

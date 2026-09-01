@@ -4,12 +4,7 @@ interface XrayIconProps extends React.SVGProps<SVGSVGElement> {
   size?: number
 }
 
-/**
- * Xray-core's own four-blade pinwheel mark — not a Material Symbols glyph.
- * Same path data as WireTurn's ic_xray_24px.xml, used wherever the app
- * points at the Xray feature specifically (nav, profile menu) rather than
- * a generic shield/protocol glyph.
- */
+/** Xray-core's own four-blade pinwheel mark (not a Material Symbols glyph), same path data as WireTurn's ic_xray_24px.xml. */
 function XrayIcon({ size = 24, ...props }: XrayIconProps) {
   return (
     <svg

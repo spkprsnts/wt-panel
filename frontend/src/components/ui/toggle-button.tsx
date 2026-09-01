@@ -2,11 +2,8 @@ import { cn } from "@/lib/utils"
 import { Icon } from "@/components/icon"
 import { Button } from "@/components/ui/button"
 
-// ToggleButton is the shared shell behind every simple two-state sidebar
-// switch (ThemeToggle, LanguageToggle) — was duplicated near-verbatim
-// between them before this got pulled out. showLabel toggles between the
-// icon-only rail button (collapsed sidebar) and the full label+icon row
-// (expanded sidebar footer).
+// Shared shell behind every two-state sidebar switch (ThemeToggle, LanguageToggle). showLabel toggles between the icon-only
+// rail button (collapsed sidebar) and the full label+icon row (expanded sidebar footer).
 function ToggleButton({
   icon,
   label,

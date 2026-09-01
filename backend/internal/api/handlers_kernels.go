@@ -53,9 +53,8 @@ func (s *Server) listKernels(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-// wantsRefresh reports whether the request asked to bypass the releases/
-// commits cache (see kernels.ListReleases/ListCommits) — the Kernels
-// page's "обновить список" button sends ?refresh=1.
+// wantsRefresh reports whether the request wants to bypass the releases/commits cache (see
+// kernels.ListReleases/ListCommits).
 func wantsRefresh(c *gin.Context) bool {
 	return c.Query("refresh") == "1" || c.Query("refresh") == "true"
 }
@@ -109,13 +108,9 @@ type installReleaseRequest struct {
 	Version string `json:"version"` // release tag; empty = latest
 }
 
-// installTurnable, installFreeTurn, installXray and installWebDAV all kick
-// off the actual download as a background Job (same model as buildOlcrtc
-// below) instead of blocking the request until it finishes: a plain
-// synchronous request has no way to tell the operator "still installing" if
-// they reload the Kernels page mid-download. Polling getKernelJob (by
-// kernel name, not a per-request id the frontend would have to remember
-// across a reload) fixes that uniformly for all five kernels.
+// installTurnable, installFreeTurn, installXray and installWebDAV all run the download as a
+// background Job (like buildOlcrtc) instead of blocking the request, so a page reload mid-download
+// can still resume progress via getKernelJob.
 
 func (s *Server) installTurnable(c *gin.Context) {
 	var req installReleaseRequest
@@ -145,9 +140,8 @@ func (s *Server) installFreeTurn(c *gin.Context) {
 	c.JSON(http.StatusAccepted, job)
 }
 
-// installXray downloads Xray-core's zip release asset for this platform and
-// extracts just the binary — unlike Turnable/FreeTurn, whose release assets
-// are the bare binary already (see kernels.DownloadBinary).
+// installXray downloads Xray-core's zip release asset and extracts the binary — unlike
+// Turnable/FreeTurn, whose release assets are the bare binary already.
 func (s *Server) installXray(c *gin.Context) {
 	var req installReleaseRequest
 	_ = c.ShouldBindJSON(&req)
@@ -172,10 +166,8 @@ func (s *Server) installXray(c *gin.Context) {
 	c.JSON(http.StatusAccepted, job)
 }
 
-// installWebDAV downloads webdav-tunnel's tar.gz release asset for this
-// platform and extracts just the binary — its goreleaser output bakes the
-// version into the asset filename itself, unlike Turnable/FreeTurn/Xray's
-// version-independent names, so it's matched by a platform-specific suffix
+// installWebDAV downloads webdav-tunnel's tar.gz release asset and extracts the binary — its
+// goreleaser output bakes the version into the filename, so it's matched by suffix
 // (WebDAVAssetSuffix/FindAssetBySuffix) instead of an exact name.
 func (s *Server) installWebDAV(c *gin.Context) {
 	var req installReleaseRequest
@@ -207,11 +199,8 @@ func (s *Server) buildOlcrtc(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	// onSuccess fires from the build's own background goroutine once it
-	// actually finishes — not from a client polling getOlcrtcBuildJob below
-	// — so the KernelInstall row gets recorded even if the operator reloads
-	// the page (or never comes back) before the build completes. See
-	// JobManager.StartOlcRTCBuild's doc comment.
+	// onSuccess fires from the build's own background goroutine, not from client polling, so the
+	// KernelInstall row gets recorded even if the operator never reloads the page.
 	job := s.jobs.StartOlcRTCBuild(req.Ref, s.cfg.OlcRTCBinPath, s.cfg.DataDir, func(version, log string) {
 		s.recordKernelInstall(models.CoreOlcRTC, version, "build", log)
 		s.restartProfilesOfType(models.CoreOlcRTC)
@@ -219,11 +208,9 @@ func (s *Server) buildOlcrtc(c *gin.Context) {
 	c.JSON(http.StatusAccepted, job)
 }
 
-// getKernelJob returns the most recently started job for a kernel
-// ("turnable"/"freeturn"/"xray"/"olcrtc") — 404 if none has run yet this
-// process lifetime. Keyed by kernel name rather than a job id so the
-// Kernels page can resume showing accurate progress (or the last result)
-// after a full reload without having remembered anything itself.
+// getKernelJob returns the most recently started job for a kernel ("turnable"/"freeturn"/"xray"/
+// "olcrtc"), 404 if none has run this process lifetime. Keyed by kernel name, not a job id, so the
+// page can resume progress after a reload.
 func (s *Server) getKernelJob(c *gin.Context) {
 	job, ok := s.jobs.LatestJob(c.Param("name"))
 	if !ok {
@@ -233,19 +220,11 @@ func (s *Server) getKernelJob(c *gin.Context) {
 	c.JSON(http.StatusOK, job)
 }
 
-// restartProfilesOfType restarts every currently-running profile of one
-// core type — called after installing/rebuilding that kernel's binary,
-// since replacing the file on disk doesn't affect a process already
-// running from it: the OS keeps the old file's data available via the
-// still-open inode until something actually re-execs the path (see
-// kernels.DownloadBinary's doc comment) — without this, an upgrade would
-// silently do nothing for every profile that was already up. Xray-core
-// doesn't need this: it's one shared process reloaded directly in
-// installXray, not a supervisor per profile. Fully best-effort and silent —
-// a profile that isn't currently running fails registry.Restart with an
-// expected, not worth logging, "no tracked process" error; a genuine
-// failure here shouldn't block the install from being reported as
-// successful either, since the new binary is on disk regardless.
+// restartProfilesOfType restarts every running profile of one core type after installing/rebuilding
+// that kernel's binary — a running process keeps using the old file via its still-open inode until
+// re-exec'd, so without this an upgrade would silently do nothing for profiles already up.
+// Xray-core doesn't need this (one shared process, reloaded directly in installXray). Best-effort
+// and silent: a non-running profile's "no tracked process" error is expected, not worth logging.
 func (s *Server) restartProfilesOfType(coreType models.CoreType) {
 	var profiles []models.Profile
 	if err := s.db.Where("core_type = ?", coreType).Find(&profiles).Error; err != nil {

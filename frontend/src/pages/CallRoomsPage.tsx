@@ -62,12 +62,7 @@ function RoomDialog({
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
-  // Re-seeds the fields from `room` every time the dialog opens — this
-  // instance stays mounted for the whole table row, so without this,
-  // reopening Edit after `room` changed underneath it would show stale
-  // values that overwrite newer server data on save. Keyed on room?.ID, not
-  // the object itself: `rooms` is rebuilt on every load(), so depending on
-  // the object would reset in-progress edits whenever any other row saved.
+  // Re-seeds fields from `room` on open since this instance stays mounted for the whole row; keyed on room?.ID not the object, since `rooms` is rebuilt on every load() and depending on the object would reset in-progress edits whenever any other row saved.
   React.useEffect(() => {
     if (!open) return
     setProvider(room?.Provider ?? "vk")

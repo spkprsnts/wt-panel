@@ -1,9 +1,7 @@
 import { ToggleButton } from "@/components/ui/toggle-button"
 import { useLanguage } from "@/lib/i18n"
 
-// Same ToggleButton shape as theme-toggle.tsx, placed right next to it in
-// app-sidebar.tsx's footer — a simple two-state switch (RU/EN), not a
-// dropdown, since there are only ever these two languages.
+// Simple two-state RU/EN switch, not a dropdown, since there are only ever these two languages.
 export function LanguageToggle({
   className,
   showLabel = false,

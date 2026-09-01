@@ -28,33 +28,18 @@ type Server struct {
 	loginLimiter *auth.LoginLimiter
 	registry     *provisioner.Registry
 	jobs         *kernels.JobManager
-	// restartCh is how the "Перезапустить панель" button reaches main()'s
-	// select loop — see restartPanel and main.go's relaunchSelf. Buffered
-	// so the handler's send never blocks even if main hasn't picked a
-	// previous request off it yet.
+	// restartCh signals main()'s select loop to restart the panel; buffered so the handler never blocks.
 	restartCh chan<- struct{}
-	// xrayMgr owns the single shared xray-core process — every handler that
-	// mutates an XrayInbound or XrayClient calls xrayMgr.Reload() afterwards
-	// (best-effort — see reloadXray) so the running process always matches
-	// the DB, without the operator needing a separate "apply" step.
+	// xrayMgr owns the shared xray-core process; mutating handlers call xrayMgr.Reload() afterwards (see reloadXray).
 	xrayMgr *xray.Manager
-	// version is main.version, baked in at build time by .goreleaser.yaml's
-	// ldflags ("dev" for a plain `go build`/`go run`) — surfaced read-only
-	// via getSettings, same as every other build-time value there.
+	// version is main.version, baked in at build time (see .goreleaser.yaml); surfaced via getSettings.
 	version string
-	// bootID is a fresh random string generated once per process, exposed
-	// via getSettings alongside version — the Settings page's restart/update
-	// dialogs poll it to detect a new process is now serving requests. A
-	// plain reachability check (wait for a request to fail, then succeed)
-	// isn't reliable: the down-window between old process exiting and new
-	// one binding the port can finish faster than the poll interval. version
-	// alone doesn't work either since it doesn't change across a plain
-	// restart, only across an update.
+	// bootID is a fresh random ID per process, exposed via getSettings so the Settings page's restart/update
+	// dialogs can detect a new process is serving requests — plain reachability polling can miss the down-window.
 	bootID string
 }
 
-// generateBootID returns a fresh random hex string identifying this one
-// process instance — see Server.bootID's own doc comment for why.
+// generateBootID returns a fresh random hex string identifying this process instance.
 func generateBootID() string {
 	b := make([]byte, 8)
 	if _, err := rand.Read(b); err != nil {
@@ -68,11 +53,7 @@ func New(db *gorm.DB, cfg *config.Config, authSvc *auth.Service, registry *provi
 
 	r := gin.Default()
 
-	// This is an admin panel, never meant to be crawled or indexed — the
-	// header works independently of both the SPA's <meta robots> tag
-	// (which a crawler only sees after fetching the page) and robots.txt
-	// (which a crawler could ignore outright), and it covers every
-	// response including the JSON API, which neither of those touch.
+	// Admin panel, never meant to be crawled/indexed; covers every response including the JSON API.
 	r.Use(func(c *gin.Context) {
 		c.Header("X-Robots-Tag", "noindex, nofollow, noarchive")
 		c.Next()
@@ -119,9 +100,8 @@ func New(db *gorm.DB, cfg *config.Config, authSvc *auth.Service, registry *provi
 		authorized.POST("/kernels/xray/install", s.installXray)
 		authorized.GET("/kernels/webdav/releases", s.listWebDAVReleases)
 		authorized.POST("/kernels/webdav/install", s.installWebDAV)
-		// job status is keyed by kernel name (not a job id) so the frontend
-		// can ask "what's happening with turnable/freeturn/xray/olcrtc" after
-		// a reload without having remembered anything — see getKernelJob.
+		// Job status is keyed by kernel name (not a job id) so the frontend can poll after a reload
+		// without having remembered anything — see getKernelJob.
 		authorized.GET("/kernels/job/:name", s.getKernelJob)
 
 		authorized.GET("/rooms", s.listCallRooms)
@@ -165,23 +145,12 @@ func New(db *gorm.DB, cfg *config.Config, authSvc *auth.Service, registry *provi
 	return r
 }
 
-// serveWebUI serves the embedded frontend build (see internal/webui) for
-// every request that isn't one of the API/subscription routes above — a
-// production deployment is a single binary, no separate frontend host.
-// Anything under /api or /sub that didn't match a registered route stays a
-// real 404 rather than falling through to index.html; every other
-// unmatched path is assumed to be client-side (react-router-dom) routing
-// and gets index.html so a hard refresh on e.g. /xray still works.
-//
-// index.html gets one fixed byte-level edit at startup: a
-// window.__WTP_BASE_PATH__ assignment injected right after <head>. Every
-// route here already runs stripped of the base path (main.go's
-// http.StripPrefix sits in front of this gin.Engine), so the SPA itself is
-// the only thing that can know it — react-router's BrowserRouter basename
-// and every fetch() in lib/api.ts read this global to prepend the real
-// prefix back on. Without it, a non-"/" base path would break every
-// client-side navigation and API call, since root-absolute paths like
-// "/api/login" resolve at the real domain root, not under the prefix.
+// serveWebUI serves the embedded frontend build for every request that isn't an API/subscription
+// route: unmatched /api or /sub paths stay a real 404, everything else falls back to index.html so
+// client-side (react-router-dom) routes survive a hard refresh. index.html is patched at startup
+// with a window.__WTP_BASE_PATH__ assignment right after <head> — since routes here run stripped of
+// the base path, the SPA (BrowserRouter basename, lib/api.ts fetch calls) reads this global to
+// prepend the real prefix back onto root-absolute paths like "/api/login".
 func serveWebUI(r *gin.Engine, basePath string) {
 	dist, err := webui.DistFS()
 	if err != nil {

@@ -34,10 +34,7 @@ type Pending =
   | { kind: "confirm"; message: string; options: ConfirmOptions; resolve: (value: boolean) => void }
   | { kind: "alert"; message: string; options: AlertOptions; resolve: () => void }
 
-// App-wide replacement for window.confirm/alert, which block the whole tab
-// and can't be styled. Mounted once in App.tsx. useDialogPrompt()'s
-// confirm/alert are drop-in async replacements: `if (!confirm(msg)) return`
-// becomes `if (!(await confirm(msg))) return`.
+// App-wide replacement for window.confirm/alert (blocks the tab, can't be styled), mounted once in App.tsx; useDialogPrompt()'s confirm/alert are async drop-ins.
 export function DialogPromptProvider({ children }: { children: React.ReactNode }) {
   const t = useT()
   const [pending, setPending] = React.useState<Pending | null>(null)
@@ -73,9 +70,7 @@ export function DialogPromptProvider({ children }: { children: React.ReactNode }
         open={pending !== null}
         onOpenChange={(open) => {
           if (open) return
-          // Closing via Escape/outside click/the X button with no explicit
-          // choice made — treat exactly like Cancel (confirm) or OK (alert)
-          // rather than leaving the caller's promise unresolved forever.
+          // No explicit choice made (Escape/outside click/X) — treat like Cancel (confirm) or OK (alert) rather than leaving the promise unresolved.
           if (pending?.kind === "confirm") resolveConfirm(false)
           else if (pending?.kind === "alert") resolveAlert()
         }}

@@ -3,11 +3,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
 
-// Ported from WireTurn's ui/AppComponents.kt SectionGroup/SectionItem — a
-// grouped-list shell (first/last item gets the outer 20px corner, everything
-// else joins at a near-flat 4px corner, no divider lines). See
-// positionShape below for the exact corner table.
-
+// Ported from WireTurn's ui/AppComponents.kt SectionGroup/SectionItem — a grouped-list shell, no divider lines (see positionShape).
 function SectionGroup({
   title,
   className,
@@ -29,8 +25,7 @@ function SectionGroup({
 
 type ItemPosition = "top" | "middle" | "bottom" | "single"
 
-// Derives a SectionItem's position from its place in a dynamic list, shared
-// so every list-backed SectionGroup computes it the same way.
+// Derives a SectionItem's position from its place in a dynamic list.
 function sectionPosition(index: number, length: number): ItemPosition {
   if (length === 1) return "single"
   if (index === 0) return "top"
@@ -61,9 +56,7 @@ function SectionItem({
   disabled?: boolean
   className?: string
   children: React.ReactNode
-  // For a row whose onClick toggles something it contains (e.g. SwitchRow)
-  // — puts the accessible semantics on this one button instead of two
-  // redundant tab stops. See SwitchRow below.
+  // For a row whose onClick toggles something it contains (e.g. SwitchRow) — keeps accessible semantics on this one button.
   role?: "switch"
   "aria-checked"?: boolean
 }) {
@@ -118,13 +111,9 @@ function LabelGroup({
   )
 }
 
-// Meant to live inside a SectionItem whose own onClick does the actual
-// toggle (`onClick={() => onCheckedChange(!checked)}`, with role="switch"/
-// aria-checked passed to that SectionItem). The inner Switch is
-// presentational (tabIndex=-1, aria-hidden): a second real role="switch"
-// nested in the row's own <button> would be invalid HTML and give
-// keyboard/AT users a redundant tab stop. It still stops its own click
-// from bubbling so a direct hit on the thumb doesn't also fire the row.
+// Lives inside a SectionItem whose onClick does the actual toggle (role="switch"/aria-checked on that SectionItem). The inner
+// Switch is presentational only (tabIndex=-1, aria-hidden) to avoid a redundant nested role="switch", but still stops its own
+// click from bubbling so a direct hit on the thumb doesn't double-fire the row.
 function SwitchRow({
   label,
   checked,
@@ -176,10 +165,8 @@ type TextFieldRowProps = TextFieldRowBaseProps &
       >)
   )
 
-// Meant to live inside a SectionItem. Deliberately not the `Input`/
-// `Textarea` components — the label sits above the field (never floating)
-// and the field carries no fill, only a bottom indicator line, since
-// SectionItem's own `surface` background already does the containment job.
+// Meant to live inside a SectionItem. Not the Input/Textarea components — label sits above (never floating), field has no fill,
+// just a bottom indicator line, since SectionItem's own surface background already does the containment.
 function TextFieldRow({
   label,
   value,
@@ -194,18 +181,8 @@ function TextFieldRow({
 }: TextFieldRowProps) {
   const generatedId = React.useId()
   const inputId = id ?? generatedId
-  // p-4 (16dp) matches M3 TextField's own internal content inset. The
-  // label sits above with no padding of its own, so it lines up with the
-  // row's outer inset while the field's value sits 16dp further in — that
-  // asymmetry is intentional, matching the Compose source.
-  //
-  // The indicator line is a filled sibling div, not a `border-bottom` — a
-  // bordered rounded rect with one zero-width side renders a tapered
-  // "whisker" instead of M3's blunt rounded cap, which `rounded-full` on a
-  // thin filled bar reproduces correctly. Height goes 1px resting to 2px
-  // focused; color is outline-variant resting (not on-surface-variant,
-  // which reads too bright), primary focused, error invalid. peer-*
-  // variants read this off the input/textarea's own state.
+  // p-4 matches M3 TextField's own inset (label sits flush above, field value 16dp further in, matching the Compose source).
+  // Indicator is a filled div, not border-bottom, so rounded-full gives M3's blunt cap instead of a bordered rect's taper.
   const fieldClassName = cn(
     "peer w-full bg-transparent p-4 text-body-large text-on-surface outline-none placeholder:text-on-surface-variant disabled:pointer-events-none disabled:opacity-[0.38]",
     !multiline && "truncate",

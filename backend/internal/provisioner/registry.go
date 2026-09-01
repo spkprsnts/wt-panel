@@ -74,12 +74,9 @@ func (r *Registry) Stop(profile *models.Profile) error {
 	return prov.Stop(profile)
 }
 
-// RestoreAll re-attaches a supervised process for every profile already in
-// the database. Every kernel here runs one OS process per profile, and
-// those processes obviously don't survive the panel itself restarting, so
-// without this every previously-issued profile would silently stop working
-// on the next deploy/restart. Failures are logged, not fatal — one bad
-// profile shouldn't block the rest from coming back up.
+// RestoreAll re-attaches a supervised process for every profile in the DB —
+// these processes don't survive the panel restarting, so without this every
+// profile would silently stop working after a deploy. Failures are logged, not fatal.
 func (r *Registry) RestoreAll(ctx context.Context, db *gorm.DB) {
 	var profiles []models.Profile
 	if err := db.Find(&profiles).Error; err != nil {
@@ -88,9 +85,8 @@ func (r *Registry) RestoreAll(ctx context.Context, db *gorm.DB) {
 	}
 	for _, profile := range profiles {
 		if !profile.Enabled {
-			// Deliberately not restored: the operator's "off" intent must
-			// survive a restart same as an enabled profile's "should be
-			// running" intent does.
+			// Deliberately not restored — the operator's "off" intent survives
+			// a restart same as "should be running" does.
 			continue
 		}
 		prov, err := r.For(profile.CoreType)
@@ -104,13 +100,10 @@ func (r *Registry) RestoreAll(ctx context.Context, db *gorm.DB) {
 	}
 }
 
-// ShutdownAll gracefully stops every currently-running kernel process
-// across all four provisioners (SIGTERM, bounded wait, Kill as a last
-// resort) without touching persisted state, so RestoreAll brings
-// everything back on the next start. Call this from the panel's shutdown
-// sequence before the process exits — see main.go — so kernel binaries get
-// a real chance to run their own shutdown logic instead of being
-// hard-killed by Pdeathsig.
+// ShutdownAll gracefully stops every running kernel process (SIGTERM,
+// bounded wait, Kill as last resort) without touching persisted state, so
+// RestoreAll brings everything back on next start — gives kernel binaries a
+// chance to run their own cleanup instead of being hard-killed by Pdeathsig.
 func (r *Registry) ShutdownAll() {
 	var wg sync.WaitGroup
 	for _, prov := range r.byType {

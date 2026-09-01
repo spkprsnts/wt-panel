@@ -8,9 +8,8 @@ import (
 	"wtpanel/internal/sysstat"
 )
 
-// getSystemStats reports host CPU/RAM/disk usage for the Dashboard page —
-// disk usage is for the panel's own data directory, not necessarily the
-// same filesystem the OS lives on (see sysstat.Collect).
+// getSystemStats reports host CPU/RAM/disk usage for the Dashboard page — disk usage is for the
+// panel's data directory, not necessarily the OS's own filesystem.
 func (s *Server) getSystemStats(c *gin.Context) {
 	stats, err := sysstat.Collect(s.cfg.DataDir)
 	if err != nil {

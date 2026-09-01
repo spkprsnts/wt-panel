@@ -7,24 +7,14 @@ interface OtpInputProps {
   "aria-labelledby"?: string
   value: string
   onChange: (value: string) => void
-  // Fires once a change (typing the last digit, pasting a full code,
-  // editing a digit that leaves the code still fully filled) leaves every
-  // box filled — the value it receives is the freshly-computed one, not
-  // whatever `value` prop this render closure still holds, so a caller can
-  // submit with it immediately instead of waiting a render for state to
-  // catch up. Only ever called from an actual input event, never from a
-  // passive re-render, so there's no risk of it firing on its own in a loop
-  // if a caller leaves a completed-but-wrong code sitting in the boxes.
+  // Fires with the fresh value when a change leaves every box filled — only from real input events, never a passive re-render.
   onComplete?: (value: string) => void
   length?: number
   autoFocus?: boolean
   disabled?: boolean
 }
 
-// Six (or `length`) single-digit boxes standing in for one text field, the
-// usual shape for a TOTP/SMS code. Stays a controlled `value`/`onChange`
-// pair like a plain Input so call sites don't need to know it's really N
-// inputs under the hood.
+// `length` single-digit boxes standing in for one text field, controlled as a plain value/onChange pair like Input.
 function OtpInput({
   id,
   "aria-labelledby": ariaLabelledBy,
@@ -42,11 +32,7 @@ function OtpInput({
     return chars
   }, [value, length])
 
-  // A gap-free left-aligned string is the only shape that makes sense for a
-  // code that's ultimately submitted as one string — joining stops at the
-  // first empty slot instead of naively `.join("")`ing every box, which
-  // would silently collapse a gap and shift later digits into it (e.g.
-  // clearing digits[1] out of ["1","2","3"] must yield "1", not "13").
+  // Stops at the first empty slot instead of joining every box, which would collapse a gap (["1","","3"] must yield "1", not "13").
   function toValue(arr: string[]): string {
     const filled: string[] = []
     for (const d of arr) {
@@ -56,17 +42,14 @@ function OtpInput({
     return filled.join("")
   }
 
-  // Single choke point for pushing a new value out — every mutation below
-  // routes through this so onComplete can't be missed or double-fired.
+  // Single choke point for pushing a new value out so onComplete can't be missed or double-fired.
   function commit(next: string) {
     onChange(next)
     if (next.length === length) onComplete?.(next)
   }
 
-  // Handles both a normal one-key press and a browser/OS dropping the whole
-  // code into whichever box has focus (autofill, or a paste that lands here
-  // instead of firing onPaste) — same "spread from this box onward" logic
-  // either way, since maxLength=1 alone doesn't stop either of those.
+  // Handles a normal keypress and a browser/OS dropping the whole code into whichever box has focus (autofill, or a paste that
+  // lands here instead of firing onPaste) — maxLength=1 alone doesn't stop either, so both spread from this box onward.
   function fillFrom(index: number, raw: string) {
     const chars = raw.replace(/\D/g, "").split("")
     if (chars.length === 0) {
@@ -88,15 +71,8 @@ function OtpInput({
 
   function handleKeyDown(index: number, e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Backspace" && !digits[index] && index > 0) {
-      // Clears the previous box too, in this same keystroke, rather than
-      // just moving focus there and leaving a second Backspace to clear
-      // it — the usual one-keystroke-per-digit expectation. Critically
-      // also prevents the native default: without it, the browser's own
-      // "delete a character" action fires *after* our synchronous .focus()
-      // call already moved focus to the previous box, deleting from that
-      // box's now-selected (onFocus below) content instead of a no-op on
-      // this already-empty one — confirmed live, this was silently eating
-      // an extra digit on every backspace-past-an-empty-box chain.
+      // preventDefault is required: without it the browser's native delete fires after our .focus() call, deleting from the
+      // newly-focused previous box instead of being a no-op here.
       e.preventDefault()
       const next = digits.slice()
       next[index - 1] = ""

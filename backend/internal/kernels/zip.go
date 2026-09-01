@@ -8,9 +8,8 @@ import (
 	"os"
 )
 
-// DownloadZipEntry fetches a zip file from url and extracts exactly one
-// entry from it to destPath as an executable file — for releases (Xray-core)
-// that ship a zip archive instead of a bare binary (see DownloadBinary).
+// DownloadZipEntry fetches a zip from url and extracts one entry to
+// destPath as an executable — for releases (Xray-core) shipping a zip instead of a bare binary.
 func DownloadZipEntry(url, entryName, destPath string) error {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {

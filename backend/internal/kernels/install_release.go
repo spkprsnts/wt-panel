@@ -6,8 +6,7 @@ import "fmt"
 // platform and installs it at destPath. version is a release tag (e.g.
 // "0.5.3" or "v3.1.1") — pass "" to install the latest release instead.
 func InstallRelease(owner, repo, version, assetName, destPath string) (installedVersion string, err error) {
-	// force=false: reuse the cached listing rather than spending another
-	// GitHub API call just because an install is starting.
+	// force=false — reuse the cached listing rather than spend another API call.
 	releases, err := ListReleases(owner, repo, 100, false)
 	if err != nil {
 		return "", err
@@ -52,8 +51,7 @@ func InstallRelease(owner, repo, version, assetName, destPath string) (installed
 // InstallReleaseZipEntry is InstallRelease's counterpart for releases
 // (Xray-core) that ship a zip archive instead of a bare binary.
 func InstallReleaseZipEntry(owner, repo, version, assetName, entryName, destPath string) (installedVersion string, err error) {
-	// force=false: reuse the cached listing rather than spending another
-	// GitHub API call just because an install is starting.
+	// force=false — reuse the cached listing rather than spend another API call.
 	releases, err := ListReleases(owner, repo, 100, false)
 	if err != nil {
 		return "", err
@@ -100,8 +98,7 @@ func InstallReleaseZipEntry(owner, repo, version, assetName, entryName, destPath
 // filename bakes in the version, so the asset is matched by suffix
 // (FindAssetBySuffix) rather than exact name.
 func InstallReleaseTarGzEntry(owner, repo, version, assetSuffix, entryName, destPath string) (installedVersion string, err error) {
-	// force=false: reuse the cached listing rather than spending another
-	// GitHub API call just because an install is starting.
+	// force=false — reuse the cached listing rather than spend another API call.
 	releases, err := ListReleases(owner, repo, 100, false)
 	if err != nil {
 		return "", err

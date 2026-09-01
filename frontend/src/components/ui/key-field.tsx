@@ -3,12 +3,8 @@ import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/icon"
 
-// A text field with a "Generate" action shared by every crypto-key/secret
-// input in the app — pulled out after being duplicated between
-// profile-form.tsx and XrayPage.tsx. Matches TextFieldRow's chrome (see
-// section.tsx) except pr-12 instead of pr-4, reserved so the generate
-// button doesn't overlap the text. Also matches WireTurn in never using a
-// monospace font for key fields.
+// A text field with a "Generate" action shared by every crypto-key/secret input. Matches TextFieldRow's chrome (section.tsx)
+// except pr-12 instead of pr-4, reserved so the generate button doesn't overlap the text.
 function KeyField({
   id,
   label,

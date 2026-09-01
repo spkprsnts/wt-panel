@@ -23,10 +23,7 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        // px-4 matches TextFieldRow's 16dp content inset (section.tsx).
-        // `group` here + the indicator <div> below match TextFieldRow's
-        // filled-bar indicator (see section.tsx for why it's a bar, not a
-        // border).
+        // px-4 matches TextFieldRow's content inset; `group` + the indicator <div> below reuse its filled-bar indicator (section.tsx).
         "group relative flex w-fit items-center justify-between gap-2 bg-transparent px-4 text-body-large whitespace-nowrap text-on-surface outline-none data-placeholder:text-on-surface-variant disabled:pointer-events-none disabled:opacity-[0.38] data-[size=default]:h-14 data-[size=sm]:h-10 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2",
         className
       )}

@@ -5,19 +5,13 @@ import (
 	"time"
 )
 
-// maxFailedLoginAttempts/loginLockoutDuration mirror 3x-ui's own login
-// brute-force guard: high enough that an operator fat-fingering their own
-// password twice never trips it, low enough that it actually stops a
-// real brute force before it gets anywhere against a real password (let
-// alone a 6-digit TOTP code, see totp.go).
+// maxFailedLoginAttempts/loginLockoutDuration mirror 3x-ui's own login brute-force guard: high
+// enough a fat-fingered password never trips it, low enough to stop a real brute force.
 const (
 	maxFailedLoginAttempts = 5
 	loginLockoutDuration   = 15 * time.Minute
-	// loginAttemptTTL bounds how long a non-locked, inactive IP's entry
-	// stays in the map — without this, a panel getting probed from many
-	// different IPs over its lifetime would grow this forever. Swept
-	// lazily (see sweepLocked) rather than on a timer, so there's nothing
-	// extra to start/stop alongside the panel's own lifecycle.
+	// loginAttemptTTL bounds how long an inactive IP's entry stays in the map, so probing from many
+	// IPs doesn't grow it forever. Swept lazily (see sweepLocked), not on a timer.
 	loginAttemptTTL = time.Hour
 )
 
@@ -27,14 +21,10 @@ type loginAttemptState struct {
 	lastSeen    time.Time
 }
 
-// LoginLimiter tracks failed /api/login attempts per client address and
-// temporarily locks an address out after too many — a plain in-memory
-// brute-force guard, mirroring 3x-ui's own login lockout. State is
-// deliberately NOT persisted: a panel restart resetting every address's
-// count is an acceptable tradeoff for staying a single self-contained
-// struct instead of a DB table and migration, and an attacker who can
-// restart the panel process already has much bigger problems than a login
-// rate limit.
+// LoginLimiter tracks failed /api/login attempts per client address and locks an address out after
+// too many — a plain in-memory guard, mirroring 3x-ui's own login lockout. State is deliberately not
+// persisted: a restart resetting every count is an acceptable tradeoff for staying a self-contained
+// struct, and an attacker who can restart the panel has bigger problems than a login rate limit.
 type LoginLimiter struct {
 	mu       sync.Mutex
 	attempts map[string]*loginAttemptState
@@ -73,9 +63,8 @@ func (l *LoginLimiter) RecordFailure(addr string) {
 	}
 }
 
-// RecordSuccess clears addr's failure count on a real successful login —
-// getting the password right after a couple of typos shouldn't leave that
-// address permanently one mistake away from a lockout.
+// RecordSuccess clears addr's failure count so a couple of earlier typos don't leave it one mistake
+// away from a lockout.
 func (l *LoginLimiter) RecordSuccess(addr string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()

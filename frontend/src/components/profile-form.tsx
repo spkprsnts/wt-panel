@@ -32,36 +32,29 @@ const CORE_LABELS: Record<CoreType, TranslationKey> = {
   webdav: "profileForm.core.webdav",
 }
 
-// Shared by every enum-valued Select below so the trigger's label always
-// matches the SelectItem list instead of a separate, driftable ternary.
+// Shared by every enum-valued Select below so the trigger's label always matches the SelectItem list instead of a separate, driftable ternary.
 function labelFor<T extends string>(map: Record<T, string>, v: T | null): string | null {
   return v !== null && v in map ? map[v] : v
 }
 
-// Turnable/FreeTurn traffic is trivially fingerprinted without the Xray
-// overlay, so new profiles default it on. olcRTC/WebDAV are SOCKS5-native
-// and only use the overlay for the optional Dual Route fallback, so they
-// default to off.
+// Turnable/FreeTurn traffic is trivially fingerprinted without the Xray overlay, so new profiles default it on; olcRTC/WebDAV are SOCKS5-native and default to off.
 function defaultXrayEnabledForCore(ct: CoreType): boolean {
   return ct === "turnable" || ct === "freeturn"
 }
 
-// Reuses the same rooms.hint.* copy the Call Rooms journal shows per
-// provider (minus "vk", which olcRTC never uses).
+// Reuses the same rooms.hint.* copy the Call Rooms journal shows per provider (minus "vk", which olcRTC never uses).
 const OLCRTC_ROOM_ID_HINT_KEYS: Record<OlcrtcState["provider"], TranslationKey> = {
   jitsi: "rooms.hint.jitsi",
   telemost: "rooms.hint.telemost",
   wbstream: "rooms.hint.wbstream",
 }
 
-// Feeds the "Call rooms" journal into whichever combobox wants it as
-// suggestions — one fetch per provider, shared across fields.
+// Feeds the "Call rooms" journal into whichever combobox wants it as suggestions — one fetch per provider, shared across fields.
 function useCallRooms(provider: RoomProvider): CallRoom[] {
   const [rooms, setRooms] = React.useState<CallRoom[]>([])
   React.useEffect(() => {
     let cancelled = false
-    // Guards against a stale response overwriting rooms if the operator
-    // switches provider again before the first fetch resolves.
+    // Guards against a stale response overwriting rooms if the operator switches provider before the first fetch resolves.
     api
       .listCallRooms(provider)
       .then((res) => {
@@ -77,8 +70,7 @@ function useCallRooms(provider: RoomProvider): CallRoom[] {
   return rooms
 }
 
-// Shared by Turnable's (single) and FreeTurn's (multiple) call-id fields —
-// both take a bare VK Calls id, not a link.
+// Shared by Turnable's (single) and FreeTurn's (multiple) call-id fields — both take a bare VK Calls id, not a link.
 function VkCallHint() {
   const t = useT()
   return (
@@ -130,8 +122,7 @@ interface OlcrtcState {
   cryptoKey: string
   dns: string
   proxyUpstream: string
-  // authToken only applies to provider "wbstream" — a pre-issued account
-  // token enabling moderator features (datachannel publishing).
+  // Only applies to provider "wbstream" — a pre-issued account token enabling moderator features (datachannel publishing).
   authToken: string
   transport: "datachannel" | "vp8channel" | "seichannel" | "videochannel"
   vp8Fps: string
@@ -148,8 +139,7 @@ interface OlcrtcState {
   videoQrSize: string
   videoTileModule: string
   videoTileRs: string
-  // Empty means "let olcrtc apply its own default for this field" — same
-  // convention as WebdavTuning below, not a real value of its own.
+  // Empty means "let olcrtc apply its own default" — same convention as WebdavTuning below, not a real value of its own.
   livenessInterval: string
   livenessTimeout: string
   livenessFailures: string
@@ -187,9 +177,7 @@ const initialOlcrtc: OlcrtcState = {
 interface FreeturnState {
   links: string[]
   transport: "tcp" | "udp"
-  // "udp" relays UDP datagrams transparently (WireGuard/Hysteria backends).
-  // "tcp" forwards a TCP stream via KCP+smux over the same UDP-only TURN
-  // relay (Xray/sing-box/VLESS backends).
+  // "udp" relays UDP datagrams transparently (WireGuard/Hysteria backends); "tcp" forwards a TCP stream via KCP+smux over the same UDP-only TURN relay (Xray/sing-box/VLESS backends).
   mode: "udp" | "tcp"
   port: string
   connectHost: string
@@ -197,8 +185,7 @@ interface FreeturnState {
   obfProfile: "rtpopus" | "rtpopus2" | "rtpopus3" | "none"
   obfKey: string
   obfTiming: string
-  // Tunes the ARQ layer carrying that TCP stream — only sent when mode is
-  // "tcp". Defaults match upstream's docs/flags.md "KCP" table.
+  // Tunes the ARQ layer carrying that TCP stream, only sent when mode is "tcp"; defaults match upstream's docs/flags.md "KCP" table.
   kcpNoDelay: string
   kcpInterval: string
   kcpResend: string
@@ -229,21 +216,14 @@ const initialFreeturn: FreeturnState = {
   kcpAckNoDelay: true,
 }
 
-// Login/Password are auto-generated server-side on first save if left
-// blank (same as Turnable's pub_key/priv_key), editable here to set
-// specific credentials instead.
+// Login/Password are auto-generated server-side on first save if left blank (same as Turnable's pub_key/priv_key).
 interface WebdavBackend {
   url: string
   login: string
   password: string
 }
 
-// connMode "selfhosted" runs webdav-tunnel's own embedded WebDAV; "server"
-// relays through existing external WebDAV endpoints (Backends) instead —
-// see docs/config.md upstream. Tuning fields below: empty/"0" means "let
-// webdav-tunnel apply its own default" rather than a real value. The preset
-// buttons just populate these same fields — there's no separate stored
-// "preset" concept.
+// connMode "selfhosted" runs webdav-tunnel's own embedded WebDAV; "server" relays through existing external WebDAV endpoints (Backends) instead. Tuning fields below: empty/"0" means "let webdav-tunnel apply its own default". Preset buttons just populate these same fields — there's no separate stored "preset" concept.
 interface WebdavTuning {
   pollMin: string
   pollMax: string
@@ -297,9 +277,7 @@ const initialWebdav: WebdavState = {
   tuning: emptyWebdavTuning,
 }
 
-// Reverses buildCoreConfig to pre-fill the form when editing a profile.
-// Reads defensively (fallback to the matching initial* default) since an
-// older-provisioned profile may be missing fields a newer version added.
+// Reverses buildCoreConfig to pre-fill the form when editing a profile. Reads defensively (fallback to the matching initial* default) since an older-provisioned profile may be missing fields a newer version added.
 function parseCoreConfig(
   coreType: CoreType,
   raw: string
@@ -570,10 +548,7 @@ function buildCoreConfig(
   }
 }
 
-// hysteria2/wireguard are always UDP-based; vless/trojan depend on their
-// stream transport (mKCP rides on UDP, everything else rides on TCP). An
-// unparsable StreamSettings blob falls back to tcp rather than silently
-// forcing udp.
+// hysteria2/wireguard are always UDP-based; vless/trojan depend on their stream transport (mKCP rides on UDP, else TCP). An unparsable StreamSettings blob falls back to tcp rather than silently forcing udp.
 function inferRouteSocket(inbound: XrayInbound): "udp" | "tcp" {
   if (inbound.Protocol === "hysteria2" || inbound.Protocol === "wireguard") return "udp"
   try {
@@ -628,10 +603,7 @@ export const emptyProfileFormValues: ProfileFormInitialValues = {
   xrayMux: "",
 }
 
-// Shared body used by both AddProfileDialog and EditProfileDialog. In edit
-// mode the core type can't change (the backend rejects it — see
-// handlers_profiles.go's updateProfile), so that selector is disabled
-// rather than hidden.
+// Shared body used by both AddProfileDialog and EditProfileDialog. In edit mode the core type can't change (the backend rejects it), so that selector is disabled rather than hidden.
 export function ProfileForm({
   mode,
   initialValues,
@@ -674,9 +646,7 @@ export function ProfileForm({
     udp: t("profileForm.freeturn.modeUdp"),
     tcp: t("profileForm.freeturn.modeTcp"),
   }
-  // Lets the footer's submit button (rendered outside this <form>, so it
-  // can stay pinned below the scrolling fields — see the render below)
-  // still submit it via the standard form="..." attribute.
+  // Lets the footer's submit button, rendered outside this <form> so it stays pinned below the scrolling fields, still submit it via form="...".
   const formId = React.useId()
   const [name, setName] = React.useState(initialValues.name)
   const [enabled, setEnabled] = React.useState(initialValues.enabled)
@@ -703,8 +673,7 @@ export function ProfileForm({
   )
   const [xrayManualUri, setXrayManualUri] = React.useState(initialValues.xrayManualUri)
   const [xrayManualWireGuard, setXrayManualWireGuard] = React.useState(initialValues.xrayManualWireGuard)
-  // UI-only toggle for which manual fallback is shown when no inbound is
-  // picked. Starts on whichever one has saved content.
+  // UI-only toggle for which manual fallback is shown when no inbound is picked; starts on whichever one has saved content.
   const [xrayManualMode, setXrayManualMode] = React.useState<"uri" | "wireguard">(
     initialValues.xrayManualWireGuard ? "wireguard" : "uri"
   )
@@ -728,13 +697,7 @@ export function ProfileForm({
     api.listXrayInbounds().then(setInbounds).catch(() => setInbounds([]))
   }, [])
 
-  // Reuses the panel's own TLS cert (same PEM format webdav-tunnel's
-  // tls.LoadX509KeyPair expects), like XrayPage's handleUsePanelCert does
-  // for Hysteria2. Unlike that case, though, WebDAV clients connect via a
-  // separate env-var-only host (WTP_WEBDAV_PUBLIC_HOST, see config.go) that
-  // can silently diverge from the panel's own ListenDomain the cert was
-  // issued for — check for that mismatch and surface it instead of handing
-  // over a cert that won't actually validate.
+  // Reuses the panel's own TLS cert, like XrayPage's handleUsePanelCert does for Hysteria2 — but WebDAV clients connect via a separate host (WTP_WEBDAV_PUBLIC_HOST) that can silently diverge from the cert's ListenDomain, so check for that mismatch and surface it rather than handing over a cert that won't validate.
   async function handleUseWebdavPanelCert() {
     setWebdavPanelCertError(null)
     try {
@@ -762,10 +725,7 @@ export function ProfileForm({
     setXrayInboundId(id)
     const inbound = inbounds.find((i) => String(i.ID) === id)
     if (!inbound) return
-    // Points the kernel's forwarding target at the inbound's local port.
-    // Turnable's route socket/transport must also match how the inbound
-    // listens (see inferRouteSocket), and FreeTurn's tunnel mode has the
-    // same requirement one level up.
+    // Points the kernel's forwarding target at the inbound's local port; Turnable's route socket/transport (inferRouteSocket) and FreeTurn's tunnel mode must also match how the inbound listens.
     if (coreType === "turnable") {
       const routeSocket = inferRouteSocket(inbound)
       setTn((s) => ({
@@ -785,13 +745,10 @@ export function ProfileForm({
     }
   }
 
-  // Turnable/FreeTurn additionally get a WireGuard-config manual fallback
-  // (a raw [Interface]/[Peer] blob) alongside the plain URI one; olcRTC
-  // stays URI-only.
+  // Turnable/FreeTurn additionally get a WireGuard-config manual fallback (a raw [Interface]/[Peer] blob) alongside the plain URI one; olcRTC stays URI-only.
   const supportsWireGuardManual = coreType === "turnable" || coreType === "freeturn"
 
-  // olcRTC and WebDAV are SOCKS5-native with no WireGuard-compatible
-  // transport of their own, so a wireguard inbound is never a valid pick.
+  // olcRTC and WebDAV are SOCKS5-native with no WireGuard-compatible transport, so a wireguard inbound is never a valid pick.
   function visibleInboundsFor(ct: CoreType, list: XrayInbound[]) {
     return ct === "olcrtc" || ct === "webdav"
       ? list.filter((ib) => ib.Protocol !== "wireguard")
@@ -799,9 +756,7 @@ export function ProfileForm({
   }
   const visibleInbounds = visibleInboundsFor(coreType, inbounds)
 
-  // Dual Route (docs/subscriptions.md §3) has no WireGuard equivalent, so
-  // hide the controls whenever the resolved overlay is WireGuard — whether
-  // from a wireguard inbound or the manual WireGuard fallback.
+  // Dual Route has no WireGuard equivalent, so hide the controls whenever the resolved overlay is WireGuard — whether from a wireguard inbound or the manual fallback.
   const selectedInbound = inbounds.find((ib) => String(ib.ID) === xrayInboundId)
   const isWireGuardOverlay = xrayInboundId
     ? selectedInbound?.Protocol === "wireguard"
@@ -839,9 +794,7 @@ export function ProfileForm({
     }
   }
 
-  // Dual Route is its own sibling SectionGroup rather than nested inside a
-  // SectionItem — a SectionItem is a single joined-corner row, not a
-  // container for another grouped list.
+  // Dual Route is its own sibling SectionGroup rather than nested inside a SectionItem — a SectionItem is a single joined-corner row, not a container.
   const xrayBlock = (
     <>
       <SectionGroup>
@@ -1040,10 +993,7 @@ export function ProfileForm({
                     const ct = v as CoreType
                     setCoreType(ct)
                     if (mode === "create") setXrayEnabled(defaultXrayEnabledForCore(ct))
-                    // The picked inbound may no longer be a valid target for the new
-                    // core (e.g. a wireguard inbound is never valid for olcRTC/WebDAV) —
-                    // clear it rather than silently keeping a filtered-out selection
-                    // that would show as a bare ID and still get submitted.
+                    // The picked inbound may no longer be a valid target for the new core — clear it rather than silently keeping a filtered-out selection.
                     if (xrayInboundId && !visibleInboundsFor(ct, inbounds).some((ib) => String(ib.ID) === xrayInboundId)) {
                       setXrayInboundId("")
                     }

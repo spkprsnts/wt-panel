@@ -22,9 +22,7 @@ export function EditClientDialog({
 }) {
   const t = useT()
   const [open, setOpen] = React.useState(false)
-  // See EditProfileDialog's openCount comment — same reasoning: remount on
-  // open instead of unmounting on close, so Base UI's Dialog exit animation
-  // has something to animate.
+  // See EditProfileDialog's openCount comment: remount on open instead of unmounting on close, so Base UI's exit animation has something to animate.
   const [openCount, setOpenCount] = React.useState(0)
 
   function handleOpenChange(next: boolean) {
@@ -40,9 +38,7 @@ export function EditClientDialog({
   }
 
   async function handleSubmit(payload: ClientSubmitPayload) {
-    // enabled/expiresAt aren't part of this form — echo the client's
-    // current values back so the update doesn't clobber them (see
-    // api.updateClient's doc comment).
+    // enabled/expiresAt aren't part of this form — echo the client's current values back so the update doesn't clobber them.
     await api.updateClient(client.ID, {
       ...payload,
       enabled: client.Enabled,

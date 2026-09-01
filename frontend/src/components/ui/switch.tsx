@@ -3,11 +3,7 @@ import { motion, useReducedMotion } from "motion/react"
 
 import { cn } from "@/lib/utils"
 
-// Track geometry (h-8 w-13 border-2 px-1 below): 32px tall, 52px wide, 2px
-// border, 4px horizontal padding each side — content box is 52-2*2-2*4 =
-// 40px wide. The thumb sits flush against that box's start when unchecked
-// (x: 0) and flush against its end when checked (x: 40 - 24 = 16, the
-// checked thumb being 24px wide).
+// Content box (52px track - 2*2px border - 2*4px padding) is 40px wide; thumb sits flush start when unchecked, flush end when checked.
 const TRACK_CONTENT_WIDTH = 40
 const THUMB_UNCHECKED_SIZE = 16
 const THUMB_CHECKED_SIZE = 24
@@ -29,22 +25,14 @@ function Switch({ className, checked, ...props }: SwitchPrimitive.Root.Props) {
         data-slot="switch-thumb"
         render={
           <motion.span
-            // Deliberately not `layout` — that mode animates by comparing
-            // getBoundingClientRect() snapshots (FLIP), so it can't tell a
-            // real checked-change apart from an ancestor reflowing for an
-            // unrelated reason (e.g. a field appearing elsewhere) and
-            // springs the thumb to "catch up" either way, even with
-            // layoutDependency scoping. Animating literal `x`/`width`/
-            // `height` never measures the page, so there's nothing to
-            // spuriously correct.
+            // Not `layout` mode: it FLIP-diffs getBoundingClientRect() snapshots, so an unrelated ancestor reflow also springs
+            // the thumb. Animating literal x/width/height never measures the page, so there's nothing to spuriously correct.
             animate={{
               x: checked ? TRACK_CONTENT_WIDTH - THUMB_CHECKED_SIZE : 0,
               width: checked ? THUMB_CHECKED_SIZE : THUMB_UNCHECKED_SIZE,
               height: checked ? THUMB_CHECKED_SIZE : THUMB_UNCHECKED_SIZE,
             }}
-            // M3 Expressive "default spatial" spring (stiffness 380,
-            // dampingRatio 0.8) — see button.tsx's press spring for the
-            // dampingRatio-to-damping conversion.
+            // M3 Expressive "default spatial" spring (stiffness 380, dampingRatio 0.8; see button.tsx for the conversion).
             transition={
               reduceMotion
                 ? { duration: 0 }
@@ -55,11 +43,8 @@ function Switch({ className, checked, ...props }: SwitchPrimitive.Root.Props) {
         className="pointer-events-none relative rounded-full"
       >
         <span
-          // The painted circle, plus the momentary "pressed" grow while
-          // held (AndroidX Switch's pressed-handle-size, toned down since a
-          // flat 28px reads as a bigger jump off the 16px unchecked size
-          // than off the 24px checked one). Uses `scale` rather than a real
-          // width/height change so it can't fight the motion-owned box above.
+          // Painted circle plus a momentary pressed grow (AndroidX's pressed-handle-size); uses scale, not width/height, so it
+          // can't fight the motion-owned box above.
           className={cn(
             "absolute inset-0 rounded-full transition-transform duration-150",
             checked ? "bg-on-primary group-active:scale-[1.16667]" : "bg-outline group-active:scale-125"

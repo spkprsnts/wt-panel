@@ -23,9 +23,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Icon } from "@/components/icon"
 
-// kernelJobPollTimeoutMs bounds each individual status poll request so a
-// single hung request can't stall the recursive poll() chain forever — see
-// SettingsPage's restartPollTimeoutMs for the same fix applied there first.
+// Bounds each status poll request so a single hung request can't stall the recursive poll() chain forever (same fix as SettingsPage's restartPollTimeoutMs).
 const kernelJobPollTimeoutMs = 10000
 
 function StatusLine({ status }: { status?: KernelStatus }) {
@@ -46,19 +44,13 @@ function StatusLine({ status }: { status?: KernelStatus }) {
   )
 }
 
-// Centralizes job tracking for every kernel so all behave identically: on
-// mount it asks the backend for the latest job (api.getKernelJob) instead
-// of starting blank, so an in-progress install/build keeps showing
-// "running" — and polling — across a page reload instead of the button
-// silently resetting while the work continues server-side regardless.
+// Centralizes job tracking for every kernel: on mount it asks the backend for the latest job instead of starting blank, so an in-progress install/build keeps showing "running" (and polling) across a page reload.
 function useKernelJob(kernelName: string, onInstalled: () => void) {
   const t = useT()
   const [job, setJob] = React.useState<BuildJob | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const pollRef = React.useRef<number | null>(null)
-  // Set once start() kicks off a fresh job — guards the mount-time fetch
-  // below from overwriting it with a stale snapshot if that fetch resolves
-  // late, after the operator already clicked Install/Build.
+  // Set once start() kicks off a fresh job — guards the mount-time fetch below from overwriting it with a stale snapshot if that fetch resolves late.
   const startedRef = React.useRef(false)
 
   const poll = React.useCallback(
@@ -75,9 +67,7 @@ function useKernelJob(kernelName: string, onInstalled: () => void) {
             onInstalled()
           }
         } catch (err) {
-          // A transient error (timeout, dropped connection) must not kill the
-          // chain — the build keeps running server-side regardless, so keep
-          // polling rather than stranding the UI on a stale "running" state.
+          // A transient error must not kill the chain — the build keeps running server-side, so keep polling rather than stranding the UI.
           setError(err instanceof Error ? err.message : String(err))
           poll(jobId)
         }
@@ -117,10 +107,7 @@ function useKernelJob(kernelName: string, onInstalled: () => void) {
   return { job, error, start, running: job?.status === "running" }
 }
 
-// Bypasses the backend's releases/commits cache (kernels.ListReleases/
-// ListCommits — 10 min TTL) as a manual escape hatch. Serving the list from
-// cache by default is what keeps the panel usable once GitHub's rate limit
-// has been hit.
+// Manual escape hatch past the backend's releases/commits cache (10 min TTL); serving from cache by default is what keeps the panel usable once GitHub's rate limit is hit.
 function RefreshButton({ refreshing, onClick }: { refreshing: boolean; onClick: () => void }) {
   const t = useT()
   return (
@@ -163,10 +150,7 @@ function JobLog({ job }: { job: BuildJob | null }) {
   )
 }
 
-// The "pick one item from a refreshable list" shape shared by
-// ReleaseKernelCard's release picker and OlcrtcKernelCard's commit picker —
-// trigger label and item list both derive from the same itemLabel so they
-// can't drift apart (same reasoning as profile-form.tsx's labelFor).
+// "Pick one item from a refreshable list" shape shared by the release and commit pickers below; trigger label and item list derive from the same itemLabel so they can't drift apart.
 function PickerSelect<T>({
   label,
   items,

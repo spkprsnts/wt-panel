@@ -3,13 +3,8 @@ import { extendTailwindMerge } from "tailwind-merge"
 
 import type { Language } from "@/lib/i18n"
 
-// Plain twMerge doesn't know the M3 type-scale utilities defined in
-// index.css (text-display-large..text-label-small, @utility, not part of
-// Tailwind's theme) — it falls back to treating any unrecognized
-// `text-{word}` class as a text-color utility, so e.g.
-// `cn("text-label-large", "text-on-primary")` would silently drop
-// text-label-large as a "conflicting" color class. Registering them under
-// Tailwind's own font-size group fixes that.
+// Plain twMerge treats unrecognized text-{word} classes as text-color utilities, so it would drop index.css's M3 type-scale
+// classes (text-display-large etc.) as "conflicting" with a real color class. Registering them under font-size fixes that.
 const M3_TYPE_SCALE = [
   "display-large", "display-medium", "display-small",
   "headline-large", "headline-medium", "headline-small",
@@ -30,10 +25,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Maps the app's two-value Language to an Intl locale tag, shared by
-// formatDateTime/formatDateOnly so dates follow the operator's chosen
-// language instead of some pages hardcoding "ru-RU" or falling back to the
-// browser's own locale.
+// Shared by formatDateTime/formatDateOnly so dates follow the operator's chosen language, not the browser's own locale.
 function localeFor(language: Language): string {
   return language === "ru" ? "ru-RU" : "en-US"
 }

@@ -9,12 +9,8 @@ export interface ComboboxOption {
   label: string
 }
 
-// A single-value "pick from a list OR type your own" control — the value
-// field is a real <input>, and the popover just offers suggestions to
-// click. Unlike ./select.tsx (a thin @base-ui/react/select wrapper,
-// list-only) this is built on the bare Popover primitive, same as
-// ./multi-select.tsx: no existing primitive combines "typeable" with
-// "has suggestions".
+// A single-value "pick from a list OR type your own" control — a real <input> with a suggestions popover. Unlike ./select.tsx
+// (a thin list-only @base-ui/react/select wrapper) this is built on the bare Popover primitive, same as ./multi-select.tsx.
 function Combobox({
   options,
   value,
@@ -32,16 +28,12 @@ function Combobox({
   id?: string
   className?: string
   required?: boolean
-  // A generic ui/ primitive doesn't import the app's i18n hook, so the
-  // caller passes translated text in as a plain prop instead.
+  // A generic ui/ primitive doesn't import the app's i18n hook, so translated text comes in as a plain prop.
   noMatchesText?: string
 }) {
   const [open, setOpen] = React.useState(false)
-  // Base UI's Popover has no Anchor part — the input is a plain element
-  // outside the popover's subtree, with its ref passed to Positioner's
-  // `anchor` prop. That means a pointerdown/focus back on it still reads
-  // as "outside" to the dismiss logic, so onOpenChange below checks the
-  // event target against this ref and cancels the close when it's our own input.
+  // Base UI's Popover has no Anchor part, so the input sits outside the popover's subtree (ref passed to Positioner's
+  // `anchor`) — a pointerdown/focus on it reads as "outside" to dismiss logic, so onOpenChange below cancels close for it.
   const inputRef = React.useRef<HTMLInputElement>(null)
   const listboxId = React.useId()
 
@@ -74,9 +66,7 @@ function Combobox({
         <input
           ref={inputRef}
           id={id}
-          // Matches TextFieldRow's fieldClassName (section.tsx) so every
-          // call site looks identical inside a SectionItem. Indicator below
-          // is a filled bar, not a border — see TextFieldRow for why.
+          // Matches TextFieldRow's fieldClassName (section.tsx); indicator below is a filled bar, not a border, for the same reason.
           className={cn(
             "peer w-full truncate bg-transparent p-4 text-body-large text-on-surface outline-none placeholder:text-on-surface-variant",
             className

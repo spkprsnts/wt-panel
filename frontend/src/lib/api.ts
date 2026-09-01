@@ -4,10 +4,7 @@ declare global {
   }
 }
 
-// Injected into index.html at serve time by the Go backend (see
-// server.serveWebUI) — every route here is written as if mounted at "/",
-// but the panel's URI-path setting can put it under a prefix. "" (not "/")
-// so concatenating with a leading-"/" path never double-slashes.
+// Injected into index.html by the Go backend (server.serveWebUI); "" not "/" so it never double-slashes with a leading-"/" path.
 export const BASE_PATH = (window.__WTP_BASE_PATH__ ?? "/").replace(/\/$/, "")
 
 const TOKEN_KEY = "wtpanel_token"
@@ -32,10 +29,7 @@ export class ApiError extends Error {
   }
 }
 
-// authHeaders is shared by request()/downloadFile()/uploadFile() — the only
-// header every one of them needs unconditionally. request() layers its own
-// Content-Type on top; uploadFile() deliberately doesn't (see its own doc
-// comment on why FormData needs the browser's own boundary header instead).
+// Shared by request()/downloadFile()/uploadFile(); each layers its own Content-Type (or none, for uploadFile) on top.
 function authHeaders(init?: HeadersInit): Headers {
   const headers = new Headers(init)
   const token = getToken()
@@ -43,13 +37,8 @@ function authHeaders(init?: HeadersInit): Headers {
   return headers
 }
 
-// Centralizes 401→logout-redirect and !res.ok→ApiError handling shared by
-// request()/downloadFile()/uploadFile().
-//
-// /api/login is excluded from the 401 redirect: its 401s (wrong password,
-// totp_required, bad TOTP code) are meaningful responses LoginPage needs to
-// read, not "session expired" — redirecting would reload the login page out
-// from under LoginPage's catch block before it can read the response.
+// Shared 401→logout-redirect and !res.ok→ApiError handling. /api/login is excluded from the redirect since its 401s
+// (wrong password, totp_required, bad code) are meaningful responses LoginPage needs to read, not "session expired".
 async function handleErrors(res: Response, path: string): Promise<void> {
   if (res.status === 401 && path !== "/api/login") {
     clearToken()
@@ -62,11 +51,7 @@ async function handleErrors(res: Response, path: string): Promise<void> {
   }
 }
 
-// timeoutMs is deliberately not part of RequestInit — fetch() has no
-// built-in timeout, and most callers here are fine waiting on whatever the
-// browser's own TCP/TLS timeouts eventually decide. It exists for callers
-// that poll in a loop where a single hung request must not be able to wedge
-// that loop forever — see SettingsPage's PanelRestartDialog for why.
+// timeoutMs is opt-in (fetch has no built-in timeout) for callers polling in a loop, e.g. SettingsPage's PanelRestartDialog.
 async function request<T>(path: string, options: RequestInit = {}, timeoutMs?: number): Promise<T> {
   const headers = authHeaders(options.headers)
   headers.set("Content-Type", "application/json")
@@ -76,9 +61,7 @@ async function request<T>(path: string, options: RequestInit = {}, timeoutMs?: n
   if (timeoutMs) {
     const controller = new AbortController()
     timer = window.setTimeout(() => controller.abort(), timeoutMs)
-    // Merge rather than replace: a caller-supplied signal (e.g. an
-    // unmount-triggered abort) must keep working even when timeoutMs is
-    // also set, instead of being silently overridden by the timeout one.
+    // Merge, don't replace: a caller-supplied signal must still work alongside the timeout one.
     signal = options.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal
   }
 
@@ -93,10 +76,7 @@ async function request<T>(path: string, options: RequestInit = {}, timeoutMs?: n
   return res.json() as Promise<T>
 }
 
-// downloadFile fetches an authenticated endpoint that responds with
-// Content-Disposition: attachment and saves it client-side — a plain <a
-// href> can't carry the Bearer token, so the file has to come through
-// fetch() and get handed to the browser as an object URL instead.
+// A plain <a href> can't carry the Bearer token, so the file comes through fetch() and gets handed to the browser as an object URL.
 async function downloadFile(path: string, signal?: AbortSignal): Promise<void> {
   const res = await fetch(BASE_PATH + path, { headers: authHeaders(), signal })
   await handleErrors(res, path)
@@ -114,10 +94,7 @@ async function downloadFile(path: string, signal?: AbortSignal): Promise<void> {
   URL.revokeObjectURL(url)
 }
 
-// uploadFile POSTs a File as multipart/form-data to an authenticated
-// endpoint — can't go through request(), which always sets
-// Content-Type: application/json; the browser has to set its own
-// multipart boundary header for FormData instead.
+// Can't go through request(), which always sets Content-Type: application/json — FormData needs the browser's own multipart boundary header.
 async function uploadFile<T>(
   path: string,
   fieldName: string,
@@ -184,10 +161,7 @@ export interface SystemStats {
 }
 
 export interface KernelStatus {
-  // "xray" is a real value here (Xray-core's own install/version tracking on
-  // the "Ядра" page) but deliberately not part of CoreType — that type is
-  // for Profile.CoreType, and xray-core is never a per-profile kernel (see
-  // models.CoreXray's doc comment).
+  // "xray" is a real value here (Xray-core's own tracking on the "Ядра" page) but not part of CoreType, since xray-core is never a per-profile kernel.
   coreType: CoreType | "xray"
   installed: boolean
   version?: string
@@ -312,9 +286,7 @@ export const api = {
       }),
     }),
 
-  // enabled/expiresAt aren't exposed in the edit UI (yet) — the caller
-  // always echoes the client's current values back unchanged, since the
-  // backend treats an absent expiresAt as "clear it", not "leave it alone".
+  // enabled/expiresAt aren't in the edit UI yet — caller echoes current values back, since an absent expiresAt means "clear it" server-side.
   updateClient: (
     id: number,
     input: {
@@ -414,8 +386,7 @@ export const api = {
   deleteProfile: (id: number) =>
     request<void>(`/api/profiles/${id}`, { method: "DELETE" }),
 
-  // profileIds must list every profile belonging to clientId, exactly once,
-  // in the new desired order — see the backend's reorderProfiles doc comment.
+  // profileIds must list every profile belonging to clientId, exactly once, in the new desired order.
   reorderProfiles: (clientId: number, profileIds: number[]) =>
     request<void>(`/api/clients/${clientId}/profiles/reorder`, {
       method: "PUT",
@@ -462,10 +433,7 @@ export const api = {
 
   listKernels: () => request<KernelStatus[]>("/api/kernels"),
 
-  // listTurnableReleases (and the three list* below) hit a backend cache
-  // (10 min TTL, see kernels.ListReleases/ListCommits) rather than GitHub
-  // directly every time — refresh:true bypasses it, for the "обновить
-  // список" button.
+  // This and the three list* below hit a backend cache (10 min TTL); refresh:true bypasses it, for the "обновить список" button.
   listTurnableReleases: (refresh?: boolean) =>
     request<Release[]>(`/api/kernels/turnable/releases${refresh ? "?refresh=1" : ""}`),
   installTurnable: (version?: string) =>
@@ -506,11 +474,7 @@ export const api = {
       body: JSON.stringify({ ref }),
     }),
 
-  // getKernelJob asks "what's the latest job for this kernel" — keyed by
-  // name, not a job id, so a component can resume showing progress (or the
-  // last result) after a full page reload without having remembered
-  // anything itself. null (not a throw) when this kernel has never had a
-  // job, which is the common case right after the panel starts.
+  // Keyed by kernel name, not job id, so a component can resume showing progress after a reload. null (not a throw) if no job has run yet.
   getKernelJob: async (kernelName: string, timeoutMs?: number): Promise<BuildJob | null> => {
     try {
       return await request<BuildJob>(`/api/kernels/job/${kernelName}`, {}, timeoutMs)

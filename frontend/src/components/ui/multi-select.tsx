@@ -12,17 +12,9 @@ export interface MultiSelectOption {
   label: string
 }
 
-// A fixed-option combobox with removable tag chips in the trigger — matches
-// 3x-ui's ALPN picker (antd Select mode="multiple"). Base UI has no
-// multi-select primitive, so this is Popover + a plain checkable list
-// rather than an extension of ./select.tsx (single-value by design). No M3
-// spec covers this control; the trigger borrows Input's filled-field style
-// and the popup matches select.tsx/dropdown-menu.tsx's M3 menu styling.
-//
-// allowCustom (default true) shows a text input at the top of the popover
-// so a value outside `options` can be added too — needed for fields like a
-// profile's call ids, which are arbitrary pasted strings with `options`
-// only offering ones already saved as shortcuts.
+// A fixed-option combobox with removable tag chips in the trigger, matching 3x-ui's ALPN picker. Base UI has no multi-select
+// primitive, so this is Popover + a checkable list, not an extension of ./select.tsx (single-value by design).
+// allowCustom (default true) adds a text input for values outside `options`, e.g. a profile's arbitrary pasted call ids.
 function MultiSelect({
   options,
   value,
@@ -40,11 +32,9 @@ function MultiSelect({
   placeholder?: string
   className?: string
   allowCustom?: boolean
-  // Same reasoning as Combobox's noMatchesText: no i18n hook in a generic
-  // ui/ primitive, so this is a plain prop instead.
+  // No i18n hook in a generic ui/ primitive, so translated text comes in as a plain prop (same as Combobox's noMatchesText).
   customValuePlaceholder?: string
-  // Accessible names for the icon-only chip-remove and add-custom-value
-  // buttons, which have no visible text.
+  // Accessible names for the icon-only chip-remove and add-custom-value buttons.
   removeOptionLabel?: (label: string) => string
   addCustomValueLabel?: string
 }) {
@@ -63,10 +53,8 @@ function MultiSelect({
 
   return (
     <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
-      {/* nativeButton=false + a <div> render: the chip remove <button>s need
-          to be independently focusable, and nesting a <button> inside a
-          <button> is invalid HTML and unreachable by keyboard/AT. Base UI
-          still gives the div the same role/tabIndex/keyboard behavior. */}
+      {/* nativeButton=false + <div> render: chip remove <button>s need to be independently focusable, and nesting a
+          <button> inside a <button> is invalid HTML. Base UI still gives the div the same role/tabIndex/keyboard behavior. */}
       <PopoverPrimitive.Trigger
         nativeButton={false}
         render={

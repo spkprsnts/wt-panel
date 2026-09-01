@@ -2,10 +2,7 @@ import * as React from "react"
 
 import { ru, en, type TranslationKey } from "@/i18n"
 
-// A plain two-way choice, no "system" option or locale negotiation. Unlike
-// theme (a DOM class toggle, no React state needed), changing language has
-// to re-render every translated string, so this needs a Context rather
-// than a module-level getter/setter.
+// Unlike theme (a DOM class toggle), changing language must re-render every translated string, so this needs a Context.
 export type Language = "ru" | "en"
 
 const LANGUAGE_KEY = "wtpanel_language"
@@ -29,9 +26,7 @@ function storeLanguage(language: Language) {
   }
 }
 
-// Defaults to "ru", not the browser's language: existing operators already
-// use this panel in Russian, so English is opt-in rather than a silent
-// switch based on browser locale.
+// Defaults to "ru", not the browser's language: existing operators already use this panel in Russian.
 const DEFAULT_LANGUAGE: Language = "ru"
 
 interface LanguageContextValue {

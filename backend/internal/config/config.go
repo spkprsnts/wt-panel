@@ -5,16 +5,10 @@ import (
 	"path/filepath"
 )
 
-// Config holds panel-wide settings, loaded from environment variables
-// with sane local-dev defaults.
-//
-// Only genuinely panel-wide facts live here: where to listen, where the
-// data dir is, the VPS's public IP, binary paths. Anything that's really a
-// property of one profile (platform, call/room id, egress destination,
-// upstream proxy) lives in that profile's CoreConfig — see the provisioner
-// packages — and is only *defaulted* from here so the create-profile form
-// doesn't have to be filled in every time. A profile can always override
-// the default by setting the field explicitly in its coreConfig.
+// Config holds panel-wide settings, loaded from environment variables with sane local-dev defaults.
+// Only genuinely panel-wide facts live here (listen address, data dir, public IP, binary paths);
+// per-profile properties live in that profile's CoreConfig and are only *defaulted* from here, always
+// overridable per profile.
 type Config struct {
 	ListenAddr   string
 	DBPath       string
@@ -29,48 +23,29 @@ type Config struct {
 	FreeTurnBinPath string
 	XrayBinPath     string
 
-	// ListenHost settings are true panel-wide settings (which interface
-	// every process of that kernel binds on) — the port is still allocated
-	// per profile. olcRTC has no equivalent: in "mode: srv" it dials out to
-	// the platform/room rather than binding a local listening socket.
+	// ListenHost settings are panel-wide (which interface every process of that kernel binds on); the
+	// port is still per-profile. olcRTC has no equivalent — it dials out rather than binding a socket.
 	TurnableListenHost string
 	FreeTurnListenHost string
 	WebDAVListenHost   string
 
-	// Per-profile default below: used only when a profile's CoreConfig
-	// doesn't set the field itself. Turnable's pub_key/priv_key are NOT
-	// here — they're generated fresh per profile via 'turnable config
-	// keygen' (see provisioner/turnable), since there's no reason for two
-	// profile processes to share key material. PlatformID/RouteSocket used
-	// to be configurable the same way, but the form always sends an
-	// explicit value for both now, so provisioner/turnable just hardcodes
-	// them. TurnableDefaultRouteHost is just the host part — there's no
-	// sensible default port (depends entirely on which local service the
-	// operator wants this profile to reach), so the port is always required
-	// on the profile itself.
+	// Per-profile defaults below, used only when a profile's CoreConfig doesn't set the field itself.
+	// Only the host has a sane default — the port depends entirely on which local service the
+	// operator wants to reach, so it's always required on the profile itself.
 	TurnableDefaultRouteHost string // e.g. 127.0.0.1
 
-	// Same reasoning as Turnable's route: only the host has a sane default.
 	FreeTurnDefaultConnectHost string // e.g. 127.0.0.1
 
 	WebDAVDefaultProxyUpstream string // optional "-proxy socks5://..." upstream; empty = direct internet egress
 
-	// OlcRTCDefaultProxyUpstream is olcrtc's own outbound SOCKS5 default,
-	// same "socks5://[user:pass@]host:port" shape and same reasoning as
-	// WebDAVDefaultProxyUpstream above — empty = olcrtc reaches the video
-	// call provider directly off the VPS's own IP.
+	// OlcRTCDefaultProxyUpstream is olcrtc's outbound SOCKS5 default ("socks5://[user:pass@]host:port"),
+	// same reasoning as WebDAVDefaultProxyUpstream — empty = reach the provider directly.
 	OlcRTCDefaultProxyUpstream string
 
-	// WebDAVPublicHost overrides the host address baked into a selfhosted
-	// WebDAV profile's client URI when it should differ from PublicIP (a
-	// custom domain, say) — see ResolvedWebDAVPublicHost. Same two-tier
-	// pattern as PublicIP: WTP_WEBDAV_PUBLIC_HOST only seeds
-	// PanelSettings.WebDAVPublicHost on first run (db.seedPanelSettings);
-	// once that DB row has a value, main.go's startup override makes it
-	// authoritative and editable from the Settings page. The scheme (webdav/
-	// webdavs) has no panel-wide equivalent — each profile derives it from
-	// whether it has its own TLS cert/key (see provisioner/webdav's
-	// buildSelfhostedURI).
+	// WebDAVPublicHost overrides the host baked into a selfhosted WebDAV profile's client URI when it
+	// should differ from PublicIP — see ResolvedWebDAVPublicHost. WTP_WEBDAV_PUBLIC_HOST only seeds
+	// PanelSettings.WebDAVPublicHost on first run; once set, the DB row is authoritative and editable
+	// from the Settings page.
 	WebDAVPublicHost string
 }
 
@@ -84,12 +59,9 @@ func Load() *Config {
 		ListenAddr: getEnv("WTP_LISTEN_ADDR", ":8090"),
 		DBPath:     getEnv("WTP_DB_PATH", "wtpanel.db"),
 		JWTSecret:  getEnv("WTP_JWT_SECRET", "dev-insecure-secret-change-me"),
-		// DataDir is also where the "install kernel" feature (see
-		// internal/kernels) writes downloaded/built binaries by default —
-		// TurnableBinPath etc. below MUST resolve to that same file both
-		// when we write it (os.WriteFile, CWD-relative) and when we exec it
-		// (os/exec, PATH-relative for bare names), so the default can't be
-		// a bare command name — it has to be an unambiguous path.
+		// DataDir is also where "install kernel" (internal/kernels) writes binaries by default —
+		// TurnableBinPath etc. must resolve to that same file whether written (CWD-relative) or
+		// exec'd (PATH-relative for bare names), so the default has to be an unambiguous path.
 		DataDir:         dataDir,
 		PublicOrigin:    getEnv("WTP_PUBLIC_ORIGIN", "http://localhost:8090"),
 		PublicIP:        getEnv("WTP_PUBLIC_IP", ""),
@@ -110,11 +82,9 @@ func Load() *Config {
 		WebDAVDefaultProxyUpstream: getEnv("WTP_WEBDAV_DEFAULT_PROXY_UPSTREAM", ""),
 		OlcRTCDefaultProxyUpstream: getEnv("WTP_OLCRTC_DEFAULT_PROXY_UPSTREAM", ""),
 	}
-	// Deliberately NOT falling back to cfg.PublicIP here — at this point in
-	// startup PublicIP is often still "" (main.go overrides it from
-	// PanelSettings, auto-detected or Settings-page-edited, right after
-	// Load() returns). Baking that in here would freeze WebDAVPublicHost at
-	// "" forever even once PublicIP is populated. See ResolvedWebDAVPublicHost.
+	// Deliberately not falling back to cfg.PublicIP here — PublicIP is often still "" at this point
+	// (main.go overrides it from PanelSettings right after Load() returns), so baking it in now
+	// would freeze WebDAVPublicHost at "" forever. See ResolvedWebDAVPublicHost.
 	cfg.WebDAVPublicHost = getEnv("WTP_WEBDAV_PUBLIC_HOST", "")
 	_ = os.MkdirAll(cfg.DataDir, 0o755)
 	for _, sub := range []string{"turnable", "olcrtc", "webdav", "freeturn", "xray", "bin"} {
@@ -123,10 +93,8 @@ func Load() *Config {
 	return cfg
 }
 
-// ResolvedWebDAVPublicHost is WebDAVPublicHost if the operator explicitly
-// set one, else PublicIP — computed live (not cached at Load() time) so it
-// always reflects PublicIP's current value, however that got set (env var,
-// auto-detection, or the Settings page).
+// ResolvedWebDAVPublicHost is WebDAVPublicHost if set, else PublicIP — computed live (not cached at
+// Load() time) so it always reflects PublicIP's current value.
 func (cfg *Config) ResolvedWebDAVPublicHost() string {
 	if cfg.WebDAVPublicHost != "" {
 		return cfg.WebDAVPublicHost

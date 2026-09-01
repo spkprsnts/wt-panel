@@ -24,12 +24,9 @@ type XrayInboundRequest struct {
 	Sniffing       json.RawMessage `json:"sniffing"`
 }
 
-// XrayClientRequest attaches an existing panel Client to an inbound. Config
-// is optional — when omitted, an identity is auto-generated to match the
-// inbound's protocol (see generateClientConfig). The common fields below
-// mirror the ones every 3x-ui client carries regardless of protocol
-// (traffic/IP limits, expiry, enable, a free-text comment) — when set they
-// overlay the generated-or-existing config rather than replacing it, so
+// XrayClientRequest attaches an existing panel Client to an inbound. Config is optional — when
+// omitted, an identity is auto-generated to match the inbound's protocol (see generateClientConfig).
+// The common fields below overlay the generated-or-existing config rather than replacing it, so
 // setting a traffic limit doesn't wipe out an already-generated UUID.
 type XrayClientRequest struct {
 	ClientID   uint            `json:"clientId" binding:"required"`
@@ -104,9 +101,8 @@ func (s *Server) updateXrayInbound(c *gin.Context) {
 	if req.Sniffing != nil {
 		inbound.Sniffing = string(req.Sniffing)
 	}
-	// Protocol is deliberately not editable here — changing it would orphan
-	// every attached XrayClient's identity shape (a vless uuid isn't a
-	// trojan password); delete and recreate the inbound instead.
+	// Protocol is deliberately not editable — it would orphan every attached XrayClient's identity
+	// shape (a vless uuid isn't a trojan password); delete and recreate the inbound instead.
 
 	if err := s.db.Save(inbound).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -162,11 +158,8 @@ func (s *Server) listInboundClients(c *gin.Context) {
 	c.JSON(http.StatusOK, clients)
 }
 
-// attachXrayClient links an existing panel Client to an inbound, matching
-// "no client exists on the Xray side unless it exists on the Clients page":
-// this is the only way an XrayClient row is created directly by an
-// operator (createProfile also creates one, but only for a real Client it
-// already loaded). Config is auto-generated when omitted.
+// attachXrayClient links an existing panel Client to an inbound — the only way an operator creates
+// an XrayClient row directly (createProfile also creates one, but only for an already-loaded Client).
 func (s *Server) attachXrayClient(c *gin.Context) {
 	inbound, err := s.loadXrayInbound(c)
 	if err != nil {
@@ -208,10 +201,9 @@ func (s *Server) attachXrayClient(c *gin.Context) {
 	c.JSON(http.StatusCreated, xc)
 }
 
-// overlayCommonClientFields sets the protocol-agnostic 3x-ui client fields
-// (traffic/IP limit, expiry, enable, comment) on top of an existing config
-// blob without touching its protocol-specific identity (uuid/password/auth/
-// keys).
+// overlayCommonClientFields sets the protocol-agnostic client fields (traffic/IP limit, expiry,
+// enable, comment) on top of an existing config blob without touching its protocol-specific
+// identity (uuid/password/auth/keys).
 func overlayCommonClientFields(cfg string, req XrayClientRequest) (string, error) {
 	var m map[string]any
 	if cfg != "" {
@@ -258,11 +250,8 @@ func (s *Server) detachXrayClient(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// attachProfileToInbound is called from createProfile/updateProfile when a
-// profile picks an inbound for its xray overlay — it makes sure "the
-// client exists in Xray because the client exists on the Clients page"
-// holds automatically, without the operator having to separately visit the
-// Xray page and attach it first.
+// attachProfileToInbound is called from createProfile/updateProfile when a profile picks an inbound,
+// so the client is automatically attached in Xray without a separate visit to the Xray page.
 func (s *Server) attachProfileToInbound(profile *models.Profile, inboundID uint, client *models.Client) error {
 	var inbound models.XrayInbound
 	if err := s.db.First(&inbound, inboundID).Error; err != nil {
@@ -272,13 +261,10 @@ func (s *Server) attachProfileToInbound(profile *models.Profile, inboundID uint,
 	return err
 }
 
-// ensureXrayClient finds or creates the (inbound, client) attachment row.
-// Passing an explicit config overwrites an existing row's identity (used
-// when an operator wants to set a specific UUID/password rather than a
-// generated one); an empty config on an already-attached pair is a no-op
-// that just returns the existing row, so createProfile's "attach on pick"
-// path never regenerates a client's identity out from under a profile that
-// already reference it.
+// ensureXrayClient finds or creates the (inbound, client) attachment row. An explicit config
+// overwrites an existing row's identity; an empty config on an already-attached pair is a no-op, so
+// createProfile's "attach on pick" path never regenerates an identity out from under a profile
+// that already references it.
 func (s *Server) ensureXrayClient(inbound *models.XrayInbound, client *models.Client, explicitConfig json.RawMessage) (*models.XrayClient, error) {
 	var xc models.XrayClient
 	err := s.db.Where("inbound_id = ? AND client_id = ?", inbound.ID, client.ID).First(&xc).Error
@@ -308,14 +294,10 @@ func (s *Server) ensureXrayClient(inbound *models.XrayInbound, client *models.Cl
 	}
 }
 
-// generateClientConfig produces a fresh per-client identity matching the
-// inbound's protocol — the same shapes the "Сгенерировать" buttons in the
-// Xray page produce, just called server-side so attaching a client never
-// requires a round-trip through the keygen endpoints first. Every protocol
-// also gets the same common 3x-ui client fields (limitIp/totalGB/
-// expiryTime/enable/subId/comment/reset/tgId) so a freshly attached client
-// round-trips through the same shape a real xray-core client list expects,
-// not just an identity.
+// generateClientConfig produces a fresh per-client identity matching the inbound's protocol, called
+// server-side so attaching a client never round-trips through the keygen endpoints first. Every
+// protocol also gets the common client fields (limitIp/totalGB/expiryTime/enable/subId/comment/
+// reset/tgId) so it matches the shape a real xray-core client list expects.
 func generateClientConfig(protocol, clientName string) (string, error) {
 	identity, err := generateClientIdentity(protocol)
 	if err != nil {
@@ -333,18 +315,14 @@ func generateClientConfig(protocol, clientName string) (string, error) {
 	return marshalClientConfig(identity)
 }
 
-// generateClientIdentity returns just the protocol-specific identity
-// fields — hysteria2's field is "auth" (a token), not "password" like
-// trojan, even though both are generated the same way (a random hex
-// secret); vless is a uuid+flow, wireguard a real X25519 keypair.
+// generateClientIdentity returns just the protocol-specific identity fields — hysteria2's field is
+// "auth", not "password" like trojan, though both are a random hex secret; vless is a uuid+flow,
+// wireguard a real X25519 keypair.
 func generateClientIdentity(protocol string) (map[string]any, error) {
 	switch protocol {
 	case "vless":
-		// xray-core's own field name is "id", not "uuid" — confirmed by
-		// running a real xray-core binary against a generated config: it
-		// silently treats a "uuid" key as absent, defaults to "", and fails
-		// with "invalid UUID: " (empty) at startup. Caught via the real
-		// binary, not by inspection — see README for the incident.
+		// xray-core's field name is "id", not "uuid" — a "uuid" key is silently treated as absent,
+		// defaulting to "" and failing with "invalid UUID: " at startup.
 		return map[string]any{"id": uuid.New().String(), "flow": ""}, nil
 	case "trojan":
 		password, err := common.RandomHexKey(16)
@@ -377,12 +355,9 @@ func marshalClientConfig(v map[string]any) (string, error) {
 	return string(b), nil
 }
 
-// reloadXray regenerates xray-core's config from the DB and starts/
-// restarts/stops the process to match — called after every mutation to an
-// XrayInbound or XrayClient. Best-effort like teardownProfile: the DB write
-// already succeeded and is the source of truth, so a process hiccup here
-// (e.g. xray-core not installed yet) shouldn't fail the whole request, just
-// get logged via gin's error collector.
+// reloadXray regenerates xray-core's config from the DB and starts/restarts/stops the process to
+// match, called after every XrayInbound/XrayClient mutation. Best-effort like teardownProfile: a
+// process hiccup (e.g. xray-core not installed yet) is logged via gin's error collector, not fatal.
 func (s *Server) reloadXray(c *gin.Context) {
 	if s.xrayMgr == nil {
 		return

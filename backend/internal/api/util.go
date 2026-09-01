@@ -26,10 +26,8 @@ func formatBytesShort(n int64) string {
 	return fmt.Sprintf("%.1f%s", v, units[i])
 }
 
-// slugFilename turns an arbitrary display name into a safe download
-// filename component — every "wt_*.json" export uses this so a client/
-// profile name with spaces, slashes, or emoji never produces a broken or
-// unsafe Content-Disposition filename.
+// slugFilename turns an arbitrary display name into a safe download filename component, used by
+// every "wt_*.json" export to avoid a broken/unsafe Content-Disposition filename.
 func slugFilename(name string) string {
 	var b strings.Builder
 	for _, r := range name {

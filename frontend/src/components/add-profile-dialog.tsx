@@ -19,17 +19,13 @@ export function AddProfileDialog({
   onCreated,
 }: {
   clientId: number
-  // Only used to seed the new profile's default name ("Profile #N") — see
-  // ClientsPage's own call site, which passes (client.Profiles ?? []).length.
+  // Only used to seed the new profile's default name ("Profile #N").
   existingProfileCount: number
   onCreated: () => void
 }) {
   const t = useT()
   const [open, setOpen] = React.useState(false)
-  // Remounting the form on every open (via key) is simpler than a manual
-  // resetForm(). Bumped on open, not just after submit, so closing without
-  // submitting and reopening doesn't resurrect the abandoned draft — mirrors
-  // EditProfileDialog's openCount.
+  // Remounting via key on open is simpler than a manual resetForm(); bumped on open, not just after submit, so reopening doesn't resurrect an abandoned draft.
   const [formKey, setFormKey] = React.useState(0)
 
   function handleOpenChange(next: boolean) {

@@ -21,9 +21,7 @@ const CORE_LABELS: Record<CoreType | "xray", string> = {
   xray: "Xray-core",
 }
 
-// Xray-core isn't a per-profile kernel (models.CoreXray) — it shows up in
-// CORE_LABELS/kernels but Profile.CoreType is never "xray", so the
-// "profiles per kernel" breakdown below iterates this list, not CORE_LABELS.
+// Xray-core isn't a per-profile kernel: it's in CORE_LABELS/kernels but Profile.CoreType is never "xray", so the breakdown below iterates this list, not CORE_LABELS.
 const PROFILE_CORE_TYPES: CoreType[] = ["turnable", "olcrtc", "webdav", "freeturn"]
 
 function UsageStatCard({

@@ -1,6 +1,4 @@
-// Strings reused across multiple pages/components — button labels, generic
-// status text — rather than duplicating "Сохранить"/"Save" in every
-// fragment that happens to have a save button. Merged in by ../index.ts.
+// Strings reused across multiple pages/components, rather than duplicating "Сохранить"/"Save" in every fragment.
 export const common = {
   ru: {
     "common.save": "Сохранить",

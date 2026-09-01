@@ -12,55 +12,35 @@ import (
 	"time"
 )
 
-// ansiEscapeRe matches ANSI/VT100 escape sequences — some kernels colorize
-// their log output unconditionally, even off a real terminal, leaving raw
-// "\x1b[32m" bytes in the profile-logs viewer. Stripped in ReadLog at read
-// time, not write time: an earlier version wrapped cmd.Stdout/Stderr in a
-// Go io.Writer to strip inline, but that forces exec.Cmd to create an
-// internal pipe instead of handing the child the raw fd — Cmd.Wait() then
-// blocks until every process holding a copy of that fd closes it, not just
-// the direct child. A kernel binary forking a grandchild that inherits
-// stdout/stderr made Stop() hang waiting on a pipe nothing would close.
+// ansiEscapeRe strips ANSI escapes some kernels emit unconditionally.
+// Stripped in ReadLog at read time, not write time: wrapping cmd.Stdout in
+// an io.Writer forces an internal pipe, and Cmd.Wait() then blocks until
+// every fd holder closes it — a grandchild inheriting stdout made Stop() hang.
 var ansiEscapeRe = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 
-// gracefulStopTimeout bounds how long Stop waits for SIGTERM to actually
-// end the process before falling back to Kill. Long enough for a kernel
-// binary to flush/close things on its own SIGTERM handler (if it has one),
-// short enough that one unresponsive profile can't stall a panel-wide
-// graceful shutdown that's stopping many of these one after another.
+// gracefulStopTimeout bounds how long Stop waits for SIGTERM before Kill —
+// long enough for a clean shutdown, short enough that one stuck profile can't stall a panel-wide shutdown of many.
 const gracefulStopTimeout = 10 * time.Second
 
-// Auto-restart tuning: a kernel process that exits on its own (a crash, not
-// a deliberate Stop) is restarted automatically rather than sitting dead
-// until an operator notices. restartBackoffBase doubles on each consecutive
-// fast crash, capped at restartBackoffMax — deliberately no permanent
-// give-up, since one restart attempt a minute is cheap to just leave
-// running. restartHealthyDuration resets the backoff to base once a process
-// stays up a while, so an isolated crash months later isn't penalized as a
-// continuation of an old loop.
+// Auto-restart tuning: a crash (not a deliberate Stop) restarts
+// automatically. restartBackoffBase doubles per consecutive fast crash up
+// to restartBackoffMax, with no permanent give-up; restartHealthyDuration
+// resets it once a process stays up a while, so an isolated crash later isn't penalized as part of an old loop.
 const (
 	restartBackoffBase     = 2 * time.Second
 	restartBackoffMax      = 60 * time.Second
 	restartHealthyDuration = 30 * time.Second
 )
 
-// ProcessSupervisor runs and tracks a single long-lived child process
-// (e.g. one olcrtc or webdav-tunnel instance), restarting it automatically
-// (with backoff, see above) if it exits on its own.
+// ProcessSupervisor runs and tracks a single long-lived child process (e.g.
+// one olcrtc/webdav-tunnel instance), auto-restarting it with backoff if it
+// exits on its own. A background goroutine reaps it via cmd.Wait(), flipping
+// `running` false the moment it exits — what makes IsRunning() reflect a
+// crash, not just a deliberate Stop.
 //
-// A background goroutine spawned in Start reaps the process via cmd.Wait()
-// and flips `running` to false the moment it exits — this is what makes
-// IsRunning() reflect a crash, not just a deliberate Stop, since exec.Cmd's
-// ProcessState is only populated once something calls Wait(). That same
-// goroutine drives auto-restart.
-//
-// Deliberately NOT context-aware: Start uses plain exec.Command, not
-// exec.CommandContext. These processes must outlive the HTTP handler that
-// triggered them (Gin cancels the request's context the moment the handler
-// returns), so their lifecycle is controlled exclusively by Stop(). An
-// early version passed the request's context into exec.CommandContext,
-// which silently killed every profile's process a few hundred milliseconds
-// after the API response was sent.
+// Deliberately NOT context-aware (plain exec.Command): an early version tied
+// it to the request's context, which silently killed every profile's process
+// moments after the HTTP response was sent, since Gin cancels that context when the handler returns.
 type ProcessSupervisor struct {
 	mu      sync.Mutex
 	name    string
@@ -72,10 +52,8 @@ type ProcessSupervisor struct {
 	done    chan struct{} // closed by the reaper goroutine once cmd.Wait() returns
 
 	// manualStop and stopCh together let Stop() cancel auto-restart
-	// immediately and unconditionally. manualStop tells the reaper goroutine
-	// this exit was requested, not a crash. stopCh additionally interrupts
-	// an already-scheduled backoff sleep — needed so Stop() wins even when
-	// called on a process that's currently mid-backoff after a crash.
+	// immediately: manualStop tells the reaper this exit was requested, not
+	// a crash; stopCh interrupts an already-scheduled backoff sleep so Stop() wins even mid-backoff.
 	manualStop bool
 	stopCh     chan struct{}
 
@@ -98,9 +76,8 @@ func (p *ProcessSupervisor) Start() error {
 	return p.startLocked()
 }
 
-// startLocked does the actual spawn — factored out of Start so the
-// auto-restart path in supervise (which already holds p.mu when it
-// decides to retry) can call it directly. Caller must hold p.mu.
+// startLocked does the actual spawn, factored out of Start so supervise's
+// auto-restart path (already holding p.mu) can call it directly. Caller must hold p.mu.
 func (p *ProcessSupervisor) startLocked() error {
 	if p.running {
 		return fmt.Errorf("process %q already running (pid %d)", p.name, p.cmd.Process.Pid)
@@ -134,11 +111,10 @@ func (p *ProcessSupervisor) startLocked() error {
 	return nil
 }
 
-// supervise reaps the process (only this goroutine ever calls Wait) and,
-// unless the exit was requested via Stop(), schedules an automatic restart
-// with backoff (see the constants above).
+// supervise reaps the process (only this goroutine calls Wait) and, unless
+// the exit was requested via Stop(), schedules an automatic restart with backoff.
 func (p *ProcessSupervisor) supervise(cmd *exec.Cmd, done chan struct{}, stopCh chan struct{}) {
-	_ = cmd.Wait() // reaps the process; only this goroutine ever calls Wait
+	_ = cmd.Wait()
 
 	p.mu.Lock()
 	manualStop := p.manualStop
@@ -176,8 +152,7 @@ func (p *ProcessSupervisor) supervise(cmd *exec.Cmd, done chan struct{}, stopCh 
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.cmd != cmd {
-		// superseded by a manual Stop/Restart/Start during the wait —
-		// don't stomp on whatever that did.
+		// superseded by a manual Stop/Restart/Start during the wait — don't stomp on it.
 		return
 	}
 	if err := p.startLocked(); err != nil {
@@ -185,10 +160,8 @@ func (p *ProcessSupervisor) supervise(cmd *exec.Cmd, done chan struct{}, stopCh 
 	}
 }
 
-// appendLogNote briefly reopens the log file to append one line — used to
-// mark an unexpected exit in the same log the operator already views via
-// the profile-logs viewer. Best-effort: a failure to annotate (disk full,
-// permissions) shouldn't affect the actual restart logic.
+// appendLogNote reopens the log file to note an unexpected exit, so the
+// operator sees it in the profile-logs viewer. Best-effort — a failure here shouldn't affect restart logic.
 func (p *ProcessSupervisor) appendLogNote(line string) {
 	f, err := os.OpenFile(p.logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
@@ -265,9 +238,8 @@ func (p *ProcessSupervisor) PID() int {
 	return p.cmd.Process.Pid
 }
 
-// IsRunning reports whether the process is currently alive. Reflects a
-// crash almost immediately (the reaper goroutine started in Start flips
-// this the moment cmd.Wait() returns), not just a deliberate Stop.
+// IsRunning reports whether the process is alive — reflects a crash almost
+// immediately (the reaper flips this when cmd.Wait() returns), not just a Stop.
 func (p *ProcessSupervisor) IsRunning() bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()

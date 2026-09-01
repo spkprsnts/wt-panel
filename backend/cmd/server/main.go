@@ -36,13 +36,8 @@ import (
 var version = "dev"
 
 func main() {
-	// "setting" is an offline subcommand (wt-panel setting -show/-password/
-	// -webBasePath/-clearTls — see setting.go) that only opens the sqlite
-	// file directly, with no HTTP server or kernel/xray startup at all —
-	// intercepted before the normal flag set below since it has its own
-	// flags and never falls through to the rest of main(). install.sh's
-	// `wtp` menu is the intended caller, precisely for when the panel won't
-	// even start and the API-based route can't help.
+	// "setting" (see setting.go) opens the sqlite file directly with no HTTP
+	// server or kernel startup — for when the panel won't even start.
 	if len(os.Args) > 1 && os.Args[1] == "setting" {
 		runSetting(os.Args[2:])
 		return
@@ -66,17 +61,12 @@ func main() {
 	if err := database.First(&panelSettings, 1).Error; err != nil {
 		log.Fatalf("load panel settings: %v", err)
 	}
-	// PanelSettings.PublicIP (edited on the Settings page, auto-detected on
-	// first run — see db.seedPanelSettings) is the authoritative source
-	// once it's set; WTP_PUBLIC_IP only matters before that first save.
-	// This has to happen before turnable.New/freeturn.New below — they
-	// capture cfg.PublicIP into each profile's rendered config at Add time.
+	// PanelSettings (DB) wins over WTP_PUBLIC_IP/WTP_WEBDAV_PUBLIC_HOST once
+	// set — must happen before turnable.New/freeturn.New below, which
+	// capture cfg.PublicIP into each profile's rendered config.
 	if panelSettings.PublicIP != "" {
 		cfg.PublicIP = panelSettings.PublicIP
 	}
-	// Same authoritative-once-set pattern as PublicIP above — see
-	// config.Config.ResolvedWebDAVPublicHost, which otherwise falls back to
-	// cfg.PublicIP unchanged.
 	if panelSettings.WebDAVPublicHost != "" {
 		cfg.WebDAVPublicHost = panelSettings.WebDAVPublicHost
 	}
@@ -92,52 +82,33 @@ func main() {
 		wdav.New(cfg),
 	)
 
-	// Kernel processes started by a previous run of this panel don't
-	// survive across a restart on their own (a graceful stop tears them
-	// down deliberately below, and a crash leaves the OS to enforce it via
-	// Pdeathsig — see provisioner/common), so
-	// re-attach fresh ones from whatever's already in the database before
-	// serving traffic.
+	// Kernel processes don't survive a panel restart on their own — re-attach
+	// fresh ones from the database before serving traffic.
 	registry.RestoreAll(startupCtx, database)
 
-	// xrayMgr owns the single shared xray-core process serving every
-	// enabled XrayInbound — Reload here brings it up on startup the same
-	// way registry.RestoreAll just did for the four kernels; every later
-	// mutation to an inbound/client calls Reload again (see
-	// api/handlers_xray.go's reloadXray). Best-effort: xray-core may not be
-	// installed yet (see the "Kernels" page), which shouldn't block the panel
-	// itself from starting.
+	// xray-core may not be installed yet (see the "Kernels" page); a reload
+	// failure here shouldn't block the panel itself from starting.
 	xrayMgr := xray.NewManager(cfg, database)
 	if err := xrayMgr.Reload(); err != nil {
 		log.Printf("xray-core startup reload: %v", err)
 	}
 
-	// restartCh is how the Settings page's "Restart panel" button
-	// reaches the select loop below — see api.restartPanel. BasePath is
-	// passed in so the served index.html can tell the SPA what prefix it's
-	// actually running under — see server.serveWebUI's doc comment.
+	// restartCh is how the Settings page's "Restart panel" button reaches
+	// the select loop below — see api.restartPanel.
 	restartCh := make(chan struct{}, 1)
 	router := api.New(database, cfg, authSvc, registry, restartCh, panelSettings.BasePath, xrayMgr, version)
 
 	addr, handler := applyPanelSettings(cfg.ListenAddr, &panelSettings, router)
 	httpServer := &http.Server{Addr: addr, Handler: handler}
 
-	// Catch SIGINT/SIGTERM (Ctrl+C, `systemctl stop`'s default signal) so we
-	// get a chance to stop every kernel process gracefully (SIGTERM, letting
-	// each kernel binary run its own shutdown logic) before exiting.
-	// Otherwise the default disposition terminates immediately, no different
-	// from a crash, and kernel processes are only saved by the OS-level
-	// Pdeathsig fallback — a SIGKILL with no chance to clean up.
+	// Catch SIGINT/SIGTERM so kernel processes get a graceful SIGTERM below
+	// instead of just the OS-level Pdeathsig SIGKILL fallback.
 	signalCtx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stopSignals()
 
-	// Validating the cert/key pair up front — rather than calling
-	// ListenAndServeTLS and inspecting whatever error comes back — lets a
-	// bad/unreadable/corrupt cert fall back to plain HTTP with a warning
-	// instead of taking the whole panel down. Before this, a wrong
-	// TLSCertFile/TLSKeyFile hit log.Fatalf on every restart: the service
-	// crash-looped with no working listener at all, and no way to reach the
-	// Settings page to fix it short of editing the database directly.
+	// Validate the cert/key up front so a bad TLSCertFile/TLSKeyFile falls
+	// back to plain HTTP with a warning instead of log.Fatalf crash-looping
+	// the service with no way to reach Settings and fix it.
 	useTLS := false
 	if panelSettings.TLSCertFile != "" && panelSettings.TLSKeyFile != "" {
 		if _, err := tls.LoadX509KeyPair(panelSettings.TLSCertFile, panelSettings.TLSKeyFile); err != nil {
@@ -206,25 +177,12 @@ func main() {
 	}
 }
 
-// relaunchSelf re-execs the running binary with the same args and
-// environment, in place — same PID, not a spawned child — so main() re-reads
-// PanelSettings (and everything else config.Load() reads from the
-// environment) from scratch, making the Settings page's restart button an
-// actual restart.
-//
-// A prior version spawned a detached child and let this process exit(0)
-// instead — that broke systemd (Type=simple, Restart=on-failure): systemd
-// tracks the ORIGINAL pid, a clean exit(0) isn't a "failure" so
-// Restart=on-failure never fires, and the unit went "inactive (dead)" while
-// the new child ran unsupervised outside it. Confirmed on a real VPS: every
-// "Restart panel" click left the unit dead. syscall.Exec instead replaces
-// this process's own image without changing its pid, so systemd sees the
-// same process keep running, now executing the fresh binary.
-//
-// Caveat: under `go run`, os.Executable() resolves to the transient binary
-// in go's temp build dir — relaunching only works while that temp dir is
-// still alive, so this is reliable only for a compiled binary launched
-// directly (the real production case).
+// relaunchSelf re-execs the running binary in place (same PID, not a spawned
+// child) so main() re-reads config from scratch. Must keep the same PID: a
+// prior version spawned a child and exit(0)'d instead, which left systemd's
+// Restart=on-failure never firing (a clean exit isn't a "failure") and the
+// unit dead — confirmed on a real VPS. Only reliable for a compiled binary;
+// under `go run`, os.Executable() points at a temp dir that may be gone.
 func relaunchSelf() error {
 	exe, err := os.Executable()
 	if err != nil {
@@ -233,15 +191,10 @@ func relaunchSelf() error {
 	return syscall.Exec(exe, append([]string{exe}, os.Args[1:]...), os.Environ())
 }
 
-// applyPanelSettings folds the PanelSettings singleton (edited via the
-// Settings page, see handlers_panel_settings.go) on top of the
-// WTP_LISTEN_ADDR-derived default: an empty ListenIP/ListenPort/
-// ListenDomain/BasePath each fall back to "no restriction" rather than
-// erroring, so a freshly seeded all-defaults row behaves exactly like the
-// panel did before this existed. BasePath prefixing is done by wrapping the
-// gin engine behind a plain http.ServeMux + http.StripPrefix rather than by
-// changing route registration in server.go, so every route only has to be
-// written once, unprefixed.
+// applyPanelSettings folds the PanelSettings singleton on top of the
+// WTP_LISTEN_ADDR default (empty fields = no restriction). BasePath
+// prefixing wraps the gin engine in a plain http.ServeMux + StripPrefix so
+// routes in server.go stay unprefixed.
 func applyPanelSettings(defaultListenAddr string, ps *models.PanelSettings, router http.Handler) (addr string, handler http.Handler) {
 	_, defaultPort, err := net.SplitHostPort(defaultListenAddr)
 	if err != nil {
@@ -260,26 +213,15 @@ func applyPanelSettings(defaultListenAddr string, ps *models.PanelSettings, rout
 		mux := http.NewServeMux()
 		mux.Handle(base, http.StripPrefix(prefix, router))
 
-		// /sub/:token is the public endpoint WireTurn clients poll directly
-		// (shared as its own link, security comes from the token itself
-		// being an unguessable 24-byte random string — see
-		// createSubscriptionToken) — not an admin surface, so the URI-path
-		// setting (which exists to hide the *admin* login/API from mass
-		// scanners) shouldn't gate it too. Mounted unprefixed, straight at
-		// the same router, unstripped: gin's "/sub/:token" route matches
-		// the request path exactly as the client sent it.
+		// /sub/:token is public (security is the token itself, an
+		// unguessable random string) — not an admin surface, so it's mounted
+		// unprefixed rather than gated behind the secret base path too.
 		mux.Handle("/sub/", router)
 
-		// The embedded frontend's index.html references its JS/CSS by
-		// root-absolute path (Vite's default output: src="/assets/...")
-		// — the browser requests those at the real domain root regardless
-		// of what path it loaded the page from, so they have to resolve
-		// there too even when the app itself only answers under the secret
-		// base path. This doesn't defeat the base path's purpose (hiding
-		// the panel's actual routes — login, API, SPA shell — from mass
-		// scanners): it's a plain http.FileServer with no SPA/index.html
-		// fallback, so an unprefixed request only ever gets a real static
-		// file or a 404, never the app.
+		// The SPA's JS/CSS load from root-absolute paths (Vite's default
+		// output), so they must resolve there too even though the app itself
+		// only answers under the base path. Safe: plain http.FileServer with
+		// no index.html fallback, so an unprefixed request never reaches the app.
 		if dist, err := webui.DistFS(); err == nil {
 			staticHandler := http.FileServer(http.FS(dist))
 			mux.Handle("/assets/", staticHandler)
@@ -297,12 +239,7 @@ func applyPanelSettings(defaultListenAddr string, ps *models.PanelSettings, rout
 				host = h
 			}
 			if host != domain {
-				// 403, not 404 — mirrors 3x-ui's own webDomain check. The
-				// request IS understood (this is a real vhost check, not a
-				// missing route), it's just refused for this Host, so 403 is
-				// the semantically correct code — and it's a clearer signal
-				// than a 404 for an operator who forgot they'd restricted
-				// the panel to a domain and is now poking it by IP.
+				// 403, not 404 — a real vhost check, not a missing route.
 				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 				return
 			}

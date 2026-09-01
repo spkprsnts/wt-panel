@@ -47,9 +47,7 @@ const SETTINGS_LABEL_KEYS: Record<string, TranslationKey> = {
   webdavPublicHost: "settings.label.webdavPublicHost",
 }
 
-// Walks the operator through 3x-ui-style 2FA setup: scan a QR (or type the
-// secret manually), then prove the authenticator app works by entering one
-// real code before the secret is persisted (startTotpSetup/confirmTotpSetup).
+// Walks the operator through 2FA setup: scan a QR (or type the secret), then prove the authenticator app works before the secret is persisted.
 function TotpEnableDialog({ onEnabled }: { onEnabled: () => void }) {
   const t = useT()
   const [open, setOpen] = React.useState(false)
@@ -72,8 +70,7 @@ function TotpEnableDialog({ onEnabled }: { onEnabled: () => void }) {
         setQrDataUri(res.qrDataUri)
       })
       .catch((err) => setLoadError(err instanceof Error ? err.message : t("settings.account.totp.setupFailed")))
-    // `t` is intentionally excluded: switching language while open must not
-    // re-run setup and mint a new secret/QR, invalidating what was scanned.
+    // `t` is intentionally excluded: switching language while open must not re-run setup and mint a new secret/QR.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
@@ -137,8 +134,7 @@ function TotpEnableDialog({ onEnabled }: { onEnabled: () => void }) {
   )
 }
 
-// Requires one more valid code before turning 2FA off, mirroring disableTotp
-// on the backend — a stolen bearer token alone isn't enough to disable it.
+// Requires one more valid code before turning 2FA off — a stolen bearer token alone isn't enough to disable it.
 function TotpDisableDialog({ onDisabled }: { onDisabled: () => void }) {
   const t = useT()
   const [open, setOpen] = React.useState(false)
@@ -317,11 +313,7 @@ function AccountCard() {
   )
 }
 
-// Guesses the address the panel will be reachable at once a network-settings
-// restart completes, so PanelRestartDialog can navigate there directly
-// instead of reloading the current URL (which 404s on a changed base path,
-// and stops responding at all on a changed domain/port). Best-effort: any
-// field left blank/unchanged falls back to window.location's current value.
+// Guesses the address the panel will be reachable at once a network-settings restart completes, so PanelRestartDialog can navigate there directly instead of reloading the current URL (which 404s on a changed base path). Best-effort: blank fields fall back to window.location.
 function buildTargetUrl(opts: {
   listenDomain: string
   listenPort: string
@@ -336,12 +328,7 @@ function buildTargetUrl(opts: {
   return `${scheme}://${host}:${port}${path}`
 }
 
-// Reads the browser's own address bar, not PanelSettings.TLSCertFile —
-// deliberately, since a reverse proxy (e.g. nginx) commonly terminates TLS
-// in front of the panel, leaving its own listener on plain http. Checking
-// TLSCertFile there would wrongly flag that setup as insecure.
-// localhost/127.0.0.1/::1 are excluded since loopback isn't exposed to the
-// same interception risk as plain http over a real network.
+// Reads the browser's address bar, not PanelSettings.TLSCertFile, since a reverse proxy commonly terminates TLS in front of the panel and would get wrongly flagged. Loopback addresses are excluded since they aren't exposed to network interception.
 function isInsecureConnection(): boolean {
   if (typeof window === "undefined") return false
   if (window.location.protocol === "https:") return false
@@ -546,25 +533,11 @@ function PanelNetworkCard() {
   )
 }
 
-// Governs how PanelRestartDialog waits for the panel to come back after a
-// restart or self-update (restartPanel/updatePanel + relaunchSelf's
-// syscall.Exec). Compares /api/settings' bootId against beforeBootId rather
-// than waiting for one request failure — the backend's down-window can
-// finish faster than the poll interval, so a real restart can complete with
-// no poll ever landing in the gap (confirmed: that version never reloaded).
-// version doesn't work either since it's unchanged across a plain restart —
-// bootId (Server.bootID) is a fresh random value per process, so any
-// restart changes it, update or not.
+// Governs how PanelRestartDialog waits for the panel after a restart/self-update. Compares /api/settings' bootId against beforeBootId rather than waiting for one request failure, since the backend's down-window can finish faster than the poll interval and no poll would ever land in the gap. `version` doesn't work as a signal since it's unchanged across a plain restart; bootId is a fresh random value per process either way.
 const restartPollIntervalMs = 2000
-// ~7 minutes worst case, not ~2: each attempt can take up to
-// restartPollTimeoutMs (5s) before the interval delay even starts, so the
-// true bound is maxAttempts * (intervalMs + timeoutMs) = 60 * 7s.
+// True worst case is maxAttempts * (intervalMs + timeoutMs), not just maxAttempts * intervalMs, since each attempt can take up to restartPollTimeoutMs before the next interval delay starts.
 const restartPollMaxAttempts = 60
-// Bounds each poll request — a self-restart (syscall.Exec swapping the
-// process image) can leave an in-flight request never resolving, which
-// without a timeout wedges the recursive poll chain forever (confirmed:
-// an update once got stuck on an infinite spinner with pending requests
-// that never timed out).
+// Bounds each poll request — a self-restart (syscall.Exec swapping the process image) can leave an in-flight request never resolving, wedging the recursive poll chain forever without a timeout.
 const restartPollTimeoutMs = 5000
 
 function PanelRestartDialog({
@@ -578,10 +551,7 @@ function PanelRestartDialog({
   beforeBootId: string | null
   title: string
   message: string
-  // Where to send the browser once the panel is confirmed back up —
-  // PanelNetworkCard passes its best guess at the post-restart address
-  // (buildTargetUrl); a plain update restart leaves this unset and gets
-  // the old reload-in-place behavior.
+  // Where to send the browser once the panel is confirmed back up (PanelNetworkCard's buildTargetUrl guess); a plain update restart leaves this unset and reloads in place.
   targetUrl?: string | null
 }) {
   const t = useT()
@@ -594,15 +564,7 @@ function PanelRestartDialog({
     let attempts = 0
     let timer: number
 
-    // True when the operator changed the panel's domain/port — the browser
-    // is pointed at the OLD address, which stops answering permanently once
-    // the new process rebinds elsewhere, so the usual same-origin bootId
-    // poll would just spin until restartPollMaxAttempts. A `no-cors` fetch
-    // of the NEW address instead only asks "does anything answer here yet":
-    // the browser hides the response body cross-origin, but the promise
-    // still resolves on a real response and rejects on failure/timeout,
-    // which is all this needs. A top-level navigation afterward is never
-    // CORS-restricted, so redirecting there is safe either way.
+    // True when the operator changed the panel's domain/port: the browser is stuck polling the OLD address, which never comes back, so instead a `no-cors` fetch of the NEW address just asks "does anything answer here yet" (the response body is hidden cross-origin, but resolve/reject is all this needs); the eventual top-level navigation is never CORS-restricted.
     const crossOrigin = !!targetUrl && new URL(targetUrl, window.location.href).origin !== window.location.origin
 
     const poll = () => {
@@ -724,9 +686,7 @@ function PanelUpdateCard() {
       return
     }
     setError(null)
-    // Open the blocking dialog before the network call, not after —
-    // updatePanel() downloads and installs the release synchronously before
-    // responding, so awaiting it first left a multi-second gap with no dialog.
+    // Open the blocking dialog before the network call: updatePanel() downloads and installs synchronously before responding, so awaiting it first left a multi-second gap with no dialog.
     setUpdating(true)
     try {
       const before = await api.getSettings()
@@ -787,10 +747,7 @@ function PanelUpdateCard() {
   )
 }
 
-// The "download everything / restore everything" counterpart to the
-// per-client profile exports elsewhere, mirroring 3x-ui's Backup section.
-// Restore replaces the entire live database (admin account included), so it
-// goes through confirm() with destructive:true naming what's about to happen.
+// The "download/restore everything" counterpart to the per-client profile exports elsewhere. Restore replaces the entire live database (admin account included), so it goes through confirm() with destructive:true.
 function PanelBackupCard() {
   const t = useT()
   const { confirm } = useDialogPrompt()
@@ -799,14 +756,9 @@ function PanelBackupCard() {
   const [restoring, setRestoring] = React.useState(false)
   const [beforeBootId, setBeforeBootId] = React.useState<string | null>(null)
   const [error, setError] = React.useState<string | null>(null)
-  // Off by default: the realistic case is restoring a backup from a
-  // DIFFERENT VPS onto one already set up with its own correct
-  // IP/domain/SSL, where applying the backup's network settings would
-  // overwrite that with the old machine's identity.
+  // Off by default: the realistic case is restoring a backup from a DIFFERENT VPS onto one already set up with its own correct IP/domain/SSL, where applying the backup's network settings would overwrite that.
   const [restoreNetworkSettings, setRestoreNetworkSettings] = React.useState(false)
-  // Aborts an in-flight download/restore if the card unmounts — these
-  // requests have no timeout of their own (a large backup takes a while),
-  // so without this they'd keep running with nothing left to update.
+  // Aborts an in-flight download/restore on unmount — these requests have no timeout of their own (a large backup takes a while).
   const transferAbortRef = React.useRef<AbortController | null>(null)
   React.useEffect(() => () => transferAbortRef.current?.abort(), [])
 
@@ -848,9 +800,7 @@ function PanelBackupCard() {
       return
     }
     setError(null)
-    // Same reasoning as PanelUpdateCard.handleUpdate: restorePanelBackup
-    // swaps the live DB synchronously before responding, so open the
-    // dialog before the call, not after.
+    // Same reasoning as PanelUpdateCard.handleUpdate: restorePanelBackup swaps the live DB synchronously before responding, so open the dialog before the call.
     setRestoring(true)
     const controller = new AbortController()
     transferAbortRef.current = controller

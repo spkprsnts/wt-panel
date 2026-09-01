@@ -11,11 +11,8 @@ import (
 	"wtpanel/internal/models"
 )
 
-// orderProfilesBySortOrder is shared by every Preload("Profiles", ...) below
-// so a client's profiles always come back in their saved display order (see
-// models.Profile.SortOrder) rather than GORM's default primary-key order —
-// ties (existing rows predating this field, all SortOrder 0) fall back to id,
-// which matches their original creation order anyway.
+// orderProfilesBySortOrder returns profiles in saved display order instead of GORM's default
+// primary-key order; ties (rows predating SortOrder, all 0) fall back to id.
 func orderProfilesBySortOrder(db *gorm.DB) *gorm.DB {
 	return db.Order("sort_order, id")
 }
@@ -126,9 +123,8 @@ func (s *Server) deleteClient(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// updateIntervalOrDefault falls back to the spec's own default (§5.4
-// "updateIntervalMinutes") whenever the request left it unset/zero — 0
-// would otherwise tell a real WireTurn client to poll nonstop.
+// updateIntervalOrDefault falls back to the §5.4 spec default when unset/zero — 0 would tell a real
+// WireTurn client to poll nonstop.
 func updateIntervalOrDefault(minutes int) int {
 	if minutes <= 0 {
 		return 60

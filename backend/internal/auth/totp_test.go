@@ -6,12 +6,9 @@ import (
 	"time"
 )
 
-// TestTotpCodeAtRFC6238Vector checks totpCodeAt against RFC 6238 Appendix
-// B's own published SHA1 test vector: the 20-byte ASCII key
-// "12345678901234567890" at T=59s (a 30s step, so counter=1) produces the
-// 8-digit code 94287082. This package always truncates to 6 digits, which
-// is exactly that value's last 6 digits (== the value mod 10^6) — what a
-// real 6-digit authenticator app displays.
+// TestTotpCodeAtRFC6238Vector checks totpCodeAt against RFC 6238 Appendix B's published SHA1 vector:
+// key "12345678901234567890" at T=59s (counter=1) produces 8-digit code 94287082; this package's
+// 6-digit truncation is exactly its last 6 digits.
 func TestTotpCodeAtRFC6238Vector(t *testing.T) {
 	rawKey := "12345678901234567890"
 	secret := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString([]byte(rawKey))
@@ -30,9 +27,7 @@ func TestValidateTOTPCodeRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateTOTPSecret: %v", err)
 	}
-	// Matches exactly what ValidateTOTPCode itself computes internally, so
-	// the generated code lands in the same 30s step it'll be checked
-	// against.
+	// Matches what ValidateTOTPCode computes internally, so the code lands in the same 30s step.
 	now := uint64(time.Now().Unix()) / uint64(totpPeriod.Seconds())
 	code, err := totpCodeAt(secret, now)
 	if err != nil {

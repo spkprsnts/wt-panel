@@ -16,10 +16,8 @@ import (
 	"time"
 )
 
-// httpClient is shared by every outbound request this package makes so
-// WTP_GITHUB_PROXY applies uniformly everywhere — a narrower, explicit
-// override for GitHub access specifically, without exporting a system-wide
-// HTTP_PROXY that would also redirect unrelated traffic.
+// httpClient is shared so WTP_GITHUB_PROXY applies uniformly, without
+// exporting a system-wide HTTP_PROXY that would redirect unrelated traffic.
 var httpClient = buildHTTPClient()
 
 func buildHTTPClient() *http.Client {
@@ -84,11 +82,9 @@ func githubGet(path string, out interface{}) error {
 	return json.NewDecoder(resp.Body).Decode(out)
 }
 
-// listCacheTTL controls how long a successful releases/commits fetch is
-// reused before a normal (non-forced) call hits GitHub again. GitHub's REST
-// API rate limit (60/hour unauthenticated — see WTP_GITHUB_TOKEN) is shared
-// across every owner/repo this panel queries, so a page reload — or several
-// operators' pages open at once — shouldn't each cost a fresh request.
+// listCacheTTL bounds how long a fetch is reused before hitting GitHub
+// again — its unauthenticated rate limit (60/hour, see WTP_GITHUB_TOKEN) is
+// shared across every query, so a reload shouldn't cost a fresh request.
 const listCacheTTL = 10 * time.Minute
 
 type cacheEntry[T any] struct {
@@ -96,12 +92,9 @@ type cacheEntry[T any] struct {
 	fetchedAt time.Time
 }
 
-// listCache is a tiny generic TTL cache shared by ListReleases and
-// ListCommits. It fails open toward availability over freshness: if a
-// forced or expired-cache refresh fails (e.g. hits the rate limit this
-// cache exists to avoid), the previous successful fetch — however old — is
-// returned instead of an error. Only errors if nothing was ever fetched
-// successfully for that key.
+// listCache is a tiny generic TTL cache shared by ListReleases/ListCommits.
+// It fails open toward availability over freshness: a failed refresh serves
+// the last successful fetch, however old, rather than erroring — errors only if nothing was ever fetched for that key.
 type listCache[T any] struct {
 	mu      sync.Mutex
 	entries map[string]cacheEntry[T]
@@ -141,10 +134,8 @@ var (
 	commitCache  = newListCache[[]Commit]()
 )
 
-// ListReleases returns up to `limit` most recent releases for owner/repo,
-// serving a cached copy (see listCacheTTL) unless force is set — the
-// Kernels page's "обновить список" button sets it; InstallRelease always
-// passes false so an install doesn't also force a fresh fetch.
+// ListReleases returns up to `limit` most recent releases, serving a cached
+// copy unless force is set (the Kernels page's "обновить список" button sets it; InstallRelease always passes false).
 func ListReleases(owner, repo string, limit int, force bool) ([]Release, error) {
 	key := fmt.Sprintf("%s/%s:%d", owner, repo, limit)
 	return releaseCache.get(key, force, func() ([]Release, error) {

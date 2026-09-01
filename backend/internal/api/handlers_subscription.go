@@ -16,17 +16,11 @@ import (
 	"wtpanel/internal/xray"
 )
 
-// subscriptionOrigin resolves the "scheme://host:port" to embed in
-// subscription links, derived from PanelSettings rather than the flat
-// s.cfg.PublicOrigin (WTP_PUBLIC_ORIGIN), which nothing sets — that used to
-// leave the QR dialog handing out "http://localhost:8090/sub/..." links no
-// client device could reach.
-//
-// A TLS cert here is issued for ListenDomain, not the bare PublicIP (acme.sh
-// needs a resolvable name, and install.sh's SSL setup targets whatever host
-// the operator picked). So the domain wins outright whenever both a cert and
-// ListenDomain are configured, else the public address — never a mix that
-// would report https for a host the cert doesn't actually cover.
+// subscriptionOrigin resolves the "scheme://host:port" to embed in subscription links, derived from
+// PanelSettings rather than the unset s.cfg.PublicOrigin (which used to leak
+// "http://localhost:8090/sub/..." links no client device could reach). The TLS cert is issued for
+// ListenDomain, not the bare PublicIP, so the domain only wins when both a cert and ListenDomain are
+// configured — never a mix reporting https for a host the cert doesn't cover.
 func (s *Server) subscriptionOrigin() string {
 	var ps models.PanelSettings
 	if err := s.db.First(&ps, 1).Error; err != nil {
@@ -60,9 +54,8 @@ func (s *Server) subscriptionOrigin() string {
 	return fmt.Sprintf("%s://%s%s", scheme, host, portSuffix)
 }
 
-// getOrCreateSubscriptionToken reuses a client's existing token if it has
-// one — repeated calls (e.g. every time the admin re-opens the QR dialog)
-// must not mint a fresh, independently-valid token every time.
+// getOrCreateSubscriptionToken reuses a client's existing token — repeated calls (e.g. re-opening
+// the QR dialog) must not mint a fresh, independently-valid token each time.
 func (s *Server) getOrCreateSubscriptionToken(client *models.Client) (*models.SubscriptionToken, error) {
 	var token models.SubscriptionToken
 	err := s.db.Where("client_id = ?", client.ID).Order("id").First(&token).Error
@@ -102,9 +95,8 @@ func (s *Server) createSubscriptionToken(c *gin.Context) {
 	})
 }
 
-// subscriptionLinks is the admin panel's own QR-dialog data source — get
-// (or mint) this client's subscription URL plus its wireturn:// deep-link
-// wrapper (§4) for one-tap import into the app.
+// subscriptionLinks is the QR-dialog data source — this client's subscription URL plus its
+// wireturn:// deep-link wrapper (§4).
 func (s *Server) subscriptionLinks(c *gin.Context) {
 	client, err := s.loadClient(c)
 	if err != nil {
@@ -123,10 +115,8 @@ func (s *Server) subscriptionLinks(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-// exportClientProfiles is the admin panel's "скачать wt-*.json" action for
-// a whole client — a bare Profile[] JSON file, the §5.4 item-2 shape the
-// app's file-import screen accepts directly (JSON/ZIP, "wt_" filename
-// prefix — see §4 file-import section).
+// exportClientProfiles is the "download wt-*.json" action for a whole client — a bare Profile[]
+// JSON file, the §5.4 item-2 shape the app's file-import screen accepts directly.
 func (s *Server) exportClientProfiles(c *gin.Context) {
 	client, err := s.loadClient(c)
 	if err != nil {
@@ -141,16 +131,11 @@ func (s *Server) exportClientProfiles(c *gin.Context) {
 	c.JSON(http.StatusOK, profiles)
 }
 
-// handleSubscription is the public, unauthenticated endpoint WireTurn's
-// client polls. It implements the ProfileBundle schema from
-// docs/subscriptions.md §5.4/§5.5, and additionally content-negotiates by
-// User-Agent/?format= (not itself part of the spec — the app tries several
-// parse strategies on whatever body it gets regardless — but needed so a
-// plain browser opening this link gets a usable page instead of raw JSON):
-//   - ?format= wins outright when present ("json"/"text"/"base64"/"html").
-//   - else "WireTurn/…" UA (the app itself) → json.
-//   - else a real browser (UA contains "Mozilla") → html.
-//   - else (curl, a generic subscription manager, …) → text.
+// handleSubscription is the public, unauthenticated endpoint WireTurn's client polls, implementing
+// the ProfileBundle schema from docs/subscriptions.md §5.4/§5.5. It also content-negotiates by
+// User-Agent/?format= (not part of the spec, but needed so a plain browser gets a page instead of
+// raw JSON): ?format= wins if present ("json"/"text"/"base64"/"html"); else "WireTurn/…" UA → json;
+// else a browser (UA contains "Mozilla") → html; else → text.
 func (s *Server) handleSubscription(c *gin.Context) {
 	tokenStr := c.Param("token")
 
@@ -165,10 +150,8 @@ func (s *Server) handleSubscription(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "client not found"})
 		return
 	}
-	// A disabled profile has no process running (see Profile.Enabled) — its
-	// KernelURI would just be dead, so it's dropped here, before any of the
-	// json/text/base64/html branches below ever see client.Profiles, rather
-	// than teaching each format its own copy of this filter.
+	// A disabled profile's KernelURI is dead (no process running), so it's dropped here once, before
+	// any format branch below sees client.Profiles.
 	enabledProfiles := make([]models.Profile, 0, len(client.Profiles))
 	for _, p := range client.Profiles {
 		if p.Enabled {
@@ -226,14 +209,8 @@ func (s *Server) handleSubscription(c *gin.Context) {
 	}
 }
 
-// buildBundleProfile resolves one Profile row into the wire-format
-// BundleProfile the subscription (and the admin panel's own QR/export
-// endpoints) all share, so the two can never drift apart.
-// recommendedProfileID picks the client's explicitly Profile.Recommended
-// profile if one is set, else falls back to the first profile in list order
-// (already SortOrder-sorted by the caller's Preload) — the behavior from
-// before Recommended existed, so an operator who's never touched the new
-// menu item sees no change.
+// recommendedProfileID picks the client's explicitly Recommended profile,
+// else falls back to the first in (already sorted) list order.
 func recommendedProfileID(profiles []models.Profile) string {
 	for _, p := range profiles {
 		if p.Recommended {
@@ -246,6 +223,8 @@ func recommendedProfileID(profiles []models.Profile) string {
 	return ""
 }
 
+// buildBundleProfile resolves one Profile row into the wire-format BundleProfile shared by the
+// subscription and the QR/export endpoints, so they can never drift apart.
 func (s *Server) buildBundleProfile(profile models.Profile) BundleProfile {
 	bp := BundleProfile{
 		ID:          profile.ExternalID,
@@ -259,13 +238,9 @@ func (s *Server) buildBundleProfile(profile models.Profile) BundleProfile {
 	return bp
 }
 
-// buildXrayBundleConfig resolves what a profile's xray overlay actually
-// sends to the WireTurn client — a real vless://trojan://hysteria2:// link
-// (vlessConfig) or a structured WireGuard peer config (wgConfig), matching
-// WireTurn's docs/subscriptions.md §3 field-for-field. Best-effort — a stale
-// XrayInboundID (inbound deleted after the profile was created) falls back
-// to the manual URI/WireGuard fields, if set, rather than failing the whole
-// subscription.
+// buildXrayBundleConfig resolves a profile's xray overlay to a vless://trojan://hysteria2:// link
+// (vlessConfig) or a WireGuard peer config (wgConfig), matching §3 field-for-field. Best-effort: a
+// stale XrayInboundID falls back to the manual URI/WireGuard fields rather than failing the subscription.
 func (s *Server) buildXrayBundleConfig(profile *models.Profile) (protocol string, vless *VlessConfig, wg *WgConfig) {
 	if profile.XrayInboundID != nil {
 		var inbound models.XrayInbound
@@ -292,9 +267,7 @@ func (s *Server) buildXrayBundleConfig(profile *models.Profile) (protocol string
 	return "", nil, nil
 }
 
-// buildVlessConfig folds in the Dual Route fields (§3) — these only ever
-// apply to the VLESS-mode overlay, never WireGuard, which has no
-// equivalent in the spec.
+// buildVlessConfig folds in the Dual Route fields (§3) — VLESS-mode only, no WireGuard equivalent.
 func (s *Server) buildVlessConfig(profile *models.Profile, link string) *VlessConfig {
 	return &VlessConfig{
 		VlessLink:     link,

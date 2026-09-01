@@ -12,26 +12,19 @@ import (
 	"time"
 )
 
-// TOTP (RFC 6238, on top of HOTP/RFC 4226) implemented directly against the
-// stdlib rather than pulling in a library — same reasoning as this
-// codebase's own WireGuard/Reality keygen (see provisioner/common): the
-// algorithm is small and every dependency here is a runtime the operator
-// has to trust just as much as the panel itself.
+// TOTP (RFC 6238, on top of HOTP/RFC 4226) implemented directly against the stdlib rather than
+// pulling in a library, same reasoning as provisioner/common's WireGuard/Reality keygen: small
+// algorithm, one less dependency to trust.
 const (
 	totpDigits = 6
 	totpPeriod = 30 * time.Second
-	// totpSkew tolerates the code from one 30s step before/after the
-	// current one — the admin's phone clock and this server's clock are
-	// never perfectly in sync, and without this a code typed right as a
-	// window rolls over would be rejected even though it's exactly the one
-	// the authenticator app is still showing.
+	// totpSkew tolerates one 30s step before/after current, since the admin's phone clock and this
+	// server's are never perfectly in sync.
 	totpSkew = 1
 )
 
-// GenerateTOTPSecret returns a fresh base32-encoded (no padding — the
-// convention every major authenticator app expects in an otpauth:// URI)
-// random secret: 20 bytes/160 bits, the size RFC 4226 recommends for
-// HMAC-SHA1.
+// GenerateTOTPSecret returns a fresh base32-encoded (no padding, the convention every authenticator
+// app expects) random secret: 20 bytes/160 bits, RFC 4226's recommended size for HMAC-SHA1.
 func GenerateTOTPSecret() (string, error) {
 	b := make([]byte, 20)
 	if _, err := rand.Read(b); err != nil {
@@ -90,10 +83,8 @@ func ValidateTOTPCode(secret, code string) bool {
 	return false
 }
 
-// BuildTOTPURI builds the otpauth:// provisioning URI an authenticator app
-// scans (as a QR code) to add this account — the de-facto "Key URI Format"
-// every authenticator app (Google Authenticator, Authy, 1Password, …)
-// supports, despite never having been formally standardized.
+// BuildTOTPURI builds the otpauth:// provisioning URI an authenticator app scans (as a QR code) to
+// add this account — the de-facto "Key URI Format" every app supports, despite never being formalized.
 func BuildTOTPURI(issuer, accountName, secret string) string {
 	label := url.PathEscape(issuer) + ":" + url.PathEscape(accountName)
 	q := url.Values{

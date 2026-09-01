@@ -15,8 +15,7 @@ import { ClientForm, emptyClientFormValues, type ClientSubmitPayload } from "@/c
 export function CreateClientDialog({ onCreated }: { onCreated: () => void }) {
   const t = useT()
   const [open, setOpen] = React.useState(false)
-  // Bumped on open (not just after a successful submit) so closing without
-  // submitting and reopening doesn't resurrect the abandoned draft.
+  // Bumped on open, not just after submit, so reopening doesn't resurrect an abandoned draft.
   const [formKey, setFormKey] = React.useState(0)
 
   function handleOpenChange(next: boolean) {

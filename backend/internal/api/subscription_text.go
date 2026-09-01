@@ -7,12 +7,9 @@ import (
 	"wtpanel/internal/models"
 )
 
-// buildTextSubscription renders the line-based fallback format documented in
-// docs/subscriptions.md §5.5 — kernel-scheme links with "##key:value"
-// per-profile tags and "#key:value" subscription-level tags. It's a
-// reduced-fidelity view (no Dual Route, no mux/health-check — those only
-// exist in the ProfileBundle JSON's vlessConfig) meant for whatever can't
-// parse JSON: generic subscription managers, or a browser's raw-view.
+// buildTextSubscription renders the line-based fallback format from §5.5 — kernel-scheme links with
+// "##key:value" per-profile tags and "#key:value" subscription-level tags, for whatever can't parse
+// JSON. Reduced-fidelity: no Dual Route/mux/health-check, which only exist in the JSON vlessConfig.
 func (s *Server) buildTextSubscription(client models.Client, bytesUsed, bytesTotal int64) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "#name:%s\n", client.Name)
@@ -52,12 +49,9 @@ func (s *Server) buildTextSubscription(client models.Client, bytesUsed, bytesTot
 	return b.String()
 }
 
-// encodeWireGuardConfigText renders WgConfig as a minimal [Interface]/[Peer]
-// config text, Base64-encoded (standard alphabet, per §5.5 — this is a
-// single tag VALUE, unlike the URL-safe encoding the wireturn:// container
-// itself uses). Only the fields the spec's wgConfig actually carries are
-// included — no Endpoint/AllowedIPs, since we have no real value for either
-// and the app is documented to fill both in itself.
+// encodeWireGuardConfigText renders WgConfig as a minimal [Interface]/[Peer] config text,
+// standard-Base64-encoded per §5.5 (a single tag value, unlike wireturn://'s URL-safe encoding). No
+// Endpoint/AllowedIPs — the app fills those in itself.
 func encodeWireGuardConfigText(wg *WgConfig) string {
 	var b strings.Builder
 	b.WriteString("[Interface]\n")

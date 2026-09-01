@@ -26,10 +26,7 @@ export const emptyClientFormValues: ClientFormInitialValues = {
   updateIntervalMinutes: "60",
 }
 
-// ClientForm is the shared body for both CreateClientDialog and
-// EditClientDialog — description/updateIntervalMinutes are subscription
-// metadata (docs/subscriptions.md §5.4 "description"/"updateIntervalMinutes")
-// that only ever affect what a WireTurn client is told, never provisioning.
+// Shared body for CreateClientDialog/EditClientDialog; description/updateIntervalMinutes are subscription metadata (docs/subscriptions.md §5.4) that only affect what a WireTurn client is told, never provisioning.
 export function ClientForm({
   initialValues,
   submitLabel,

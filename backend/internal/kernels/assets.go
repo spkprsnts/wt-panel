@@ -9,9 +9,8 @@ import (
 	"strings"
 )
 
-// assetName builds the release asset filename this host needs:
-// "{prefix}-{goos}-{goarch}", with optional per-arch overrides for binaries
-// whose goreleaser config uses non-standard arch suffixes.
+// assetName builds "{prefix}-{goos}-{goarch}", with optional per-arch
+// overrides for non-standard arch suffixes.
 func assetName(prefix string, archOverrides map[string]string) string {
 	arch := runtime.GOARCH
 	if archOverrides != nil {
@@ -27,9 +26,8 @@ func TurnableAssetName() string {
 	return assetName("turnable", nil)
 }
 
-// FreeTurnAssetName returns e.g. "server-linux-amd64" for this host.
-// FreeTurn's goreleaser config names 32-bit ARM "armv7" and softfloat MIPS
-// variants with a "-softfloat" suffix.
+// FreeTurnAssetName returns e.g. "server-linux-amd64" — FreeTurn names
+// 32-bit ARM "armv7" and softfloat MIPS variants with a "-softfloat" suffix.
 func FreeTurnAssetName() string {
 	return assetName("server", map[string]string{
 		"arm":      "armv7",
@@ -39,11 +37,8 @@ func FreeTurnAssetName() string {
 	})
 }
 
-// XrayAssetName returns e.g. "Xray-linux-64.zip" for this host — Xray-core
-// publishes one zip per platform, named "Xray-{os}-{arch}.zip" with its own
-// arch spelling ("64"/"32" not "amd64"/"386", "arm64-v8a" not "arm64").
-// Linux only (see README). An unsupported architecture returns "" rather
-// than guessing.
+// XrayAssetName returns e.g. "Xray-linux-64.zip" — Xray-core uses its own
+// arch spelling ("64"/"32", "arm64-v8a"). Linux only; unsupported arch returns "".
 func XrayAssetName() string {
 	if runtime.GOOS != "linux" {
 		return ""
@@ -69,12 +64,9 @@ func XrayZipEntryName() string {
 	return "xray"
 }
 
-// WebDAVAssetSuffix returns e.g. "-linux-amd64.tar.gz" for this host.
-// webdav-tunnel's goreleaser config bakes the version into the asset
-// filename itself (webdav-tunnel-X.Y.Z-linux-amd64.tar.gz), so there's no
-// fixed exact name to look for ahead of resolving which release this is —
-// this returns only the platform-specific tail, matched via
-// FindAssetBySuffix rather than FindAsset. Linux only, like XrayAssetName.
+// WebDAVAssetSuffix returns e.g. "-linux-amd64.tar.gz" — webdav-tunnel bakes
+// the version into the filename itself, so only the platform tail is fixed;
+// matched via FindAssetBySuffix rather than FindAsset. Linux only.
 func WebDAVAssetSuffix() string {
 	if runtime.GOOS != "linux" {
 		return ""
@@ -118,11 +110,8 @@ func FindAssetBySuffix(release Release, suffix string) (Asset, error) {
 		release.TagName, suffix, runtime.GOOS, runtime.GOARCH)
 }
 
-// DownloadBinary fetches url and writes it to destPath as an executable
-// file, replacing anything already there. Writes to a temp file and renames
-// into place, so an already-running process started from the old file keeps
-// its old inode open and is unaffected — only processes started after the
-// swap see the new binary.
+// DownloadBinary fetches url and installs it at destPath. Writes to a temp
+// file and renames into place, so a process already running the old binary keeps its old inode open, unaffected.
 func DownloadBinary(url, destPath string) error {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {

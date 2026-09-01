@@ -4,22 +4,14 @@ import { motion, useReducedMotion } from "motion/react"
 
 import { cn } from "@/lib/utils"
 
-// Sizing/spacing/disabled-state values below are read straight off the
-// pinned AndroidX source (BaselineButtonTokens.kt / ButtonXSmallTokens.kt /
-// ButtonMediumTokens.kt, compose/material3/material3 @ dd849e2), not a
-// secondary reference — the latter's derived tables disagreed with the
-// primary source in a couple of places (e.g. 12px vs. the token file's 16px
-// for extra-small inline padding).
+// Sizing/spacing/disabled-state values read straight off AndroidX's BaselineButtonTokens/ButtonXSmallTokens/ButtonMediumTokens
+// (compose/material3/material3 @ dd849e2) — secondary references disagreed with these in places, e.g. xs inline padding.
 const buttonVariants = cva(
   "state-layer inline-flex min-w-[58px] items-center justify-center gap-2 whitespace-nowrap rounded-full text-label-large transition-colors disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-invalid:outline-2 aria-invalid:outline-error",
   {
     variants: {
       variant: {
-        // Disabled containers swap to a flat onSurface wash rather than
-        // fading the variant's own color (BaselineButtonTokens:
-        // DisabledContainerColor = onSurface @ 10%, disabled content =
-        // onSurfaceVariant @ 38% — two independent opacities, not one
-        // blanket fade).
+        // Disabled containers swap to a flat onSurface wash (10%) plus onSurfaceVariant/38% content, not one blanket fade.
         default:
           "bg-primary text-on-primary disabled:bg-on-surface/10 disabled:text-on-surface-variant/38",
         elevated:
@@ -40,9 +32,7 @@ const buttonVariants = cva(
         default: "h-10 px-6 has-[>svg]:px-4",
         sm: "h-8 px-4 has-[>svg]:px-3",
         lg: "h-14 px-6 text-title-medium has-[>svg]:px-4 [&_svg:not([class*='size-'])]:size-6",
-        // MinWidth is a label-button affordance (keeps a very short word
-        // from looking cramped) — an icon-only button has no label to
-        // protect and must stay square.
+        // min-w-0: minWidth protects short labels from looking cramped, but an icon-only button has no label and must stay square.
         icon: "size-10 min-w-0 rounded-full",
       },
     },
@@ -60,10 +50,7 @@ function Button({
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
   const reduceMotion = useReducedMotion()
-  // Shape-morph on press, not just scale — BaselineButtonTokens/
-  // ButtonXSmallTokens.PressedContainerShape is cornerSmall (8px) at the
-  // 40/32px heights (default/sm/icon), ButtonMediumTokens.
-  // PressedContainerShape is cornerMedium (12px) at the 56px (lg) height.
+  // Shape-morph on press: cornerSmall (8px) at 40/32px heights, cornerMedium (12px) at the 56px (lg) height.
   const pressedRadius = size === "lg" ? 12 : 8
 
   return (
@@ -75,9 +62,7 @@ function Button({
           whileTap={
             reduceMotion ? undefined : { scale: 0.96, borderRadius: pressedRadius }
           }
-          // M3 Expressive "fast spatial" spring (stiffness 800, dampingRatio
-          // 0.6); Motion wants an absolute damping, not a ratio, so this is
-          // dampingRatio * 2 * sqrt(stiffness).
+          // M3 Expressive "fast spatial" spring (stiffness 800, dampingRatio 0.6); damping = dampingRatio * 2 * sqrt(stiffness).
           transition={{ type: "spring", stiffness: 800, damping: 34 }}
         />
       }

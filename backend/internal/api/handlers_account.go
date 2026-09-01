@@ -55,11 +55,8 @@ func (s *Server) changePassword(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// getSettings exposes the panel's current (env-var-derived) configuration
-// as a read-only view for the Settings page — none of this is editable at
-// runtime yet, since config.Config is loaded once at startup; changing any
-// of it means setting the corresponding WTP_* env var and restarting. No
-// secrets (JWT secret, kernel key material) are included here.
+// getSettings exposes the panel's env-var-derived config read-only for the Settings page — nothing
+// here is runtime-editable (change a WTP_* env var and restart instead), and no secrets are included.
 func (s *Server) getSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"version":      s.version,

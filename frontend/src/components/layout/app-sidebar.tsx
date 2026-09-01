@@ -13,9 +13,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageToggle } from "@/components/language-toggle"
 import type { TranslationKey } from "@/i18n"
 
-// "xray-brand" is a sentinel, not a Material Symbols glyph name — Xray-core
-// has its own four-blade pinwheel mark (see xray-icon.tsx), not a generic
-// shield glyph, matching what WireTurn itself points at this feature with.
+// "xray-brand" is a sentinel, not a Material Symbols glyph name — Xray-core gets its own pinwheel mark (xray-icon.tsx) instead.
 const NAV_ITEMS: { to: string; labelKey: TranslationKey; icon: string }[] = [
   { to: "/dashboard", labelKey: "sidebar.nav.dashboard", icon: "dashboard" },
   { to: "/clients", labelKey: "sidebar.nav.clients", icon: "group" },
@@ -27,11 +25,7 @@ const NAV_ITEMS: { to: string; labelKey: TranslationKey; icon: string }[] = [
 
 const COLLAPSE_KEY = "wtpanel_sidebar_collapsed"
 
-// SidebarBody is the nav/footer content shared by the permanent desktop
-// aside and the mobile off-canvas drawer (see AppSidebar below) — kept as
-// one component so the two never drift out of sync with each other.
-// onNavigate fires when a nav link is clicked, used only by the mobile
-// drawer to close itself; the desktop aside has nothing to close.
+// Nav content shared by the permanent desktop aside and the mobile drawer (AppSidebar below) so the two never drift out of sync; onNavigate is used only by the mobile drawer, to close itself on link click.
 function SidebarBody({
   collapsed,
   onNavigate,
@@ -109,14 +103,7 @@ function SidebarFooter({ collapsed, version }: { collapsed: boolean; version: st
   )
 }
 
-// Renders two independent things: a permanent desktop `<aside>` (collapse/
-// expand toggle persisted in localStorage) and a mobile off-canvas drawer
-// (Base UI Dialog styled as a left-sliding panel, only mounted below md via
-// AppLayout's hamburger button). The drawer is always shown in its full,
-// non-collapsed form and closes itself when a nav link is picked (see
-// SidebarBody's onNavigate). The desktop collapse/expand and the mobile
-// drawer are M3's "navigation rail" and "navigation drawer" — same
-// adaptive pattern, re-skinned below.
+// Renders two independent things: a permanent desktop `<aside>` (collapse state persisted in localStorage) and a mobile off-canvas drawer (Base UI Dialog, opened via AppLayout's hamburger) — M3's "navigation rail" and "navigation drawer" pattern, re-skinned below.
 export function AppSidebar({
   mobileOpen,
   onMobileOpenChange,
@@ -132,10 +119,7 @@ export function AppSidebar({
       return false
     }
   })
-  // Fetched once here rather than inside SidebarFooter: that component is
-  // rendered twice (desktop aside + mobile drawer), and a fetch inside it
-  // would fire once for the desktop instance (mounted but display:none
-  // below md) and again every time the mobile drawer opens.
+  // Fetched once here rather than inside SidebarFooter, which renders twice (desktop + mobile) and would otherwise fetch twice.
   const [version, setVersion] = React.useState<string | null>(null)
   React.useEffect(() => {
     api

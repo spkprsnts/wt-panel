@@ -20,17 +20,10 @@ type Stats struct {
 	DiskTotalBytes uint64  `json:"diskTotalBytes"`
 }
 
-// Collect samples CPU usage over a short window — the standard /proc/stat
-// delta technique, since Linux doesn't expose instantaneous CPU usage any
-// other way — then reads memory and disk space for diskPath (the panel's
-// own data directory: "is the panel about to run out of room for its DB/
-// kernel binaries/logs", the operationally relevant question, not
-// necessarily the same filesystem the OS itself lives on).
-//
-// The 200ms sleep runs synchronously inside the HTTP handler that calls
-// this — deliberately: this is an occasionally-polled admin dashboard
-// stat, not a hot path, and that's simpler than a background sampler
-// goroutine for three numbers.
+// Collect samples CPU usage over a short window (the standard /proc/stat delta technique), then
+// reads memory and disk space for diskPath (the panel's own data directory, not necessarily the
+// OS's filesystem). The 200ms sleep runs synchronously in the calling HTTP handler — simpler than a
+// background sampler goroutine for an occasionally-polled dashboard stat.
 func Collect(diskPath string) (Stats, error) {
 	var s Stats
 
@@ -67,10 +60,8 @@ func Collect(diskPath string) (Stats, error) {
 	return s, nil
 }
 
-// numCPU counts "cpuN" lines in /proc/stat (cpu0, cpu1, ...) rather than
-// using runtime.NumCPU(), which reflects this process's own affinity/
-// cgroup limit, not necessarily the whole host's core count an operator
-// looking at a dashboard would expect.
+// numCPU counts "cpuN" lines in /proc/stat rather than using runtime.NumCPU(), which reflects this
+// process's own affinity/cgroup limit, not the whole host's core count.
 func numCPU() int {
 	data, err := os.ReadFile("/proc/stat")
 	if err != nil {
@@ -88,9 +79,8 @@ func numCPU() int {
 	return n
 }
 
-// readCPUSample returns the aggregate "cpu" line's idle and total tick
-// counts (USER_HZ units — the absolute value is meaningless, only the
-// delta between two samples is).
+// readCPUSample returns the aggregate "cpu" line's idle and total tick counts (USER_HZ units — only
+// the delta between two samples is meaningful).
 func readCPUSample() (idle, total uint64, err error) {
 	data, err := os.ReadFile("/proc/stat")
 	if err != nil {
@@ -138,9 +128,8 @@ func readMemUsage() (used, total uint64, err error) {
 	return used, total, nil
 }
 
-// readDiskUsage uses Bavail (space available to a non-root user), not the
-// raw free-block count — a more realistic "how much can actually still be
-// written" figure on filesystems with reserved root-only blocks.
+// readDiskUsage uses Bavail (space available to a non-root user), not the raw free-block count, for
+// a realistic figure on filesystems with reserved root-only blocks.
 func readDiskUsage(path string) (used, total uint64, err error) {
 	var stat syscall.Statfs_t
 	if err := syscall.Statfs(path, &stat); err != nil {

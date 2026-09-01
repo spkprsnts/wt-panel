@@ -9,11 +9,8 @@ import (
 	"strings"
 )
 
-// Keygen shells out to the Turnable binary's own 'config keygen' command
-// (docs/server/SETUP.md upstream) to mint a fresh ML-KEM-768 keypair for
-// one profile — no reason to hand-roll this when the binary already
-// provides it. Exported so the API layer can expose it as a "generate"
-// button without going through AddProfile.
+// Keygen shells out to Turnable's own 'config keygen' to mint a fresh
+// ML-KEM-768 keypair. Exported so the API layer can expose a "generate" button without going through AddProfile.
 func Keygen(ctx context.Context, binPath string) (pubKey, privKey string, err error) {
 	cmd := exec.CommandContext(ctx, binPath, "config", "keygen")
 	out, err := cmd.Output()

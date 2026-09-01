@@ -22,19 +22,13 @@ export function LoginPage() {
   const navigate = useNavigate()
   const [username, setUsername] = React.useState("admin")
   const [password, setPassword] = React.useState("")
-  // Flips to "totp" when the backend reports the password was correct but
-  // 2FA is enabled (handleLogin's "totp_required" response). Username/
-  // password stay in state and are resent with the code, since the backend
-  // re-validates all three together rather than exposing a code-only endpoint.
+  // Flips to "totp" on the backend's "totp_required" response; username/password stay in state and are resent with the code since the backend re-validates all three together.
   const [step, setStep] = React.useState<"password" | "totp">("password")
   const [code, setCode] = React.useState("")
   const [error, setError] = React.useState<string | null>(null)
   const [loading, setLoading] = React.useState(false)
 
-  // `totpOverride` lets the OtpInput's onComplete submit with the code it
-  // just computed directly, instead of going through setCode + waiting a
-  // render for `code` state to catch up (which, at the moment onComplete
-  // fires, is still one render behind).
+  // totpOverride lets OtpInput's onComplete submit its code directly without waiting a render for `code` state to catch up.
   async function handleSubmit(e?: React.FormEvent, totpOverride?: string) {
     e?.preventDefault()
     if (loading) return

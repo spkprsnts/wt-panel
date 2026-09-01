@@ -162,9 +162,7 @@ interface InboundFormState {
   sniffingDestOverride: string
 }
 
-// Suggests a starting point for a new inbound's listen port, picked from
-// the high, rarely-reserved range to avoid colliding with anything else
-// already running on the box. The operator can type over it before saving.
+// Suggests a starting point in the high, rarely-reserved port range; the operator can type over it before saving.
 function randomPort(): number {
   return 10000 + Math.floor(Math.random() * 55536)
 }
@@ -234,9 +232,7 @@ function emptyForm(defaultRemark = ""): InboundFormState {
   }
 }
 
-// formFromInbound reconstructs form state from an existing inbound's stored
-// JSON — used when opening the edit dialog. Falls back to defaults for any
-// field that isn't present (e.g. an inbound created before a field existed).
+// Reconstructs form state from an existing inbound's stored JSON for the edit dialog, falling back to defaults for any field not present.
 function formFromInbound(inbound: XrayInbound): InboundFormState {
   const base = emptyForm()
   let settings: Record<string, unknown> = {}
@@ -491,14 +487,7 @@ function buildPayload(protocol: XrayProtocol, f: InboundFormState) {
       ...(f.security === "reality" && { realitySettings: buildRealitySettings(f) }),
     }
   } else if (protocol === "hysteria2") {
-    // Hysteria2 is QUIC — TLS isn't optional the way it is for vless/trojan,
-    // so there's no security/transport choice here, just the TLS fields
-    // always applied. network/hysteriaSettings (not "tcp"/tcpSettings) is
-    // load-bearing: xray-core's hysteria proxy asserts
-    // streamSettings.ProtocolSettings is its internal *hysteria.Config and
-    // refuses to start otherwise (see xrayCoreProtocol on the backend).
-    // hysteriaSettings.version must also be 2 — infra/conf's
-    // HysteriaConfig.Build() rejects anything else.
+    // Hysteria2 is QUIC — TLS is mandatory, no security/transport choice here. network/hysteriaSettings (not "tcp"/tcpSettings) is load-bearing: xray-core's hysteria proxy asserts streamSettings.ProtocolSettings is its internal *hysteria.Config and refuses to start otherwise; version must be 2 or infra/conf's HysteriaConfig.Build() rejects it.
     settings = { version: 2 }
     streamSettings = {
       network: "hysteria",
@@ -539,10 +528,7 @@ function TlsFields({
   const t = useT()
   const [panelCertError, setPanelCertError] = React.useState<string | null>(null)
 
-  // Hysteria2 requires TLS outright (no plaintext fallback like vless/trojan
-  // have), so this reuses whatever cert the panel's own HTTPS listener
-  // already has (Settings → "Panel network") instead of making the operator
-  // paste in a second one. Surfaced as an error if the panel has none.
+  // Hysteria2 requires TLS outright, so this reuses whatever cert the panel's own HTTPS listener already has instead of making the operator paste in a second one.
   async function handleUsePanelCert() {
     setPanelCertError(null)
     try {
@@ -749,11 +735,7 @@ function TlsFields({
 
 function RealityFields({ f, setF }: { f: InboundFormState; setF: React.Dispatch<React.SetStateAction<InboundFormState>> }) {
   const t = useT()
-  // Pre-fills a full batch of shortIds (one per valid 1-8 byte length, see
-  // keygenShortIds) the moment Reality becomes active, since a Reality
-  // inbound doesn't work without at least one. Guarded on the field still
-  // being empty so it never clobbers a value already loaded (edit mode) or
-  // typed in.
+  // Pre-fills a full batch of shortIds the moment Reality becomes active, since it doesn't work without at least one; guarded on the field still being empty so it never clobbers a loaded or typed value.
   React.useEffect(() => {
     if (f.realityShortIds) return
     api.keygenShortIds().then(({ shortIds }) =>
@@ -1238,14 +1220,12 @@ function InboundFormDialog({
   onSaved,
 }: {
   existing?: XrayInbound
-  // Only meaningful for a brand-new inbound (existing is unset) — XrayPage
-  // passes inbounds.length + 1.
+  // Only meaningful for a brand-new inbound — XrayPage passes inbounds.length + 1.
   nextNumber?: number
   onSaved: () => void
 }) {
   const t = useT()
-  // Lets the footer's submit button (rendered outside this <form>, so it
-  // stays pinned below the scrolling fields) still submit it via form="...".
+  // Lets the footer's submit button, rendered outside this <form> so it stays pinned below the scrolling fields, still submit it via form="...".
   const formId = React.useId()
   const defaultRemark = nextNumber ? `${t("xray.inboundForm.defaultNamePrefix")} #${nextNumber}` : ""
   const [open, setOpen] = React.useState(false)
@@ -1260,9 +1240,7 @@ function InboundFormDialog({
       setF(existing ? formFromInbound(existing) : emptyForm(defaultRemark))
       setError(null)
     }
-    // Keyed on existing?.ID, not the object itself: `inbounds` is rebuilt on
-    // every load(), so depending on the object would reset this open form's
-    // in-progress edits whenever any other row changed.
+    // Keyed on existing?.ID, not the object: `inbounds` is rebuilt on every load(), so depending on the object would reset in-progress edits whenever any other row changed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, existing?.ID])
 
@@ -1499,9 +1477,7 @@ function ClientIdentity({ config }: { config: string }) {
   )
 }
 
-// Manages which panel Clients are attached to one inbound. Deliberately
-// only offers clients that already exist on the Clients page — there is no
-// way to create an "xray-only" client here.
+// Manages which panel Clients are attached to one inbound; only offers clients that already exist on the Clients page — there's no "xray-only" client here.
 function InboundClientsDialog({ inbound, allClients, onChanged }: { inbound: XrayInbound; allClients: Client[]; onChanged: () => void }) {
   const t = useT()
   const [open, setOpen] = React.useState(false)

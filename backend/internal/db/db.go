@@ -18,11 +18,8 @@ import (
 )
 
 func Open(path string) (*gorm.DB, error) {
-	// GORM's default logger treats ErrRecordNotFound as an error-level log
-	// line even though callers like recordKernelInstall (handlers_kernels.go)
-	// use "not found" as an expected, handled branch (create-if-missing) —
-	// IgnoreRecordNotFoundError silences that specific noise without
-	// hiding real errors.
+	// IgnoreRecordNotFoundError silences GORM's default error-level log for ErrRecordNotFound, which
+	// callers like recordKernelInstall use as an expected create-if-missing branch.
 	gormLogger := logger.New(log.New(os.Stderr, "", log.LstdFlags), logger.Config{
 		SlowThreshold:             200 * time.Millisecond,
 		LogLevel:                  logger.Warn,
@@ -34,11 +31,8 @@ func Open(path string) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	// SQLite has no real concurrent-writer story, and database/sql's default
-	// pool will happily open more than one connection to this same file.
-	// Pinning it to one connection serializes every query through it — the
-	// standard defensive default for Go+SQLite, and free since this panel
-	// never benefits from concurrent connections against one local file.
+	// SQLite has no real concurrent-writer story; pinning to one connection serializes every query
+	// through it, the standard defensive default for Go+SQLite.
 	if sqlDB, err := db.DB(); err == nil {
 		sqlDB.SetMaxOpenConns(1)
 	}
@@ -67,11 +61,9 @@ func Open(path string) (*gorm.DB, error) {
 	return db, nil
 }
 
-// seedPanelSettings creates the singleton PanelSettings row (id 1) on
-// first run, so main.go and the Settings page can always assume row 1
-// exists rather than special-casing "not created yet". WTP_INITIAL_BASE_PATH
-// lets the installer seed a random URI path instead of "/" — same
-// first-run-only semantics as seedAdmin's WTP_ADMIN_PASSWORD above.
+// seedPanelSettings creates the singleton PanelSettings row (id 1) on first run, so callers can
+// always assume row 1 exists. WTP_INITIAL_BASE_PATH lets the installer seed a random URI path
+// instead of "/", first-run-only like seedAdmin's WTP_ADMIN_PASSWORD.
 func seedPanelSettings(db *gorm.DB) error {
 	var count int64
 	if err := db.Model(&models.PanelSettings{}).Count(&count).Error; err != nil {
@@ -85,13 +77,9 @@ func seedPanelSettings(db *gorm.DB) error {
 		basePath = "/"
 	}
 
-	// Same "seed once, editable afterward" shape as basePath above: an
-	// explicit WTP_PUBLIC_IP wins if set (e.g. install.sh already knows
-	// it), otherwise best-effort auto-detect so the field isn't blank by
-	// default — a blank public_ip is exactly what makes Turnable refuse to
-	// start ("public_ip is required"). Detection failing (no egress, IPv6-
-	// only, etc.) just leaves it empty for the operator to fill in
-	// themselves on the Settings page; it's never fatal to startup.
+	// Explicit WTP_PUBLIC_IP wins if set, else best-effort auto-detect — a blank public_ip is exactly
+	// what makes Turnable refuse to start. Detection failure just leaves it empty for the operator to
+	// fill in on the Settings page; never fatal to startup.
 	publicIP := os.Getenv("WTP_PUBLIC_IP")
 	if publicIP == "" {
 		publicIP = detectPublicIP()
@@ -104,13 +92,8 @@ func seedPanelSettings(db *gorm.DB) error {
 	}).Error
 }
 
-// detectPublicIP asks a couple of plain-text "what's my IP" endpoints,
-// first one to answer with something that parses as an IP wins. Not
-// GitHub/any single provider's API — this is a different, much more
-// tolerant kind of external dependency (no auth, no rate limit that
-// matters for one lookup at first boot), but still only ever used to
-// pre-fill a field the operator can freely overwrite, so failure here is
-// silently swallowed rather than surfaced anywhere.
+// detectPublicIP asks a couple of plain-text "what's my IP" endpoints, first one to answer with a
+// parseable IP wins; only ever pre-fills a field the operator can overwrite, so failure is swallowed.
 func detectPublicIP() string {
 	client := &http.Client{Timeout: 3 * time.Second}
 	for _, url := range []string{"https://api.ipify.org", "https://ifconfig.me/ip", "https://icanhazip.com"} {
@@ -131,13 +114,9 @@ func detectPublicIP() string {
 	return ""
 }
 
-// seedAdmin creates the initial admin account on first run so the panel is
-// usable immediately. WTP_ADMIN_PASSWORD lets the installer (see
-// install.sh) seed a random password instead of the "admin" dev default —
-// it only has any effect on this very first run, same as every other field
-// here: once the row exists, this is a no-op, so leaving the env var set
-// permanently in the systemd unit is harmless (and doubles as a recovery
-// value if the admin row is ever deleted and re-seeded).
+// seedAdmin creates the initial admin account on first run. WTP_ADMIN_PASSWORD lets install.sh seed
+// a random password instead of the "admin" dev default; only effective on first run, so leaving the
+// env var set in the systemd unit is harmless (and doubles as a recovery value if re-seeded).
 func seedAdmin(db *gorm.DB) error {
 	var count int64
 	if err := db.Model(&models.AdminUser{}).Count(&count).Error; err != nil {

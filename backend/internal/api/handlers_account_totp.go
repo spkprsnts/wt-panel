@@ -9,12 +9,9 @@ import (
 	"wtpanel/internal/models"
 )
 
-// startTotpSetup generates a fresh secret + otpauth:// QR for the Settings
-// page's "Enable 2FA" dialog. Deliberately NOT persisted here — only
-// confirmTotpSetup, after seeing a real passing code, writes it to the
-// AdminUser row — so a QR the admin fails to scan (or a dialog they close
-// without finishing) never leaves 2FA half-configured against a secret
-// they don't actually have loaded in their authenticator app.
+// startTotpSetup generates a fresh secret + otpauth:// QR for the "Enable 2FA" dialog. Deliberately
+// not persisted here — only confirmTotpSetup, after a passing code, writes it to AdminUser — so an
+// abandoned dialog never leaves 2FA half-configured against a secret the admin never actually loaded.
 func (s *Server) startTotpSetup(c *gin.Context) {
 	adminID := c.MustGet("admin_id").(uint)
 	var admin models.AdminUser
@@ -39,9 +36,8 @@ type confirmTotpRequest struct {
 	Code   string `json:"code" binding:"required"`
 }
 
-// confirmTotpSetup is the second half of startTotpSetup: only once the
-// operator proves they can actually generate a valid code from the secret
-// they were just shown does it get saved as this admin's real 2FA secret.
+// confirmTotpSetup saves the secret as this admin's real 2FA secret only after they prove they can
+// generate a valid code from it.
 func (s *Server) confirmTotpSetup(c *gin.Context) {
 	var req confirmTotpRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -64,10 +60,8 @@ type totpCodeRequest struct {
 	Code string `json:"code" binding:"required"`
 }
 
-// disableTotp requires one more valid code (proof the admin still holds
-// the device) rather than just being logged in — losing the authenticator
-// app shouldn't be a one-click way for whoever's holding a stolen bearer
-// token to also strip 2FA off the account.
+// disableTotp requires one more valid code (proof of device possession), not just a valid session —
+// a stolen bearer token alone shouldn't be enough to strip 2FA off the account.
 func (s *Server) disableTotp(c *gin.Context) {
 	var req totpCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

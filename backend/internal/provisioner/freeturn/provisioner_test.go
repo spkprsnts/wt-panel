@@ -26,9 +26,8 @@ func decodeURI(t *testing.T, uri string) map[string]any {
 }
 
 // TestBuildURILinksIsAString guards against a real interop bug: this field
-// used to be a Go []string, which marshals as a JSON array. WireTurn's own
-// parser reads "links" via Gson's asString — handed an array, it throws and
-// the *entire* URI silently fails to import. See freeturnURI.Links.
+// used to be []string (marshals as a JSON array); WireTurn's Gson-based
+// parser reads "links" via asString and throws on an array, silently failing the whole URI import. See freeturnURI.Links.
 func TestBuildURILinksIsAString(t *testing.T) {
 	cfg := &config.Config{PublicIP: "1.2.3.4"}
 	cc := profileCoreConfig{
@@ -49,10 +48,8 @@ func TestBuildURILinksIsAString(t *testing.T) {
 	}
 }
 
-// TestBuildURIOmitsDefaultTransportAndMode matches the WireTurn app's own
-// URI generator (FreeTurnConfig.toUri), which only writes "transport"/"mode"
-// when they differ from the client's own defaults ("tcp"/"udp") — keeping
-// wt-panel's links the same shape keeps them exactly as short.
+// TestBuildURIOmitsDefaultTransportAndMode matches WireTurn's own URI
+// generator, which omits "transport"/"mode" at their defaults ("tcp"/"udp").
 func TestBuildURIOmitsDefaultTransportAndMode(t *testing.T) {
 	cfg := &config.Config{PublicIP: "1.2.3.4"}
 	cc := profileCoreConfig{

@@ -7,10 +7,8 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
-// GenerateWireGuardKeypair returns a standard WireGuard keypair (base64,
-// 32 raw bytes each) — the same X25519 curve `wg genkey`/`wg pubkey` and
-// Xray-core's WireGuard inbound/outbound use. No external binary involved
-// (unlike Turnable's ML-KEM-768 keypair).
+// GenerateWireGuardKeypair returns a standard WireGuard keypair (base64, 32
+// raw bytes) — same X25519 curve as `wg genkey`/`wg pubkey` and xray-core's WireGuard support. No external binary involved.
 func GenerateWireGuardKeypair() (privateKey, publicKey string, err error) {
 	var priv [32]byte
 	if _, err := rand.Read(priv[:]); err != nil {
@@ -29,11 +27,9 @@ func GenerateWireGuardKeypair() (privateKey, publicKey string, err error) {
 	return base64.StdEncoding.EncodeToString(priv[:]), base64.StdEncoding.EncodeToString(pub), nil
 }
 
-// GenerateRealityKeypair returns an X25519 keypair encoded the way
-// xray-core's `xray x25519` tool and Reality's privateKey/shortIds settings
-// expect: raw URL-safe base64, no padding — same curve as
-// GenerateWireGuardKeypair, different text encoding, so the two never
-// round-trip as interchangeable strings.
+// GenerateRealityKeypair returns an X25519 keypair as raw URL-safe base64,
+// no padding — the encoding xray-core's `xray x25519` and Reality expect;
+// same curve as GenerateWireGuardKeypair, different encoding, not interchangeable.
 func GenerateRealityKeypair() (privateKey, publicKey string, err error) {
 	var priv [32]byte
 	if _, err := rand.Read(priv[:]); err != nil {

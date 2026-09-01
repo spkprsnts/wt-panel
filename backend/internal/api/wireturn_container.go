@@ -7,11 +7,9 @@ import (
 	"encoding/json"
 )
 
-// encodeWireturnContainer implements the wireturn:// / wt:// deep-link
-// container documented in docs/subscriptions.md §4: zlib-deflate (standard
-// zlib container — header + Adler-32 trailer, NOT raw deflate) at
-// BestCompression, then Base64 URL-safe with padding stripped. There's no
-// version byte or magic prefix — decoding is the exact mirror of this.
+// encodeWireturnContainer implements the wireturn:// deep-link container from §4: standard zlib
+// (header + Adler-32 trailer, not raw deflate) at BestCompression, then Base64 URL-safe with padding
+// stripped. No version byte or magic prefix — decoding is the exact mirror.
 func encodeWireturnContainer(payload []byte) string {
 	var buf bytes.Buffer
 	zw, _ := zlib.NewWriterLevel(&buf, zlib.BestCompression)
@@ -20,19 +18,15 @@ func encodeWireturnContainer(payload []byte) string {
 	return "wireturn://" + base64.RawURLEncoding.EncodeToString(buf.Bytes())
 }
 
-// buildSubscriptionWireturnLink wraps a subscription URL for one-tap import
-// — per §4, the container's decompressed payload is checked for an
-// "http://"/"https://" prefix to tell a subscription address apart from an
-// embedded profile, so this deliberately compresses the bare URL text, not a
-// JSON-quoted string.
+// buildSubscriptionWireturnLink wraps a subscription URL for one-tap import — per §4 the app checks
+// the decompressed payload for an "http://"/"https://" prefix to tell it apart from an embedded
+// profile, so this compresses the bare URL text, not a JSON-quoted string.
 func buildSubscriptionWireturnLink(url string) string {
 	return encodeWireturnContainer([]byte(url))
 }
 
-// buildProfileWireturnLink wraps a single profile (in the same "Profile"
-// JSON shape §5.4/§5.5 use) for direct, subscription-less import — the
-// spec allows the container to carry either a bare Profile object or an
-// array; a lone object is simpler and just as valid.
+// buildProfileWireturnLink wraps a single profile (§5.4/§5.5 "Profile" shape) for direct,
+// subscription-less import — the spec allows either a bare Profile object or an array here.
 func buildProfileWireturnLink(bp BundleProfile) (string, error) {
 	data, err := json.Marshal(bp)
 	if err != nil {

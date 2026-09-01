@@ -1,9 +1,8 @@
 // Package olcrtc provisions server-side state for the "olcrtc" kernel:
 // https://github.com/openlibrecommunity/olcrtc
 //
-// An olcrtc config describes a single room/session (mode: srv) rather than
-// a list of users, so — like the other three kernels — the panel runs one
-// dedicated process per profile instead of sharing one.
+// An olcrtc config describes a single room/session (mode: srv), so — like
+// the other three kernels — the panel runs one dedicated process per profile.
 package olcrtc
 
 import (
@@ -167,8 +166,7 @@ func (p *Provisioner) Shutdown() {
 }
 
 // parseConfig fills in Provider/Transport/DNS defaults and the recommended
-// per-transport tuning block (docs/settings.md "Рекомендуется" rows) when
-// the profile didn't set its own.
+// per-transport tuning block (docs/settings.md "Рекомендуется" rows) when unset.
 func (p *Provisioner) parseConfig(profile *models.Profile) (profileCoreConfig, error) {
 	var cc profileCoreConfig
 	if profile.CoreConfig != "" {
@@ -236,12 +234,9 @@ func (p *Provisioner) writeAndStart(profile *models.Profile, cc profileCoreConfi
 	return buildURI(cc, profile.Name), nil
 }
 
-// parseSocksProxy splits a "socks5://[user[:pass]@]host:port" upstream URL
-// into olcrtc's own separate proxy_addr/proxy_port/proxy_user/proxy_pass
-// YAML keys (see socksYAML) — olcrtc's config schema has no single
-// "upstream URL" field the way webdav-tunnel's -proxy flag does. Returns
-// nil, nil for an empty upstream, so callers can assign the result straight
-// to yamlConfig.Socks.
+// parseSocksProxy splits a "socks5://[user[:pass]@]host:port" URL into
+// olcrtc's separate proxy_addr/proxy_port/proxy_user/proxy_pass YAML keys
+// (see socksYAML). Returns nil, nil for an empty upstream, for direct assignment to yamlConfig.Socks.
 func parseSocksProxy(upstream string) (*socksYAML, error) {
 	if upstream == "" {
 		return nil, nil
@@ -322,11 +317,9 @@ func writeYAML(path string, cc profileCoreConfig) error {
 	return os.WriteFile(path, data, 0o600)
 }
 
-// buildURI follows the compact convention in docs/uri.md:
+// buildURI follows docs/uri.md:
 // olcrtc://<Provider>?<Transport>@<RoomID>#<EncryptionKey>$<Name>
-// Transport parameter payloads (vp8/sei/video tuning) are omitted — the
-// WireTurn client re-derives its own defaults, and ours are only
-// meaningful server-side.
+// Vp8/Sei/Video tuning is omitted — the WireTurn client re-derives its own defaults; ours are server-side only.
 func buildURI(cc profileCoreConfig, name string) string {
 	return fmt.Sprintf("olcrtc://%s?%s@%s#%s$%s",
 		cc.Provider, cc.Transport, cc.RoomID, cc.CryptoKey, name)

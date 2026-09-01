@@ -1,12 +1,9 @@
 // Package turnable provisions server-side state for the "turnable" kernel:
 // https://github.com/TheAirBlow/Turnable
 //
-// Upstream has no built-in user database or hot-reload, so rather than
-// share one server process across every profile — forcing a restart,
-// dropping every other user's connection, on any single profile edit —
-// this provisioner runs one dedicated Turnable server process per profile,
-// each with its own listen port, call_id, key material and a single
-// embedded user.
+// Upstream has no built-in user database or hot-reload, so sharing one
+// process across every profile would drop every user's connection on any
+// single edit — this runs one dedicated process per profile instead.
 package turnable
 
 import (
@@ -24,8 +21,7 @@ import (
 )
 
 // routeID is the fixed id/display name of the single route embedded in
-// every profile's config — there's exactly one egress destination per
-// profile, so there's nothing for the operator to name.
+// every profile's config — there's only one egress destination per profile.
 const routeID = "main"
 
 type Provisioner struct {
@@ -83,8 +79,7 @@ func (p *Provisioner) UpdateProfile(ctx context.Context, profile *models.Profile
 		return "", err
 	}
 	if cc.Port == 0 {
-		// No prior port on record (shouldn't normally happen) — treat as
-		// a fresh provision rather than silently picking a random one.
+		// No prior port on record (shouldn't normally happen) — treat as a fresh provision.
 		port, err := common.FreePort()
 		if err != nil {
 			return "", fmt.Errorf("allocate turnable port: %w", err)
@@ -187,11 +182,9 @@ func (p *Provisioner) Shutdown() {
 	wg.Wait()
 }
 
-// applyLogicalDefaults parses profile.CoreConfig and fills defaults for
-// everything that has one. CallID and RoutePort have no default — CallID
-// must name a call/room the operator already created on the platform, and
-// RoutePort depends entirely on which local service this profile should
-// reach.
+// applyLogicalDefaults fills defaults for everything that has one. CallID
+// and RoutePort have no default — CallID names an already-created platform
+// call, RoutePort depends on which local service this profile should reach.
 func (p *Provisioner) applyLogicalDefaults(profile *models.Profile) (profileCoreConfig, error) {
 	var cc profileCoreConfig
 	if profile.CoreConfig != "" {
@@ -216,17 +209,15 @@ func (p *Provisioner) applyLogicalDefaults(profile *models.Profile) (profileCore
 		cc.Peers = 10
 	}
 	if cc.PlatformID == "" {
-		// Not env-configurable — profile-form.tsx's platform select only
-		// ever offers "vk.com" and always sends it explicitly, so this only
-		// matters for a profile created by calling the API directly.
+		// Not env-configurable — profile-form.tsx's select only offers
+		// "vk.com" and always sends it explicitly; this only matters when calling the API directly.
 		cc.PlatformID = "vk.com"
 	}
 	if cc.RouteAddr == "" {
 		cc.RouteAddr = p.cfg.TurnableDefaultRouteHost
 	}
 	if cc.RouteSocket == "" {
-		// Same reasoning as PlatformID above — the form's own initial state
-		// always sends "udp" explicitly.
+		// Same reasoning as PlatformID above — the form always sends "udp" explicitly.
 		cc.RouteSocket = "udp"
 	}
 	if cc.RouteTransport == "" {
@@ -311,21 +302,14 @@ func (p *Provisioner) configPath(externalID string) string {
 // buildURI follows docs/subscriptions.md §2.1:
 // turnable://[user_uuid]:[call_id]@[platform_id]/[route_id-socket-transport]?type=...&gateway=host:port&proto=...&cloak=none&peers=...&encryption=...&pub_key=...&selected_route_id=...#name
 //
-// The route's socket/transport used to only reach the SERVER's local
-// config.json — the path segment was just the bare route id ("main"), so
-// the client had no way to know this route needs tcp+kcp rather than plain
-// udp. Per the spec's worked example, the transport half is the empty
-// string when the socket is udp, not the literal "none" — RouteTransport
-// only ever holds "none" as this provisioner's internal placeholder (see
-// profileCoreConfig), so it's translated back to "" before hitting the URI.
+// The route segment used to be just the bare route id, leaving the client no
+// way to know it needs tcp+kcp vs plain udp. Per spec, transport is "" when
+// socket is udp, not the literal "none" — RouteTransport uses "none" only as
+// this provisioner's internal placeholder, translated back to "" here.
 //
-// `type` is the client-facing connection mode (relay/direct), independent
-// from the server config's own "type" field which is always "relay".
-// `pub_key` is the server's ML-KEM-768 public key (see Keygen) the client
-// needs to perform that handshake against — omitting it (an earlier
-// version did) leaves the client with no key to encrypt to. It's base64
-// (+/=-bearing), so it has to be query-escaped, unlike every other segment
-// here.
+// `pub_key` is the server's ML-KEM-768 public key the client needs for the
+// handshake — an earlier version omitted it, leaving the client with nothing
+// to encrypt to. It's base64 (+/=-bearing), so unlike every other segment here it must be query-escaped.
 func buildURI(cfg *config.Config, profile *models.Profile, cc profileCoreConfig) string {
 	gateway := fmt.Sprintf("%s:%d", cfg.PublicIP, cc.Port)
 	routeTransport := cc.RouteTransport
@@ -338,9 +322,8 @@ func buildURI(cfg *config.Config, profile *models.Profile, cc profileCoreConfig)
 		route, cc.ConnectionType, gateway, cc.Proto, cc.Peers, cc.Encryption, url.QueryEscape(cc.PubKey), routeID, profile.Name)
 }
 
-// transportFor is only used to seed a sensible default: TCP routes should
-// use kcp, UDP should use none (docs/server/CONFIG.md upstream) — but the
-// field stays fully overridable per profile.
+// transportFor seeds a sensible default: TCP routes use kcp, UDP uses none
+// (docs/server/CONFIG.md) — the field stays fully overridable per profile.
 func transportFor(socket string) string {
 	if socket == "udp" {
 		return "none"

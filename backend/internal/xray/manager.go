@@ -11,13 +11,10 @@ import (
 	"wtpanel/internal/provisioner/common"
 )
 
-// Manager owns the single shared xray-core process. Reload is the only
-// entry point that matters operationally: it rebuilds config.json from the
-// database and starts/restarts/stops the process to match. Every mutation
-// to an XrayInbound or XrayClient calls Reload afterwards — there's no hot
-// add/remove via xray-core's Stats/Handler API yet (see README), so a full
-// restart is simple and correct, just not glitch-free for other inbounds'
-// connections while it happens.
+// Manager owns the single shared xray-core process. Reload rebuilds
+// config.json from the DB and starts/restarts/stops the process to match —
+// every XrayInbound/XrayClient mutation calls it. No hot add/remove via
+// xray-core's Stats/Handler API yet, so a full restart isn't glitch-free for other inbounds' connections.
 type Manager struct {
 	mu         sync.Mutex
 	db         *gorm.DB
@@ -37,10 +34,8 @@ func NewManager(cfg *config.Config, db *gorm.DB) *Manager {
 	}
 }
 
-// Reload regenerates config.json from the current DB state and starts,
-// restarts, or stops xray-core so the running process matches it. Safe to
-// call whether or not xray-core is currently running, and whether or not
-// any inbound is even enabled (an empty config just means "stopped").
+// Reload regenerates config.json from the DB and starts/restarts/stops
+// xray-core to match. Safe regardless of current state — no enabled inbounds just means "stopped".
 func (m *Manager) Reload() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -77,9 +72,7 @@ func (m *Manager) Logs(maxBytes int) (string, error) {
 	return m.sup.ReadLog(maxBytes)
 }
 
-// Shutdown stops xray-core gracefully — called alongside
-// registry.ShutdownAll(), same "die with the panel" guarantee the four
-// kernel processes already have.
+// Shutdown stops xray-core gracefully, same "die with the panel" guarantee as the four kernel processes.
 func (m *Manager) Shutdown() {
 	_ = m.sup.Stop()
 }
