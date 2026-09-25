@@ -83,10 +83,18 @@ export const profileForm = {
     "profileForm.olcrtc.maxSessionDurationHint": "Автоматическая пересборка сессии раз в указанный интервал.",
     "profileForm.olcrtc.transportLabel": "Транспорт",
 
+    "profileForm.freeturn.providerLabel": "Маршрут до сервера",
+    "profileForm.freeturn.providerVk": "Через TURN-реле VK Звонков",
+    "profileForm.freeturn.providerDirect": "Напрямую (direct)",
+    "profileForm.freeturn.providerDirectNote":
+      "Клиент подключается прямо к серверу, без звонка и TURN-реле. Не работает, если IP сервера недоступен у оператора (белые списки) — там только VK. Нужен клиент FreeTurn 4.0+.",
     "profileForm.freeturn.callIdsLabel": "ID звонков",
     "profileForm.freeturn.modeLabel": "Режим туннеля",
     "profileForm.freeturn.modeUdp": "UDP-релей (WireGuard)",
     "profileForm.freeturn.modeTcp": "TCP-форвардер (Xray/sing-box)",
+    "profileForm.freeturn.bondLabel": "Bond",
+    "profileForm.freeturn.bondNote":
+      "Каждое TCP-соединение делится между всеми сессиями — может поднять скорость. Нужен FreeTurn 4.0+ и на сервере, и у клиента: старый сервер такого клиента отклонит.",
     "profileForm.freeturn.transportLabel": "Транспорт (до TURN-сервера)",
     "profileForm.freeturn.forwardTitle": "Маршрут до инбаунда",
     "profileForm.freeturn.kcpSettingsTitle": "Настройки KCP",
@@ -237,10 +245,18 @@ export const profileForm = {
     "profileForm.olcrtc.maxSessionDurationHint": "Automatically rebuilds the session on this interval.",
     "profileForm.olcrtc.transportLabel": "Transport",
 
+    "profileForm.freeturn.providerLabel": "Route to the server",
+    "profileForm.freeturn.providerVk": "Via the VK Calls TURN relay",
+    "profileForm.freeturn.providerDirect": "Direct",
+    "profileForm.freeturn.providerDirectNote":
+      "The client connects straight to the server, with no call or TURN relay. Doesn't work where the carrier blocks the server's IP (allowlists) — use VK there. Requires FreeTurn client 4.0+.",
     "profileForm.freeturn.callIdsLabel": "Call IDs",
     "profileForm.freeturn.modeLabel": "Tunnel mode",
     "profileForm.freeturn.modeUdp": "UDP relay (WireGuard)",
     "profileForm.freeturn.modeTcp": "TCP forwarder (Xray/sing-box)",
+    "profileForm.freeturn.bondLabel": "Bond",
+    "profileForm.freeturn.bondNote":
+      "Splits each TCP connection across all sessions — can raise throughput. Requires FreeTurn 4.0+ on both server and client: an older server rejects such clients.",
     "profileForm.freeturn.transportLabel": "Transport (to the TURN server)",
     "profileForm.freeturn.forwardTitle": "Route to the inbound",
     "profileForm.freeturn.kcpSettingsTitle": "KCP settings",

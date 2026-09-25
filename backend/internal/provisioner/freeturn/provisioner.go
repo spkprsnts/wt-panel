@@ -102,7 +102,7 @@ func (p *Provisioner) UpdateProfile(ctx context.Context, profile *models.Profile
 	if err := p.ensureProcess(profile, cc); err != nil {
 		return "", err
 	}
-	// Provider/Links/Transport only affect the client-facing URI, never
+	// Provider/Links/Transport/Bond only affect the client-facing URI, never
 	// process flags — ensureProcess restarts only if something infra-relevant (port/connect/obf-*) changed.
 	return p.persistAndBuildURI(profile, cc), nil
 }
@@ -204,6 +204,9 @@ func (p *Provisioner) applyLogicalDefaults(profile *models.Profile) (profileCore
 	if cc.Provider == "" {
 		cc.Provider = "vk"
 	}
+	if cc.Provider != "vk" && cc.Provider != "direct" {
+		return cc, fmt.Errorf("freeturn profile has unknown provider %q: must be vk or direct", cc.Provider)
+	}
 	if cc.Transport == "" {
 		cc.Transport = "tcp"
 	}
@@ -223,7 +226,7 @@ func (p *Provisioner) applyLogicalDefaults(profile *models.Profile) (profileCore
 }
 
 // ensureProcess (re)starts the process only if it isn't running yet or its
-// infra-relevant flags changed — editing Provider/Links/Transport never restarts it.
+// infra-relevant flags changed — editing Provider/Links/Transport/Bond never restarts it.
 func (p *Provisioner) ensureProcess(profile *models.Profile, cc profileCoreConfig) error {
 	dir := p.profileDir(profile.ExternalID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -294,22 +297,30 @@ func (p *Provisioner) profileDir(externalID string) string {
 }
 
 func buildURI(cfg *config.Config, cc profileCoreConfig) string {
-	links := strings.Join(cc.Links, ",")
 	payload := freeturnURI{
 		V:        1,
 		Provider: cc.Provider,
 		Peer:     fmt.Sprintf("%s:%d", cfg.PublicIP, cc.Port),
-		Links:    links,
-		VK:       links,
 	}
-	if cc.Transport != "" && cc.Transport != "tcp" {
-		payload.Transport = cc.Transport
+	// "direct" never touches the call relay, so the call ids and relay
+	// transport stay stored on the profile but are left out of the link.
+	if cc.Provider == "direct" {
+		payload.N = 1
+	} else {
+		payload.Links = strings.Join(cc.Links, ",")
+		if len(cc.Links) > 0 {
+			payload.VK = cc.Links[0]
+		}
+		if cc.Transport != "" && cc.Transport != "tcp" {
+			payload.Transport = cc.Transport
+		}
 	}
 	if cc.Mode != "" && cc.Mode != "udp" {
 		payload.Mode = cc.Mode
 	}
-	if cc.Mode == "tcp" && cc.KCP != nil {
+	if cc.Mode == "tcp" {
 		payload.KCP = cc.KCP
+		payload.Bond = cc.Bond
 	}
 	if cc.ObfProfile != "" && cc.ObfProfile != "none" {
 		payload.Obf = cc.ObfProfile

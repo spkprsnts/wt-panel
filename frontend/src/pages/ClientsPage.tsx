@@ -54,7 +54,7 @@ function profileSummaryBadges(profile: Profile): string[] {
       fields = [str(cfg.provider), str(cfg.transport), socks5]
       break
     case "freeturn":
-      fields = []
+      fields = [cfg.provider === "direct" ? "direct" : null, cfg.mode === "tcp" && cfg.bond === true ? "bond" : null]
       break
     case "webdav":
       fields = [str(cfg.conn_mode), socks5]

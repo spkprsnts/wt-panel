@@ -175,6 +175,8 @@ const initialOlcrtc: OlcrtcState = {
 }
 
 interface FreeturnState {
+  // "direct" (upstream 4.0+) dials the server without the VK Calls relay — no call ids or relay transport needed.
+  provider: "vk" | "direct"
   links: string[]
   transport: "tcp" | "udp"
   // "udp" relays UDP datagrams transparently (WireGuard/Hysteria backends); "tcp" forwards a TCP stream via KCP+smux over the same UDP-only TURN relay (Xray/sing-box/VLESS backends).
@@ -194,9 +196,12 @@ interface FreeturnState {
   kcpRcvWnd: string
   kcpMTU: string
   kcpAckNoDelay: boolean
+  // Spreads each TCP connection across all sessions (upstream 4.0+ on both ends), only sent when mode is "tcp".
+  bond: boolean
 }
 
 const initialFreeturn: FreeturnState = {
+  provider: "vk",
   links: [],
   transport: "tcp",
   mode: "udp",
@@ -214,6 +219,7 @@ const initialFreeturn: FreeturnState = {
   kcpRcvWnd: "512",
   kcpMTU: "1200",
   kcpAckNoDelay: true,
+  bond: false,
 }
 
 // Login/Password are auto-generated server-side on first save if left blank (same as Turnable's pub_key/priv_key).
@@ -395,6 +401,7 @@ function parseCoreConfig(
     tn: initialTurnable,
     oc: initialOlcrtc,
     ft: {
+      provider: (str(cfg.provider, initialFreeturn.provider) as FreeturnState["provider"]),
       links,
       transport: (str(cfg.transport, initialFreeturn.transport) as FreeturnState["transport"]),
       mode: (str(cfg.mode, initialFreeturn.mode) as FreeturnState["mode"]),
@@ -412,6 +419,7 @@ function parseCoreConfig(
       kcpRcvWnd: num(kcp.rcvwnd, initialFreeturn.kcpRcvWnd),
       kcpMTU: num(kcp.mtu, initialFreeturn.kcpMTU),
       kcpAckNoDelay: typeof kcp.acknodelay === "boolean" ? kcp.acknodelay : initialFreeturn.kcpAckNoDelay,
+      bond: cfg.bond === true,
     },
     wd: initialWebdav,
   }
@@ -523,7 +531,7 @@ function buildCoreConfig(
   }
   // freeturn
   return {
-    provider: "vk",
+    provider: ft.provider,
     links: ft.links,
     transport: ft.transport,
     mode: ft.mode,
@@ -544,6 +552,7 @@ function buildCoreConfig(
         mtu: Number(ft.kcpMTU),
         acknodelay: ft.kcpAckNoDelay,
       },
+      ...(ft.bond && { bond: true }),
     }),
   }
 }
@@ -641,6 +650,10 @@ export function ProfileForm({
     rtpopus2: "rtpopus2",
     rtpopus3: "rtpopus3",
     none: t("profileForm.freeturn.obfProfileNone"),
+  }
+  const freeturnProviderLabels: Record<FreeturnState["provider"], string> = {
+    vk: t("profileForm.freeturn.providerVk"),
+    direct: t("profileForm.freeturn.providerDirect"),
   }
   const freeturnModeLabels: Record<FreeturnState["mode"], string> = {
     udp: t("profileForm.freeturn.modeUdp"),
@@ -1544,36 +1557,69 @@ export function ProfileForm({
           <SectionGroup>
             <SectionItem position="top">
               <div className="flex w-full flex-col gap-1">
-                <label className="text-title-medium text-on-surface">{t("profileForm.freeturn.callIdsLabel")}</label>
-                <MultiSelect
-                  options={vkRoomOptions}
-                  value={ft.links}
-                  onChange={(v) => setFt({ ...ft, links: v })}
-                  placeholder={t("profileForm.callIdComboPlaceholder")}
-                  customValuePlaceholder={t("common.customValue")}
-                  removeOptionLabel={(label) => `${t("common.remove")}: ${label}`}
-                  addCustomValueLabel={t("common.add")}
-                />
-                <VkCallHint />
-              </div>
-            </SectionItem>
-            <SectionItem position="middle">
-              <div className="flex w-full flex-col gap-1">
-                <label className="text-title-medium text-on-surface">{t("profileForm.freeturn.transportLabel")}</label>
+                <label className="text-title-medium text-on-surface">{t("profileForm.freeturn.providerLabel")}</label>
                 <Select
-                  value={ft.transport}
-                  onValueChange={(v) => setFt({ ...ft, transport: v as FreeturnState["transport"] })}
+                  value={ft.provider}
+                  onValueChange={(v) =>
+                    setFt({ ...ft, provider: (v as FreeturnState["provider"]) ?? initialFreeturn.provider })
+                  }
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue>{(v: string | null) => v?.toUpperCase()}</SelectValue>
+                    <SelectValue>
+                      {(v: FreeturnState["provider"] | null) => labelFor(freeturnProviderLabels, v)}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="tcp">TCP</SelectItem>
-                    <SelectItem value="udp">UDP</SelectItem>
+                    {Object.entries(freeturnProviderLabels).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+                {ft.provider === "direct" && (
+                  <p className="text-body-small text-on-surface-variant">
+                    {t("profileForm.freeturn.providerDirectNote")}
+                  </p>
+                )}
               </div>
             </SectionItem>
+            {ft.provider === "vk" && (
+              <>
+                <SectionItem position="middle">
+                  <div className="flex w-full flex-col gap-1">
+                    <label className="text-title-medium text-on-surface">{t("profileForm.freeturn.callIdsLabel")}</label>
+                    <MultiSelect
+                      options={vkRoomOptions}
+                      value={ft.links}
+                      onChange={(v) => setFt({ ...ft, links: v })}
+                      placeholder={t("profileForm.callIdComboPlaceholder")}
+                      customValuePlaceholder={t("common.customValue")}
+                      removeOptionLabel={(label) => `${t("common.remove")}: ${label}`}
+                      addCustomValueLabel={t("common.add")}
+                    />
+                    <VkCallHint />
+                  </div>
+                </SectionItem>
+                <SectionItem position="middle">
+                  <div className="flex w-full flex-col gap-1">
+                    <label className="text-title-medium text-on-surface">{t("profileForm.freeturn.transportLabel")}</label>
+                    <Select
+                      value={ft.transport}
+                      onValueChange={(v) => setFt({ ...ft, transport: v as FreeturnState["transport"] })}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue>{(v: string | null) => v?.toUpperCase()}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="tcp">TCP</SelectItem>
+                        <SelectItem value="udp">UDP</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </SectionItem>
+              </>
+            )}
             <SectionItem position="bottom">
               <TextFieldRow
                 id="ft-listen-port"
@@ -1608,7 +1654,7 @@ export function ProfileForm({
                 placeholder={ft.mode === "tcp" ? "443" : "51820"}
               />
             </SectionItem>
-            <SectionItem position="bottom">
+            <SectionItem position={ft.mode === "tcp" ? "middle" : "bottom"}>
               <div className="flex w-full flex-col gap-1">
                 <label className="text-title-medium text-on-surface">{t("profileForm.freeturn.modeLabel")}</label>
                 <Select
@@ -1628,6 +1674,21 @@ export function ProfileForm({
                 </Select>
               </div>
             </SectionItem>
+            {ft.mode === "tcp" && (
+              <SectionItem
+                position="bottom"
+                role="switch"
+                aria-checked={ft.bond}
+                onClick={() => setFt({ ...ft, bond: !ft.bond })}
+              >
+                <SwitchRow
+                  label={t("profileForm.freeturn.bondLabel")}
+                  checked={ft.bond}
+                  onCheckedChange={(v) => setFt({ ...ft, bond: v })}
+                  supportingText={t("profileForm.freeturn.bondNote")}
+                />
+              </SectionItem>
+            )}
           </SectionGroup>
 
           {ft.mode === "tcp" && (

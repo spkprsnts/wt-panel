@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"wtpanel/internal/config"
+	"wtpanel/internal/models"
 )
 
 // decodeURI reverses buildURI's own encoding so a test can inspect the raw
@@ -64,6 +65,9 @@ func TestBuildURIOmitsDefaultTransportAndMode(t *testing.T) {
 	if _, present := m["transport"]; present {
 		t.Errorf("transport should be omitted at its \"tcp\" default, got %v", m["transport"])
 	}
+	if _, present := m["n"]; present {
+		t.Errorf("n should be omitted for provider vk, got %v", m["n"])
+	}
 	if _, present := m["mode"]; present {
 		t.Errorf("mode should be omitted at its \"udp\" default, got %v", m["mode"])
 	}
@@ -116,8 +120,9 @@ func TestBuildURIUpstreamKeys(t *testing.T) {
 
 	m := decodeURI(t, buildURI(cfg, cc))
 
-	if got := m["vk"]; got != "ABC123xyz,DEF456uvw" {
-		t.Errorf("vk = %v, want the comma-joined links", got)
+	// Only the first link: the official Android app treats "vk" as one link.
+	if got := m["vk"]; got != "ABC123xyz" {
+		t.Errorf("vk = %v, want the first link only", got)
 	}
 	if got := m["obft"]; got != "10ms" {
 		t.Errorf("obft = %v, want \"10ms\" (still needed by WireTurn)", got)
@@ -130,5 +135,55 @@ func TestBuildURIUpstreamKeys(t *testing.T) {
 	m = decodeURI(t, buildURI(cfg, cc))
 	if _, present := m["timing"]; present {
 		t.Errorf("timing should be omitted without obfuscation, got %v", m["timing"])
+	}
+}
+
+// TestBuildURIDirectOmitsCallFields: "direct" dials the peer without the
+// call relay, so the link carries no call ids or relay transport.
+func TestBuildURIDirectOmitsCallFields(t *testing.T) {
+	cfg := &config.Config{PublicIP: "1.2.3.4"}
+	cc := profileCoreConfig{
+		Provider:  "direct",
+		Links:     []string{"ABC123xyz"},
+		Transport: "udp",
+		Port:      56000,
+	}
+
+	m := decodeURI(t, buildURI(cfg, cc))
+
+	if got := m["provider"]; got != "direct" {
+		t.Errorf("provider = %v, want \"direct\"", got)
+	}
+	if got := m["n"]; got != float64(1) {
+		t.Errorf("n = %v, want 1 (WireTurn otherwise imports its relay default)", got)
+	}
+	for _, key := range []string{"links", "vk", "transport"} {
+		if _, present := m[key]; present {
+			t.Errorf("%s should be omitted for provider direct, got %v", key, m[key])
+		}
+	}
+}
+
+// TestBuildURIBondOnlyInTCPMode: upstream rejects -bond outside -mode tcp.
+func TestBuildURIBondOnlyInTCPMode(t *testing.T) {
+	cfg := &config.Config{PublicIP: "1.2.3.4"}
+	cc := profileCoreConfig{Provider: "vk", Mode: "tcp", Bond: true, Port: 56000}
+
+	if got := decodeURI(t, buildURI(cfg, cc))["bond"]; got != true {
+		t.Errorf("bond = %v, want true in tcp mode", got)
+	}
+
+	cc.Mode = "udp"
+	if got, present := decodeURI(t, buildURI(cfg, cc))["bond"]; present {
+		t.Errorf("bond should be omitted in udp mode, got %v", got)
+	}
+}
+
+func TestApplyLogicalDefaultsRejectsUnknownProvider(t *testing.T) {
+	p := New(&config.Config{DataDir: t.TempDir()})
+	profile := &models.Profile{CoreConfig: `{"provider":"telemost","connect_port":51820}`}
+
+	if _, err := p.applyLogicalDefaults(profile); err == nil {
+		t.Error("want an error for an unknown provider")
 	}
 }

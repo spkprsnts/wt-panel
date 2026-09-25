@@ -5,14 +5,16 @@ package freeturn
 //
 // Port and ObfKey are infra: minted once and kept stable, since the client's
 // freeturn:// URI bakes them in and rotating ObfKey would break every client.
-// Provider/Links/Transport only affect the client-facing JSON payload, never
+// Provider/Links/Transport/Bond only affect the client-facing JSON payload, never
 // server flags, so editing them never restarts the process; ConnectHost/
 // ConnectPort/ObfProfile/ObfTiming do affect flags and do restart it.
 //
 // There's no clients.json allowlist here — one process per profile already
 // scopes access via the (secret) obf-key and port.
 type profileCoreConfig struct {
-	Provider  string   `json:"provider"`  // "vk"
+	// Provider "direct" (upstream 4.0+) skips the TURN relay and dials Peer
+	// straight away — same server, but Links/Transport go unused.
+	Provider  string   `json:"provider"`  // "vk" or "direct"
 	Links     []string `json:"links"`     // bare VK Calls ids (e.g. "ABC123xyz"), not full https://vk.com/call/join/... links
 	Transport string   `json:"transport"` // "tcp" or "udp", must match server -obf-profile expectations
 
@@ -24,6 +26,11 @@ type profileCoreConfig struct {
 	// KCP tunes the ARQ layer ("-kcp-*" flags), only valid when Mode ==
 	// "tcp". nil means "use the binary's own defaults", not "all zero" — 0 is itself meaningful for NoDelay/NC.
 	KCP *kcpOpts `json:"kcp,omitempty"`
+
+	// Bond spreads each TCP connection across all sessions (upstream 4.0+),
+	// only valid when Mode == "tcp". Client-side only: a 4.0+ server accepts
+	// bond and plain clients alike, an older one rejects bond clients.
+	Bond bool `json:"bond,omitempty"`
 
 	ConnectHost string `json:"connect_host,omitempty"` // local backend's host, e.g. 127.0.0.1
 	ConnectPort int    `json:"connect_port,omitempty"` // required, no default — depends on the local service
@@ -61,10 +68,17 @@ type freeturnURI struct {
 	Transport string   `json:"transport,omitempty"` // omitted at the "tcp" default, matching the app's own generator
 	Mode      string   `json:"mode,omitempty"`      // omitted at the "udp" default, matching the app's own generator
 	KCP       *kcpOpts `json:"kcp,omitempty"`       // only set when Mode == "tcp" — see kcpOpts' own doc comment
+	Bond      bool     `json:"bond,omitempty"`      // only set when Mode == "tcp"
 
-	// VK duplicates Links under the key upstream's own client reads (4.0+),
-	// which ignores "links"; upstream accepts bare ids comma-joined too.
+	// VK carries the first of Links under the key upstream's own clients read
+	// (4.0+), which ignore "links". Only the first: the official Android app
+	// hands "vk" to the core as a single link, so a comma list would break it
+	// — same as WireTurn's own generator.
 	VK string `json:"vk,omitempty"`
+
+	// N is only set for provider "direct": WireTurn fills a missing "n" with
+	// its relay default (10) on import, while direct wants upstream's 1.
+	N int `json:"n,omitempty"`
 
 	// Obf/Key/Obft must mirror the -obf-profile/-obf-key/-obf-timing flags
 	// the server actually runs with (see ensureProcess), or the client can't
