@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"wtpanel/internal/config"
 	"wtpanel/internal/models"
@@ -293,11 +294,13 @@ func (p *Provisioner) profileDir(externalID string) string {
 }
 
 func buildURI(cfg *config.Config, cc profileCoreConfig) string {
+	links := strings.Join(cc.Links, ",")
 	payload := freeturnURI{
 		V:        1,
 		Provider: cc.Provider,
 		Peer:     fmt.Sprintf("%s:%d", cfg.PublicIP, cc.Port),
-		Links:    strings.Join(cc.Links, ","),
+		Links:    links,
+		VK:       links,
 	}
 	if cc.Transport != "" && cc.Transport != "tcp" {
 		payload.Transport = cc.Transport
@@ -312,6 +315,11 @@ func buildURI(cfg *config.Config, cc profileCoreConfig) string {
 		payload.Obf = cc.ObfProfile
 		payload.Key = cc.ObfKey
 		payload.Obft = cc.ObfTiming
+		// An unparseable or sub-millisecond value can't be expressed in
+		// "timing", so it's left out rather than sent as 0.
+		if d, err := time.ParseDuration(cc.ObfTiming); err == nil {
+			payload.TimingMs = int(d.Milliseconds())
+		}
 	}
 	data, _ := json.Marshal(payload)
 	return "freeturn://" + base64.RawURLEncoding.EncodeToString(data)

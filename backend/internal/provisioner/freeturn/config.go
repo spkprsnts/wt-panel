@@ -62,10 +62,17 @@ type freeturnURI struct {
 	Mode      string   `json:"mode,omitempty"`      // omitted at the "udp" default, matching the app's own generator
 	KCP       *kcpOpts `json:"kcp,omitempty"`       // only set when Mode == "tcp" — see kcpOpts' own doc comment
 
+	// VK duplicates Links under the key upstream's own client reads (4.0+),
+	// which ignores "links"; upstream accepts bare ids comma-joined too.
+	VK string `json:"vk,omitempty"`
+
 	// Obf/Key/Obft must mirror the -obf-profile/-obf-key/-obf-timing flags
 	// the server actually runs with (see ensureProcess), or the client can't
 	// talk to it. Obf is only written when not "none".
 	Obf  string `json:"obf,omitempty"`
 	Key  string `json:"key,omitempty"`
 	Obft string `json:"obft,omitempty"`
+	// TimingMs is Obft for upstream's own client (4.0+), which reads
+	// integer milliseconds under "timing" and ignores "obft".
+	TimingMs int `json:"timing,omitempty"`
 }

@@ -100,3 +100,35 @@ func TestBuildURIIncludesModeAndKCPForTCP(t *testing.T) {
 		t.Errorf("kcp.mtu = %v, want 1200", got)
 	}
 }
+
+// TestBuildURIUpstreamKeys covers upstream's own client (4.0+), which
+// ignores "links"/"obft" and reads "vk" and integer-ms "timing" instead.
+func TestBuildURIUpstreamKeys(t *testing.T) {
+	cfg := &config.Config{PublicIP: "1.2.3.4"}
+	cc := profileCoreConfig{
+		Provider:   "vk",
+		Links:      []string{"ABC123xyz", "DEF456uvw"},
+		ObfProfile: "rtpopus",
+		ObfKey:     strings.Repeat("ab", 32),
+		ObfTiming:  "10ms",
+		Port:       56000,
+	}
+
+	m := decodeURI(t, buildURI(cfg, cc))
+
+	if got := m["vk"]; got != "ABC123xyz,DEF456uvw" {
+		t.Errorf("vk = %v, want the comma-joined links", got)
+	}
+	if got := m["obft"]; got != "10ms" {
+		t.Errorf("obft = %v, want \"10ms\" (still needed by WireTurn)", got)
+	}
+	if got := m["timing"]; got != float64(10) {
+		t.Errorf("timing = %v, want 10", got)
+	}
+
+	cc.ObfProfile = "none"
+	m = decodeURI(t, buildURI(cfg, cc))
+	if _, present := m["timing"]; present {
+		t.Errorf("timing should be omitted without obfuscation, got %v", m["timing"])
+	}
+}
