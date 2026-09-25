@@ -49,7 +49,15 @@ export const xray = {
     "xray.inboundForm.listen": "Listen (пусто = все интерфейсы)",
     "xray.inboundForm.port": "Порт",
     "xray.inboundForm.hysteria2Note":
-      "Hysteria2 работает поверх QUIC — TLS здесь обязателен, отдельного переключателя security/транспорта нет. Настройки obfs/bandwidth в текущей схеме апстрима больше не экспонируются.",
+      "Hysteria2 работает поверх QUIC — TLS здесь обязателен, отдельного переключателя security/транспорта нет. Обфускация Salamander — ниже.",
+    "xray.inboundForm.hy2ObfsTitle": "Обфускация (Salamander)",
+    "xray.inboundForm.hy2ObfsPassword": "Пароль obfs",
+    "xray.inboundForm.hy2ObfsPlaceholder": "пусто = без обфускации",
+    "xray.inboundForm.hy2ObfsNote":
+      "Маскирует QUIC-пакеты под случайные байты, чтобы DPI не опознал Hysteria2. Пароль попадает в ссылку hysteria2:// (obfs=salamander) — клиенты без него не подключатся.",
+    "xray.inboundForm.allowPrivate": "Доступ к локальной сети",
+    "xray.inboundForm.allowPrivateNote":
+      "Разрешить клиентам этого инбаунда ходить на приватные адреса (127.0.0.1, 10.x, 192.168.x и т.п.) — сервисы на самом сервере и в его LAN. Xray новее 26.3.27 по умолчанию это блокирует.",
     "xray.inboundForm.wgSecretKey": "Секретный ключ сервера",
     "xray.inboundForm.wgPublicKey": "Публичный ключ сервера",
     "xray.inboundForm.wgAddress": "Адрес интерфейса",
@@ -147,7 +155,15 @@ export const xray = {
     "xray.inboundForm.listen": "Listen (empty = all interfaces)",
     "xray.inboundForm.port": "Port",
     "xray.inboundForm.hysteria2Note":
-      "Hysteria2 runs over QUIC — TLS is mandatory here, there's no separate security/transport switch. obfs/bandwidth settings are no longer exposed in the current upstream schema.",
+      "Hysteria2 runs over QUIC — TLS is mandatory here, there's no separate security/transport switch. Salamander obfuscation is below.",
+    "xray.inboundForm.hy2ObfsTitle": "Obfuscation (Salamander)",
+    "xray.inboundForm.hy2ObfsPassword": "obfs password",
+    "xray.inboundForm.hy2ObfsPlaceholder": "empty = no obfuscation",
+    "xray.inboundForm.hy2ObfsNote":
+      "Makes QUIC packets look like random bytes so DPI can't identify Hysteria2. The password goes into the hysteria2:// link (obfs=salamander) — clients without it can't connect.",
+    "xray.inboundForm.allowPrivate": "Local network access",
+    "xray.inboundForm.allowPrivateNote":
+      "Let this inbound's clients reach private addresses (127.0.0.1, 10.x, 192.168.x, etc.) — services on the server itself and its LAN. Xray newer than 26.3.27 blocks this by default.",
     "xray.inboundForm.wgSecretKey": "Server private key",
     "xray.inboundForm.wgPublicKey": "Server public key",
     "xray.inboundForm.wgAddress": "Interface address",

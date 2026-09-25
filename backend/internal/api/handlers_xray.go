@@ -22,6 +22,7 @@ type XrayInboundRequest struct {
 	Settings       json.RawMessage `json:"settings"`
 	StreamSettings json.RawMessage `json:"streamSettings"`
 	Sniffing       json.RawMessage `json:"sniffing"`
+	AllowPrivate   *bool           `json:"allowPrivate"`
 }
 
 // XrayClientRequest attaches an existing panel Client to an inbound. Config is optional — when
@@ -66,6 +67,9 @@ func (s *Server) createXrayInbound(c *gin.Context) {
 	if req.Enable != nil {
 		inbound.Enable = *req.Enable
 	}
+	if req.AllowPrivate != nil {
+		inbound.AllowPrivate = *req.AllowPrivate
+	}
 	if err := s.db.Create(&inbound).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -100,6 +104,9 @@ func (s *Server) updateXrayInbound(c *gin.Context) {
 	}
 	if req.Sniffing != nil {
 		inbound.Sniffing = string(req.Sniffing)
+	}
+	if req.AllowPrivate != nil {
+		inbound.AllowPrivate = *req.AllowPrivate
 	}
 	// Protocol is deliberately not editable — it would orphan every attached XrayClient's identity
 	// shape (a vless uuid isn't a trojan password); delete and recreate the inbound instead.

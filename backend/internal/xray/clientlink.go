@@ -76,6 +76,10 @@ func BuildClientLink(inbound models.XrayInbound, client models.XrayClient, remar
 		if sni := q.Get("sni"); sni != "" {
 			hq.Set("sni", sni)
 		}
+		if password := salamanderPassword(stream); password != "" {
+			hq.Set("obfs", "salamander")
+			hq.Set("obfs-password", password)
+		}
 		return fmt.Sprintf("hysteria2://%s@%s:%d?%s%s", url.QueryEscape(auth), host, inbound.Port, hq.Encode(), frag), nil
 	}
 	return "", fmt.Errorf("unsupported protocol for client link: %s", inbound.Protocol)
@@ -213,6 +217,23 @@ func applySecurityParams(q url.Values, security string, stream map[string]any) {
 			setIfNonEmpty(q, "spx", inner["spiderX"])
 		}
 	}
+}
+
+// salamanderPassword returns the Salamander obfs password from a hysteria2
+// inbound's finalmask.udp list, or "" when it has none.
+func salamanderPassword(stream map[string]any) string {
+	fm, _ := stream["finalmask"].(map[string]any)
+	masks, _ := fm["udp"].([]any)
+	for _, m := range masks {
+		mask, _ := m.(map[string]any)
+		if t, _ := mask["type"].(string); t != "salamander" {
+			continue
+		}
+		settings, _ := mask["settings"].(map[string]any)
+		password, _ := settings["password"].(string)
+		return password
+	}
+	return ""
 }
 
 func setIfNonEmpty(q url.Values, key string, v any) {

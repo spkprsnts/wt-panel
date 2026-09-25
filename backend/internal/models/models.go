@@ -161,6 +161,11 @@ type XrayInbound struct {
 	StreamSettings string `gorm:"type:text"`
 	Sniffing       string `gorm:"type:text"`
 
+	// AllowPrivate lets this inbound's clients reach private/LAN addresses
+	// (127.0.0.0/8, 10.0.0.0/8, ...) through freedom — xray-core newer than
+	// v26.3.27 blocks those by default for vless/trojan/hysteria/wireguard.
+	AllowPrivate bool
+
 	// foreignKey is explicit because the column is named InboundID, not the
 	// XrayInboundID GORM would otherwise guess from this field's name.
 	Clients []XrayClient `gorm:"foreignKey:InboundID"`

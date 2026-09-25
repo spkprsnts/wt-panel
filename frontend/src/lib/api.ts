@@ -258,6 +258,7 @@ export interface XrayInbound {
   Settings: string
   StreamSettings: string
   Sniffing: string
+  AllowPrivate: boolean
   Clients: XrayClient[] | null
 }
 
@@ -502,6 +503,7 @@ export const api = {
     settings?: unknown
     streamSettings?: unknown
     sniffing?: unknown
+    allowPrivate?: boolean
   }) => request<XrayInbound>("/api/xray/inbounds", { method: "POST", body: JSON.stringify(input) }),
   updateXrayInbound: (
     id: number,
@@ -514,6 +516,7 @@ export const api = {
       settings?: unknown
       streamSettings?: unknown
       sniffing?: unknown
+      allowPrivate?: boolean
     }
   ) => request<XrayInbound>(`/api/xray/inbounds/${id}`, { method: "PUT", body: JSON.stringify(input) }),
   deleteXrayInbound: (id: number) => request<void>(`/api/xray/inbounds/${id}`, { method: "DELETE" }),

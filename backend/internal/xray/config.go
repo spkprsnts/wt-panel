@@ -18,6 +18,17 @@ type coreConfig struct {
 	Log       logConfig        `json:"log"`
 	Inbounds  []inboundConfig  `json:"inbounds"`
 	Outbounds []outboundConfig `json:"outbounds"`
+	Routing   *routingConfig   `json:"routing,omitempty"`
+}
+
+type routingConfig struct {
+	Rules []routingRule `json:"rules"`
+}
+
+type routingRule struct {
+	Type        string   `json:"type"`
+	InboundTag  []string `json:"inboundTag"`
+	OutboundTag string   `json:"outboundTag"`
 }
 
 type logConfig struct {
@@ -35,9 +46,24 @@ type inboundConfig struct {
 }
 
 type outboundConfig struct {
-	Tag      string `json:"tag"`
-	Protocol string `json:"protocol"`
+	Tag      string          `json:"tag"`
+	Protocol string          `json:"protocol"`
+	Settings json.RawMessage `json:"settings,omitempty"`
 }
+
+// directLANTag is a second freedom outbound for inbounds with AllowPrivate:
+// its finalRules allow what xray-core (newer than v26.3.27) blocks by default
+// for vless/trojan/hysteria/wireguard. Older cores ignore finalRules and never
+// blocked private ranges, so the extra outbound is harmless there.
+const directLANTag = "direct-lan"
+
+// directLANSettings allows exactly xray-core's own default-blocked private
+// ranges (common/geodata/consts.go). Plain CIDRs rather than "geoip:private",
+// since the panel installs only the xray binary, without geoip.dat.
+var directLANSettings = json.RawMessage(`{"finalRules":[{"action":"allow","network":"tcp,udp","ip":[` +
+	`"0.0.0.0/8","10.0.0.0/8","100.64.0.0/10","127.0.0.0/8","169.254.0.0/16","172.16.0.0/12",` +
+	`"192.0.0.0/24","192.0.2.0/24","192.88.99.0/24","192.168.0.0/16","198.18.0.0/15",` +
+	`"198.51.100.0/24","203.0.113.0/24","224.0.0.0/3","::/127","fc00::/7","fe80::/10","ff00::/8"]}]}`)
 
 // BuildConfig assembles xray-core's config.json from every enabled
 // XrayInbound. enabledCount lets Manager.Reload treat 0 as "stop the process" rather than starting with an empty inbound list.
@@ -52,6 +78,7 @@ func BuildConfig(db *gorm.DB) (data []byte, enabledCount int, err error) {
 		Outbounds: []outboundConfig{{Tag: "direct", Protocol: "freedom"}},
 	}
 
+	var lanTags []string
 	for _, ib := range inbounds {
 		settings, err := injectClients(ib)
 		if err != nil {
@@ -61,8 +88,12 @@ func BuildConfig(db *gorm.DB) (data []byte, enabledCount int, err error) {
 		if ib.Protocol == "hysteria2" {
 			streamSettings = fixHysteriaStreamSettings(ib.StreamSettings)
 		}
+		tag := fmt.Sprintf("inbound-%d", ib.ID)
+		if ib.AllowPrivate {
+			lanTags = append(lanTags, tag)
+		}
 		cfg.Inbounds = append(cfg.Inbounds, inboundConfig{
-			Tag:            fmt.Sprintf("inbound-%d", ib.ID),
+			Tag:            tag,
 			Listen:         ib.Listen,
 			Port:           ib.Port,
 			Protocol:       xrayCoreProtocol(ib.Protocol),
@@ -70,6 +101,13 @@ func BuildConfig(db *gorm.DB) (data []byte, enabledCount int, err error) {
 			StreamSettings: streamSettings,
 			Sniffing:       rawOrNil(ib.Sniffing),
 		})
+	}
+
+	// "direct" stays first, so it remains the default outbound for every
+	// other inbound; only the AllowPrivate ones are routed to direct-lan.
+	if len(lanTags) > 0 {
+		cfg.Outbounds = append(cfg.Outbounds, outboundConfig{Tag: directLANTag, Protocol: "freedom", Settings: directLANSettings})
+		cfg.Routing = &routingConfig{Rules: []routingRule{{Type: "field", InboundTag: lanTags, OutboundTag: directLANTag}}}
 	}
 
 	data, err = json.MarshalIndent(cfg, "", "  ")

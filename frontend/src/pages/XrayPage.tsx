@@ -158,8 +158,13 @@ interface InboundFormState {
   wgAddress: string
   wgMtu: string
 
+  // Salamander obfs password for hysteria2 (finalmask.udp); empty = no obfuscation.
+  hy2ObfsPassword: string
+
   sniffingEnabled: boolean
   sniffingDestOverride: string
+
+  allowPrivate: boolean
 }
 
 // Suggests a starting point in the high, rarely-reserved port range; the operator can type over it before saving.
@@ -227,8 +232,10 @@ function emptyForm(defaultRemark = ""): InboundFormState {
     wgPublicKey: "",
     wgAddress: "10.0.0.1/24",
     wgMtu: "1280",
+    hy2ObfsPassword: "",
     sniffingEnabled: false,
     sniffingDestOverride: "http,tls",
+    allowPrivate: false,
   }
 }
 
@@ -351,7 +358,19 @@ function formFromInbound(inbound: XrayInbound): InboundFormState {
     sniffingDestOverride: Array.isArray(sniffing.destOverride)
       ? (sniffing.destOverride as string[]).join(",")
       : base.sniffingDestOverride,
+    hy2ObfsPassword: salamanderPasswordFromStream(stream),
+    allowPrivate: inbound.AllowPrivate ?? base.allowPrivate,
   }
+}
+
+// Reads the Salamander password back out of finalmask.udp (see buildPayload), "" if absent.
+function salamanderPasswordFromStream(stream: Record<string, unknown>): string {
+  const fm = stream.finalmask as { udp?: unknown } | undefined
+  if (!Array.isArray(fm?.udp)) return ""
+  for (const mask of fm.udp as { type?: unknown; settings?: { password?: unknown } }[]) {
+    if (mask?.type === "salamander" && typeof mask.settings?.password === "string") return mask.settings.password
+  }
+  return ""
 }
 
 function buildTlsSettings(f: InboundFormState) {
@@ -494,6 +513,10 @@ function buildPayload(protocol: XrayProtocol, f: InboundFormState) {
       hysteriaSettings: { version: 2 },
       security: "tls",
       tlsSettings: buildTlsSettings(f),
+      // Salamander rides xray-core's finalmask layer (supported since v26.3.27); clients get it as obfs=salamander in the hysteria2:// link.
+      ...(f.hy2ObfsPassword && {
+        finalmask: { udp: [{ type: "salamander", settings: { password: f.hy2ObfsPassword } }] },
+      }),
     }
   } else if (protocol === "wireguard") {
     settings = {
@@ -513,6 +536,7 @@ function buildPayload(protocol: XrayProtocol, f: InboundFormState) {
     settings,
     ...(streamSettings && { streamSettings }),
     sniffing: { enabled: f.sniffingEnabled, destOverride: splitList(f.sniffingDestOverride) },
+    allowPrivate: f.allowPrivate,
   }
 }
 
@@ -1358,6 +1382,23 @@ function InboundFormDialog({
                 {t("xray.inboundForm.hysteria2Note")}
               </p>
               <TlsFields f={f} setF={setF} alpnDefault={["h3"]} />
+              <SectionGroup title={t("xray.inboundForm.hy2ObfsTitle")}>
+                <SectionItem position="single">
+                  <div className="flex w-full flex-col gap-1">
+                    <KeyField
+                      id="hy2-obfs-password"
+                      label={t("xray.inboundForm.hy2ObfsPassword")}
+                      value={f.hy2ObfsPassword}
+                      onChange={(v) => setF({ ...f, hy2ObfsPassword: v })}
+                      placeholder={t("xray.inboundForm.hy2ObfsPlaceholder")}
+                      generateLabel={t("common.generate")}
+                      generateFailedLabel={t("common.generateFailed")}
+                      onGenerate={() => api.keygenHex32().then(({ key }) => setF((s) => ({ ...s, hy2ObfsPassword: key })))}
+                    />
+                    <p className="text-body-small text-on-surface-variant">{t("xray.inboundForm.hy2ObfsNote")}</p>
+                  </div>
+                </SectionItem>
+              </SectionGroup>
             </>
           )}
 
@@ -1405,6 +1446,22 @@ function InboundFormDialog({
               </SectionItem>
             </SectionGroup>
           )}
+
+          <SectionGroup>
+            <SectionItem
+              position="single"
+              role="switch"
+              aria-checked={f.allowPrivate}
+              onClick={() => setF({ ...f, allowPrivate: !f.allowPrivate })}
+            >
+              <SwitchRow
+                label={t("xray.inboundForm.allowPrivate")}
+                checked={f.allowPrivate}
+                onCheckedChange={(v) => setF({ ...f, allowPrivate: v })}
+                supportingText={t("xray.inboundForm.allowPrivateNote")}
+              />
+            </SectionItem>
+          </SectionGroup>
 
           {/* Unlike TLS/Reality's collapsible Disclosure, Sniffing is just
               one toggle plus an optional field, so a plain titled
