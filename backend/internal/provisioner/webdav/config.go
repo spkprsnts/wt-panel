@@ -29,12 +29,18 @@ type profileCoreConfig struct {
 	// relay through; more than one enables round-robin rotation. Written
 	// into a generated YAML file (-config), since -webdav/-login/-password only describe one backend.
 	Backends []WebdavBackend `json:"backends,omitempty"`
+	// TLSFingerprint is server-mode-only: the ClientHello sent to HTTPS
+	// backends (-tls-fingerprint). Empty means webdav-tunnel's default
+	// "chrome"; "go" is the fallback for backends that reject it. Selfhosted
+	// talks to its embedded backend over loopback, where the flag has no effect.
+	TLSFingerprint string `json:"tls_fingerprint,omitempty"`
 
 	// Tuning overrides — empty/zero means let webdav-tunnel apply its own
 	// default: selfhosted auto-applies a faster poll-min/poll-max/coalesce
 	// preset, server mode uses the generic defaults. The UI's quick-fill presets are just these same numbers, not a stored mode.
 	PollMin   string `json:"poll_min,omitempty"`
 	PollMax   string `json:"poll_max,omitempty"`
+	PollIdle  string `json:"poll_idle,omitempty"` // "0" disables idle backoff; empty = mode default (selfhosted 0, server 2s)
 	Coalesce  string `json:"coalesce,omitempty"`
 	ChunkSize int    `json:"chunk_size,omitempty"`
 	Puts      int    `json:"puts,omitempty"`

@@ -154,6 +154,13 @@ export const profileForm = {
       "Проверка имени сертификата не пройдёт, пока не задан «Публичный хост для WebDAV» на странице «Настройки» (вкладка «Сеть панели»).",
     "profileForm.webdav.tlsNote":
       "Пути на этом сервере (там же, где запущена панель) — webdav-tunnel сам их читает. Оба поля пустые → обычный webdav://; оба заполнены → webdavs://.",
+    "profileForm.webdav.tlsFingerprintLabel": "TLS-отпечаток для HTTPS-бэкендов",
+    "profileForm.webdav.tlsFingerprintChrome": "Chrome (по умолчанию)",
+    "profileForm.webdav.tlsFingerprintGo": "Стандартный Go (запасной)",
+    "profileForm.webdav.tlsFingerprintNote":
+      "Chrome маскирует рукопожатие под браузер. Переключайте на Go, только если бэкенд отвергает рукопожатие Chrome.",
+    "profileForm.webdav.pollIdleHint":
+      "Потолок опроса после 10 с без трафика — экономит запросы к хранилищам с лимитами. 0 — выключить.",
     "profileForm.webdav.presetSelfhosted": "Пресет: свой WebDAV (быстрый)",
     "profileForm.webdav.presetServer": "Пресет: внешний бэкенд (стандартный)",
     "profileForm.webdav.presetReset": "Сбросить (авто)",
@@ -316,6 +323,13 @@ export const profileForm = {
       "Certificate hostname verification will fail until \"Public host for WebDAV\" is set on the Settings page (\"Panel network\" tab).",
     "profileForm.webdav.tlsNote":
       "Paths on this server (same machine the panel runs on) — webdav-tunnel reads them itself. Both fields empty → plain webdav://; both filled in → webdavs://.",
+    "profileForm.webdav.tlsFingerprintLabel": "TLS fingerprint for HTTPS backends",
+    "profileForm.webdav.tlsFingerprintChrome": "Chrome (default)",
+    "profileForm.webdav.tlsFingerprintGo": "Standard Go (fallback)",
+    "profileForm.webdav.tlsFingerprintNote":
+      "Chrome makes the handshake look like a browser. Switch to Go only if a backend rejects the Chrome handshake.",
+    "profileForm.webdav.pollIdleHint":
+      "Polling ceiling after 10 s without traffic — saves requests to rate-limited storage. 0 turns it off.",
     "profileForm.webdav.presetSelfhosted": "Preset: own WebDAV (fast)",
     "profileForm.webdav.presetServer": "Preset: external backend (standard)",
     "profileForm.webdav.presetReset": "Reset (auto)",

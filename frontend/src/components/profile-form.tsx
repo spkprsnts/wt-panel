@@ -233,6 +233,7 @@ interface WebdavBackend {
 interface WebdavTuning {
   pollMin: string
   pollMax: string
+  pollIdle: string
   coalesce: string
   chunkSize: string
   puts: string
@@ -243,6 +244,7 @@ interface WebdavTuning {
 const emptyWebdavTuning: WebdavTuning = {
   pollMin: "",
   pollMax: "",
+  pollIdle: "",
   coalesce: "",
   chunkSize: "",
   puts: "",
@@ -250,9 +252,10 @@ const emptyWebdavTuning: WebdavTuning = {
   readMax: "",
 }
 
+// selfhosted leaves pollIdle empty: its auto-default is 0 on the server but 2s in the client URI, which no single explicit value reproduces.
 const WEBDAV_TUNING_PRESETS: Record<"selfhosted" | "server", WebdavTuning> = {
-  selfhosted: { pollMin: "50ms", pollMax: "200ms", coalesce: "5ms", chunkSize: "131071", puts: "8", readMin: "3", readMax: "8" },
-  server: { pollMin: "200ms", pollMax: "500ms", coalesce: "10ms", chunkSize: "131071", puts: "8", readMin: "3", readMax: "8" },
+  selfhosted: { pollMin: "50ms", pollMax: "200ms", pollIdle: "", coalesce: "5ms", chunkSize: "131071", puts: "8", readMin: "3", readMax: "8" },
+  server: { pollMin: "200ms", pollMax: "500ms", pollIdle: "2s", coalesce: "10ms", chunkSize: "131071", puts: "8", readMin: "3", readMax: "8" },
 }
 
 interface WebdavState {
@@ -266,6 +269,8 @@ interface WebdavState {
   tlsKeyFile: string
   dns: string
   backends: WebdavBackend[]
+  // Server mode only — TLS ClientHello for HTTPS backends; "go" is the fallback for ones that reject Chrome's.
+  tlsFingerprint: "chrome" | "go"
   tuning: WebdavTuning
 }
 
@@ -280,6 +285,7 @@ const initialWebdav: WebdavState = {
   tlsKeyFile: "",
   dns: "",
   backends: [{ url: "", login: "", password: "" }],
+  tlsFingerprint: "chrome",
   tuning: emptyWebdavTuning,
 }
 
@@ -382,9 +388,11 @@ function parseCoreConfig(
         tlsKeyFile: str(cfg.tls_key_file, initialWebdav.tlsKeyFile),
         dns: str(cfg.dns, initialWebdav.dns),
         backends: backends.length > 0 ? backends : initialWebdav.backends,
+        tlsFingerprint: cfg.tls_fingerprint === "go" ? "go" : initialWebdav.tlsFingerprint,
         tuning: {
           pollMin: str(cfg.poll_min, emptyWebdavTuning.pollMin),
           pollMax: str(cfg.poll_max, emptyWebdavTuning.pollMax),
+          pollIdle: str(cfg.poll_idle, emptyWebdavTuning.pollIdle),
           coalesce: str(cfg.coalesce, emptyWebdavTuning.coalesce),
           chunkSize: num(cfg.chunk_size, emptyWebdavTuning.chunkSize),
           puts: num(cfg.puts, emptyWebdavTuning.puts),
@@ -498,6 +506,7 @@ function buildCoreConfig(
     const tuningFields = {
       ...(t.pollMin && { poll_min: t.pollMin }),
       ...(t.pollMax && { poll_max: t.pollMax }),
+      ...(t.pollIdle && { poll_idle: t.pollIdle }),
       ...(t.coalesce && { coalesce: t.coalesce }),
       ...(Number(t.chunkSize) > 0 && { chunk_size: Number(t.chunkSize) }),
       ...(Number(t.puts) > 0 && { puts: Number(t.puts) }),
@@ -513,6 +522,7 @@ function buildCoreConfig(
         backends: wd.backends
           .filter((b) => b.url && b.login && b.password)
           .map((b) => ({ url: b.url, login: b.login, password: b.password })),
+        ...(wd.tlsFingerprint === "go" && { tls_fingerprint: "go" }),
         ...tuningFields,
       }
     }
@@ -658,6 +668,10 @@ export function ProfileForm({
   const freeturnModeLabels: Record<FreeturnState["mode"], string> = {
     udp: t("profileForm.freeturn.modeUdp"),
     tcp: t("profileForm.freeturn.modeTcp"),
+  }
+  const webdavTlsFingerprintLabels: Record<WebdavState["tlsFingerprint"], string> = {
+    chrome: t("profileForm.webdav.tlsFingerprintChrome"),
+    go: t("profileForm.webdav.tlsFingerprintGo"),
   }
   // Lets the footer's submit button, rendered outside this <form> so it stays pinned below the scrolling fields, still submit it via form="...".
   const formId = React.useId()
@@ -1989,6 +2003,38 @@ export function ProfileForm({
             </div>
           )}
 
+          {wd.connMode === "server" && (
+            <SectionGroup>
+              <SectionItem position="single">
+                <div className="flex w-full flex-col gap-1">
+                  <label className="text-title-medium text-on-surface">
+                    {t("profileForm.webdav.tlsFingerprintLabel")}
+                  </label>
+                  <Select
+                    value={wd.tlsFingerprint}
+                    onValueChange={(v) => setWd({ ...wd, tlsFingerprint: v as WebdavState["tlsFingerprint"] })}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue>
+                        {(v: WebdavState["tlsFingerprint"] | null) => labelFor(webdavTlsFingerprintLabels, v)}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(webdavTlsFingerprintLabels).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-body-small text-on-surface-variant">
+                    {t("profileForm.webdav.tlsFingerprintNote")}
+                  </p>
+                </div>
+              </SectionItem>
+            </SectionGroup>
+          )}
+
           <SectionGroup>
             <SectionItem position="top">
               <TextFieldRow
@@ -2099,6 +2145,16 @@ export function ProfileForm({
                   value={wd.tuning.pollMax}
                   onChange={(v) => setWd({ ...wd, tuning: { ...wd.tuning, pollMax: v } })}
                   placeholder={t("profileForm.webdav.autoPlaceholder")}
+                />
+              </SectionItem>
+              <SectionItem position="middle">
+                <TextFieldRow
+                  id="webdav-poll-idle"
+                  label="poll-idle"
+                  value={wd.tuning.pollIdle}
+                  onChange={(v) => setWd({ ...wd, tuning: { ...wd.tuning, pollIdle: v } })}
+                  placeholder={t("profileForm.webdav.autoPlaceholder")}
+                  supportingText={t("profileForm.webdav.pollIdleHint")}
                 />
               </SectionItem>
               <SectionItem position="middle">

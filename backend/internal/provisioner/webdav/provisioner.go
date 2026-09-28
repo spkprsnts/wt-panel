@@ -179,9 +179,15 @@ func (p *Provisioner) applyDefaults(profile *models.Profile) (profileCoreConfig,
 		if len(cc.Backends) == 0 {
 			return cc, fmt.Errorf("webdav server profile requires at least one backend (url/login/password of an existing WebDAV endpoint)")
 		}
+		switch cc.TLSFingerprint {
+		case "", "chrome", "go":
+		default:
+			return cc, fmt.Errorf("unknown webdav tls_fingerprint %q (want chrome or go)", cc.TLSFingerprint)
+		}
 		return cc, nil
 	}
 
+	cc.TLSFingerprint = "" // loopback to the embedded backend ignores it — see profileCoreConfig
 	if cc.Login == "" {
 		cc.Login = "u" + profile.ExternalID[:8]
 	}
@@ -288,14 +294,15 @@ func (p *Provisioner) serverConfigPath(externalID string) string {
 }
 
 // serverYAMLConfig mirrors the subset of webdav-tunnel's -config schema this
-// provisioner drives — mode/enc/dns/proxy live in the file too, so there's one source of truth for a server-mode profile.
+// provisioner drives — mode/enc/dns/proxy/tls-fingerprint live in the file too, so there's one source of truth for a server-mode profile.
 type serverYAMLConfig struct {
-	Mode     string          `yaml:"mode"`
-	Enc      bool            `yaml:"enc,omitempty"`
-	Dns      string          `yaml:"dns,omitempty"`
-	Proxy    string          `yaml:"proxy,omitempty"`
-	Backends []WebdavBackend `yaml:"backends"`
-	Tuning   *yamlTuning     `yaml:"tuning,omitempty"`
+	Mode           string          `yaml:"mode"`
+	Enc            bool            `yaml:"enc,omitempty"`
+	Dns            string          `yaml:"dns,omitempty"`
+	Proxy          string          `yaml:"proxy,omitempty"`
+	TLSFingerprint string          `yaml:"tls-fingerprint,omitempty"`
+	Backends       []WebdavBackend `yaml:"backends"`
+	Tuning         *yamlTuning     `yaml:"tuning,omitempty"`
 }
 
 // yamlTuning is docs/config.md's "tuning:" block — written only when the
@@ -303,6 +310,7 @@ type serverYAMLConfig struct {
 type yamlTuning struct {
 	PollMin   string `yaml:"poll-min,omitempty"`
 	PollMax   string `yaml:"poll-max,omitempty"`
+	PollIdle  string `yaml:"poll-idle,omitempty"`
 	Coalesce  string `yaml:"coalesce,omitempty"`
 	ChunkSize int    `yaml:"chunk-size,omitempty"`
 	Puts      int    `yaml:"puts,omitempty"`
@@ -311,21 +319,22 @@ type yamlTuning struct {
 }
 
 func hasTuningOverride(cc profileCoreConfig) bool {
-	return cc.PollMin != "" || cc.PollMax != "" || cc.Coalesce != "" ||
+	return cc.PollMin != "" || cc.PollMax != "" || cc.PollIdle != "" || cc.Coalesce != "" ||
 		cc.ChunkSize != 0 || cc.Puts != 0 || cc.ReadMin != 0 || cc.ReadMax != 0
 }
 
 func buildServerConfigYAML(cc profileCoreConfig) ([]byte, error) {
 	y := serverYAMLConfig{
-		Mode:     "server",
-		Enc:      cc.Enc,
-		Dns:      cc.Dns,
-		Proxy:    cc.ProxyUpstream,
-		Backends: cc.Backends,
+		Mode:           "server",
+		Enc:            cc.Enc,
+		Dns:            cc.Dns,
+		Proxy:          cc.ProxyUpstream,
+		TLSFingerprint: cc.TLSFingerprint,
+		Backends:       cc.Backends,
 	}
 	if hasTuningOverride(cc) {
 		y.Tuning = &yamlTuning{
-			PollMin: cc.PollMin, PollMax: cc.PollMax, Coalesce: cc.Coalesce,
+			PollMin: cc.PollMin, PollMax: cc.PollMax, PollIdle: cc.PollIdle, Coalesce: cc.Coalesce,
 			ChunkSize: cc.ChunkSize, Puts: cc.Puts, ReadMin: cc.ReadMin, ReadMax: cc.ReadMax,
 		}
 	}
@@ -341,6 +350,9 @@ func tuningFlags(cc profileCoreConfig) []string {
 	}
 	if cc.PollMax != "" {
 		args = append(args, "-poll-max", cc.PollMax)
+	}
+	if cc.PollIdle != "" {
+		args = append(args, "-poll-idle", cc.PollIdle)
 	}
 	if cc.Coalesce != "" {
 		args = append(args, "-coalesce", cc.Coalesce)
@@ -378,6 +390,8 @@ func buildURI(cfg *config.Config, cc profileCoreConfig, name string) (string, er
 // resolvedTuningQuery reports what the server ACTUALLY runs with — override
 // where given, else the correct auto-default for this mode (selfhosted gets
 // a faster poll-min/poll-max/coalesce preset). Must match the server exactly, since the client URI is the only place these values reach the client.
+// The one exception is poll-idle: a selfhosted server defaults it to 0 (polling its own disk is free), but the client
+// still gets "2s" — same as webdav-tunnel's own selfhostedClientURI, since the client is woken by its own requests anyway.
 func resolvedTuningQuery(cc profileCoreConfig) url.Values {
 	pollMin, pollMax, coalesce := "200ms", "500ms", "10ms"
 	if cc.ConnMode != "server" {
@@ -391,6 +405,10 @@ func resolvedTuningQuery(cc profileCoreConfig) url.Values {
 	}
 	if cc.Coalesce != "" {
 		coalesce = cc.Coalesce
+	}
+	pollIdle := "2s"
+	if cc.PollIdle != "" {
+		pollIdle = cc.PollIdle
 	}
 	chunkSize, puts, readMin, readMax := 131071, 8, 3, 8
 	if cc.ChunkSize != 0 {
@@ -408,6 +426,7 @@ func resolvedTuningQuery(cc profileCoreConfig) url.Values {
 	return url.Values{
 		"poll-min":   {pollMin},
 		"poll-max":   {pollMax},
+		"poll-idle":  {pollIdle},
 		"coalesce":   {coalesce},
 		"chunk-size": {strconv.Itoa(chunkSize)},
 		"puts":       {strconv.Itoa(puts)},
