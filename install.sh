@@ -653,7 +653,7 @@ setup_ssl() {
 # this row once at startup, see handlers_panel_settings.go). GETs the
 # current settings first and only overwrites TLS/domain fields: the PUT
 # endpoint replaces the whole row, so blindly sending zero values for
-# ListenIP/ListenPort/BasePath would reset those to their unset defaults.
+# ListenIP/ListenPort/BasePath/PublicIP/WebDAVPublicHost would reset those to their unset defaults.
 apply_ssl_settings() {
 	local target="$1" cert_file="$2" key_file="$3" base="$4" admin_password="$5"
 
@@ -685,18 +685,19 @@ apply_ssl_settings() {
 		red "Failed to read the panel's current settings — failed to apply the SSL settings. The certificate was already issued — set the paths manually on the \"Settings\" page: TLS certificate: ${cert_file}, TLS key: ${key_file}"
 		return 1
 	}
-	local listen_ip listen_port base_path public_ip
+	local listen_ip listen_port base_path public_ip webdav_public_host
 	listen_ip=$(json_field "$current" ListenIP)
 	listen_port=$(json_field "$current" ListenPort)
 	base_path=$(json_field "$current" BasePath)
 	public_ip=$(json_field "$current" PublicIP)
+	webdav_public_host=$(json_field "$current" WebDAVPublicHost)
 	[[ -z "$listen_port" ]] && listen_port=0
 	local listen_domain=""
 	[[ ! "$target" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && listen_domain="$target"
 
 	curl -k -fsS --max-time 10 -X PUT "${PANEL_SCHEME:-http}://127.0.0.1:${LISTEN_PORT}${base}api/settings/panel" \
 		-H "Authorization: Bearer ${token}" -H 'Content-Type: application/json' \
-		-d "{\"listenIp\":\"${listen_ip}\",\"listenDomain\":\"${listen_domain}\",\"listenPort\":${listen_port},\"basePath\":\"${base_path}\",\"tlsCertFile\":\"${cert_file}\",\"tlsKeyFile\":\"${key_file}\",\"publicIp\":\"${public_ip}\"}" \
+		-d "{\"listenIp\":\"${listen_ip}\",\"listenDomain\":\"${listen_domain}\",\"listenPort\":${listen_port},\"basePath\":\"${base_path}\",\"tlsCertFile\":\"${cert_file}\",\"tlsKeyFile\":\"${key_file}\",\"publicIp\":\"${public_ip}\",\"webdavPublicHost\":\"${webdav_public_host}\"}" \
 		>/dev/null || {
 		red "Failed to save the panel's SSL settings. The certificate was already issued — set the paths manually on the \"Settings\" page: TLS certificate: ${cert_file}, TLS key: ${key_file}"
 		return 1
