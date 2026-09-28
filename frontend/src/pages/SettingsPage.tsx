@@ -346,6 +346,7 @@ function PanelNetworkCard() {
   const [tlsKeyFile, setTlsKeyFile] = React.useState("")
   const [publicIp, setPublicIp] = React.useState("")
   const [webdavPublicHost, setWebdavPublicHost] = React.useState("")
+  const [subscriptionPath, setSubscriptionPath] = React.useState("/sub/")
   const [loaded, setLoaded] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -366,6 +367,7 @@ function PanelNetworkCard() {
         setTlsKeyFile(s.TLSKeyFile)
         setPublicIp(s.PublicIP)
         setWebdavPublicHost(s.WebDAVPublicHost)
+        setSubscriptionPath(s.SubscriptionPath || "/sub/")
       })
       .finally(() => setLoaded(true))
   }, [])
@@ -385,6 +387,7 @@ function PanelNetworkCard() {
         tlsKeyFile,
         publicIp,
         webdavPublicHost,
+        subscriptionPath,
       })
       setSaved(true)
     } catch (err) {
@@ -498,6 +501,16 @@ function PanelNetworkCard() {
                 onChange={setBasePath}
                 required
                 supportingText={t("settings.network.basePathHelp")}
+              />
+            </SectionItem>
+            <SectionItem position="middle">
+              <TextFieldRow
+                label={t("settings.network.subscriptionPathLabel")}
+                value={subscriptionPath}
+                onChange={setSubscriptionPath}
+                required
+                placeholder="/sub/"
+                supportingText={t("settings.network.subscriptionPathHelp")}
               />
             </SectionItem>
             <SectionItem position="middle">

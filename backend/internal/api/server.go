@@ -37,6 +37,9 @@ type Server struct {
 	// bootID is a fresh random ID per process, exposed via getSettings so the Settings page's restart/update
 	// dialogs can detect a new process is serving requests — plain reachability polling can miss the down-window.
 	bootID string
+	// subPath is the subscription prefix this process actually serves (PanelSettings.SubscriptionPath as
+	// read at startup) — links are built from it, not the DB row, so they never point at a not-yet-live path.
+	subPath string
 }
 
 // generateBootID returns a fresh random hex string identifying this process instance.
@@ -48,8 +51,8 @@ func generateBootID() string {
 	return hex.EncodeToString(b)
 }
 
-func New(db *gorm.DB, cfg *config.Config, authSvc *auth.Service, registry *provisioner.Registry, restartCh chan<- struct{}, basePath string, xrayMgr *xray.Manager, version string) *gin.Engine {
-	s := &Server{db: db, cfg: cfg, authSvc: authSvc, loginLimiter: auth.NewLoginLimiter(), registry: registry, jobs: kernels.NewJobManager(), restartCh: restartCh, xrayMgr: xrayMgr, version: version, bootID: generateBootID()}
+func New(db *gorm.DB, cfg *config.Config, authSvc *auth.Service, registry *provisioner.Registry, restartCh chan<- struct{}, basePath, subPath string, xrayMgr *xray.Manager, version string) *gin.Engine {
+	s := &Server{db: db, cfg: cfg, authSvc: authSvc, loginLimiter: auth.NewLoginLimiter(), registry: registry, jobs: kernels.NewJobManager(), restartCh: restartCh, xrayMgr: xrayMgr, version: version, bootID: generateBootID(), subPath: subPath}
 
 	r := gin.Default()
 
@@ -60,7 +63,7 @@ func New(db *gorm.DB, cfg *config.Config, authSvc *auth.Service, registry *provi
 	})
 
 	r.POST("/api/login", s.handleLogin)
-	r.GET("/sub/:token", s.handleSubscription)
+	r.GET(subPath+":token", s.handleSubscription)
 
 	authorized := r.Group("/api")
 	authorized.Use(authSvc.Middleware())
@@ -82,6 +85,7 @@ func New(db *gorm.DB, cfg *config.Config, authSvc *auth.Service, registry *provi
 		authorized.GET("/profiles/:id/export", s.exportProfile)
 
 		authorized.POST("/clients/:id/subscription-token", s.createSubscriptionToken)
+		authorized.PUT("/clients/:id/subscription-token", s.replaceSubscriptionToken)
 		authorized.GET("/clients/:id/subscription-links", s.subscriptionLinks)
 		authorized.GET("/clients/:id/export", s.exportClientProfiles)
 
@@ -140,7 +144,7 @@ func New(db *gorm.DB, cfg *config.Config, authSvc *auth.Service, registry *provi
 		authorized.POST("/settings/panel/restore", s.restorePanelBackup)
 	}
 
-	serveWebUI(r, basePath)
+	serveWebUI(r, basePath, subPath)
 
 	return r
 }
@@ -151,7 +155,7 @@ func New(db *gorm.DB, cfg *config.Config, authSvc *auth.Service, registry *provi
 // with a window.__WTP_BASE_PATH__ assignment right after <head> — since routes here run stripped of
 // the base path, the SPA (BrowserRouter basename, lib/api.ts fetch calls) reads this global to
 // prepend the real prefix back onto root-absolute paths like "/api/login".
-func serveWebUI(r *gin.Engine, basePath string) {
+func serveWebUI(r *gin.Engine, basePath, subPath string) {
 	dist, err := webui.DistFS()
 	if err != nil {
 		log.Printf("webui: embedded frontend unavailable: %v", err)
@@ -173,7 +177,7 @@ func serveWebUI(r *gin.Engine, basePath string) {
 
 	r.NoRoute(func(c *gin.Context) {
 		reqPath := strings.TrimPrefix(c.Request.URL.Path, "/")
-		if strings.HasPrefix(c.Request.URL.Path, "/api") || strings.HasPrefix(c.Request.URL.Path, "/sub") {
+		if strings.HasPrefix(c.Request.URL.Path, "/api") || strings.HasPrefix(c.Request.URL.Path, subPath) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -34,6 +35,30 @@ type panelSettingsRequest struct {
 	TLSKeyFile       string `json:"tlsKeyFile"`
 	PublicIP         string `json:"publicIp"`
 	WebDAVPublicHost string `json:"webdavPublicHost"`
+	// SubscriptionPath is optional: empty keeps the current value, so older callers (install.sh's
+	// apply_ssl_settings) that don't know the field can't silently reset it.
+	SubscriptionPath string `json:"subscriptionPath"`
+}
+
+// subscriptionPathRe allows one or more URL-safe segments, each wrapped in '/': "/sub/", "/a/b-c/".
+var subscriptionPathRe = regexp.MustCompile(`^(/[A-Za-z0-9_~-][A-Za-z0-9._~-]*)+/$`)
+
+// validateSubscriptionPath rejects paths the router can't serve alongside everything else: the
+// bare root (would swallow the SPA), the API/static prefixes, and BasePath itself (main.go mounts
+// both on one ServeMux, which panics on a duplicate pattern).
+func validateSubscriptionPath(path, basePath string) error {
+	if !subscriptionPathRe.MatchString(path) {
+		return fmt.Errorf("путь подписки должен начинаться и заканчиваться на '/' и состоять из латиницы, цифр и -_.~, например /sub/")
+	}
+	for _, reserved := range []string{"/api/", "/assets/"} {
+		if strings.HasPrefix(path, reserved) {
+			return fmt.Errorf("путь подписки не может начинаться с %s — он занят панелью", reserved)
+		}
+	}
+	if path == basePath {
+		return fmt.Errorf("путь подписки не может совпадать с URI-путём панели")
+	}
+	return nil
 }
 
 // updatePanelSettings persists the new network/TLS settings but doesn't apply them to the running
@@ -54,6 +79,13 @@ func (s *Server) updatePanelSettings(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	if req.SubscriptionPath == "" {
+		req.SubscriptionPath = ps.ResolvedSubscriptionPath()
+	}
+	if err := validateSubscriptionPath(req.SubscriptionPath, req.BasePath); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	ps.ListenIP = req.ListenIP
 	ps.ListenDomain = req.ListenDomain
 	ps.ListenPort = req.ListenPort
@@ -62,6 +94,7 @@ func (s *Server) updatePanelSettings(c *gin.Context) {
 	ps.TLSKeyFile = req.TLSKeyFile
 	ps.PublicIP = req.PublicIP
 	ps.WebDAVPublicHost = req.WebDAVPublicHost
+	ps.SubscriptionPath = req.SubscriptionPath
 	if err := s.db.Save(&ps).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

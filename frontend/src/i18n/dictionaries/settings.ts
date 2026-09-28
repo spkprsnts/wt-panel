@@ -58,6 +58,9 @@ export const settings = {
     "settings.network.listenPortHelp": "Порт, на котором работает панель",
     "settings.network.basePathLabel": "URI-путь",
     "settings.network.basePathHelp": "Должен начинаться с '/' и заканчиваться '/'",
+    "settings.network.subscriptionPathLabel": "Путь подписки",
+    "settings.network.subscriptionPathHelp":
+      "Префикс ссылок подписки, по умолчанию /sub/. Начинается и заканчивается на '/'. После смены и перезапуска старые ссылки у клиентов перестанут работать.",
     "settings.network.tlsCertLabel": "Путь к файлу публичного ключа сертификата панели",
     "settings.network.tlsKeyLabel": "Путь к файлу приватного ключа сертификата панели",
     "settings.network.pathPlaceholder": "Введите полный путь, начинающийся с '/'",
@@ -182,6 +185,9 @@ export const settings = {
     "settings.network.listenPortHelp": "The port the panel runs on",
     "settings.network.basePathLabel": "URI path",
     "settings.network.basePathHelp": "Must start and end with '/'",
+    "settings.network.subscriptionPathLabel": "Subscription path",
+    "settings.network.subscriptionPathHelp":
+      "Prefix for subscription links, /sub/ by default. Must start and end with '/'. After you change it and restart, links already given to clients stop working.",
     "settings.network.tlsCertLabel": "Path to the panel's TLS certificate (public key) file",
     "settings.network.tlsKeyLabel": "Path to the panel's TLS private key file",
     "settings.network.pathPlaceholder": "Enter the full path, starting with '/'",

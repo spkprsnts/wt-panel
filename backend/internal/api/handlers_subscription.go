@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"wtpanel/internal/models"
 	"wtpanel/internal/xray"
@@ -63,18 +65,85 @@ func (s *Server) getOrCreateSubscriptionToken(client *models.Client) (*models.Su
 		return &token, nil
 	}
 
-	raw := make([]byte, 24)
-	if _, err := rand.Read(raw); err != nil {
+	raw, err := randomSubscriptionToken()
+	if err != nil {
 		return nil, err
 	}
-	token = models.SubscriptionToken{
-		ClientID: client.ID,
-		Token:    base64.RawURLEncoding.EncodeToString(raw),
-	}
+	token = models.SubscriptionToken{ClientID: client.ID, Token: raw}
 	if err := s.db.Create(&token).Error; err != nil {
 		return nil, err
 	}
 	return &token, nil
+}
+
+func randomSubscriptionToken() (string, error) {
+	raw := make([]byte, 24)
+	if _, err := rand.Read(raw); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(raw), nil
+}
+
+// customTokenRe keeps a hand-picked token URL-safe (same alphabet as the random ones) and long
+// enough that it's still the thing securing the subscription.
+var customTokenRe = regexp.MustCompile(`^[A-Za-z0-9_-]{16,128}$`)
+
+// replaceSubscriptionToken swaps a client's subscription token for a new one — {"token": ""} (or no
+// body) mints a random one, otherwise the given value is used as-is. The old link stops working
+// immediately: every earlier token of this client is hard-deleted, not soft-deleted, since the
+// unique index on Token would otherwise keep a revoked value reserved forever.
+func (s *Server) replaceSubscriptionToken(c *gin.Context) {
+	client, err := s.loadClient(c)
+	if err != nil {
+		return
+	}
+	var req struct {
+		Token string `json:"token"`
+	}
+	if c.Request.ContentLength != 0 {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	newToken := strings.TrimSpace(req.Token)
+	if newToken == "" {
+		if newToken, err = randomSubscriptionToken(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	} else if !customTokenRe.MatchString(newToken) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "токен должен быть длиной 16–128 символов из латиницы, цифр, '-' и '_'"})
+		return
+	}
+
+	var taken int64
+	if err := s.db.Unscoped().Model(&models.SubscriptionToken{}).
+		Where("token = ? AND client_id <> ?", newToken, client.ID).Count(&taken).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if taken > 0 {
+		c.JSON(http.StatusConflict, gin.H{"error": "такой токен уже занят"})
+		return
+	}
+
+	token := models.SubscriptionToken{ClientID: client.ID, Token: newToken}
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Unscoped().Where("client_id = ?", client.ID).Delete(&models.SubscriptionToken{}).Error; err != nil {
+			return err
+		}
+		return tx.Create(&token).Error
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"token": token.Token,
+		"url":   s.subscriptionOrigin() + s.subPath + token.Token,
+	})
 }
 
 func (s *Server) createSubscriptionToken(c *gin.Context) {
@@ -88,7 +157,7 @@ func (s *Server) createSubscriptionToken(c *gin.Context) {
 		return
 	}
 
-	url := s.subscriptionOrigin() + "/sub/" + token.Token
+	url := s.subscriptionOrigin() + s.subPath + token.Token
 	c.JSON(http.StatusCreated, gin.H{
 		"token": token.Token,
 		"url":   url,
@@ -107,7 +176,7 @@ func (s *Server) subscriptionLinks(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	url := s.subscriptionOrigin() + "/sub/" + token.Token
+	url := s.subscriptionOrigin() + s.subPath + token.Token
 	resp := gin.H{
 		"url":          url,
 		"wireturnLink": buildSubscriptionWireturnLink(url),
@@ -198,7 +267,7 @@ func (s *Server) handleSubscription(c *gin.Context) {
 
 	switch format {
 	case "html":
-		subURL := s.subscriptionOrigin() + "/sub/" + token.Token
+		subURL := s.subscriptionOrigin() + s.subPath + token.Token
 		s.renderSubscriptionHTML(c, client, bundle, subURL, expired)
 	case "text":
 		c.String(http.StatusOK, s.buildTextSubscription(client, client.TrafficUsedByte, client.TrafficLimitByte))

@@ -12,6 +12,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { ClientForm, type ClientFormInitialValues, type ClientSubmitPayload } from "@/components/client-form"
+import { useDialogPrompt } from "@/components/dialog-prompt"
+import { SubscriptionTokenSection, useSubscriptionToken } from "@/components/subscription-token-section"
 
 export function EditClientDialog({
   client,
@@ -30,24 +32,6 @@ export function EditClientDialog({
     if (next) setOpenCount((c) => c + 1)
   }
 
-  const initialValues: ClientFormInitialValues = {
-    name: client.Name,
-    description: client.Description,
-    trafficLimitGb: String(client.TrafficLimitByte / (1024 * 1024 * 1024)),
-    updateIntervalMinutes: String(client.UpdateIntervalMinutes || 60),
-  }
-
-  async function handleSubmit(payload: ClientSubmitPayload) {
-    // enabled/expiresAt aren't part of this form — echo the client's current values back so the update doesn't clobber them.
-    await api.updateClient(client.ID, {
-      ...payload,
-      enabled: client.Enabled,
-      expiresAt: client.ExpiresAt ? Math.floor(new Date(client.ExpiresAt).getTime() / 1000) : null,
-    })
-    setOpen(false)
-    onUpdated()
-  }
-
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
@@ -61,14 +45,62 @@ export function EditClientDialog({
         <DialogHeader>
           <DialogTitle>{t("clientDialogs.editTitle")}</DialogTitle>
         </DialogHeader>
-        <ClientForm
+        <EditClientBody
           key={`${client.ID}-${openCount}`}
-          initialValues={initialValues}
-          submitLabel={t("common.save")}
-          submittingLabel={t("common.saving")}
-          onSubmit={handleSubmit}
+          client={client}
+          onSaved={() => {
+            setOpen(false)
+            onUpdated()
+          }}
         />
       </DialogContent>
     </Dialog>
+  )
+}
+
+// Split out so the subscription token is re-fetched on every open, via the same remount key the form uses.
+function EditClientBody({ client, onSaved }: { client: Client; onSaved: () => void }) {
+  const t = useT()
+  const { confirm } = useDialogPrompt()
+  const token = useSubscriptionToken(client.ID)
+
+  const initialValues: ClientFormInitialValues = {
+    name: client.Name,
+    description: client.Description,
+    trafficLimitGb: String(client.TrafficLimitByte / (1024 * 1024 * 1024)),
+    updateIntervalMinutes: String(client.UpdateIntervalMinutes || 60),
+  }
+
+  async function handleSubmit(payload: ClientSubmitPayload) {
+    if (
+      token.changed &&
+      !(await confirm(t("subscriptionToken.replaceConfirm"), {
+        destructive: true,
+        confirmLabel: t("common.save"),
+      }))
+    ) {
+      return
+    }
+    // Token first: a rejected token (taken, malformed) then fails the save before anything else is written.
+    if (token.changed) {
+      await api.replaceSubscriptionToken(client.ID, token.state.draft.trim())
+    }
+    // enabled/expiresAt aren't part of this form — echo the client's current values back so the update doesn't clobber them.
+    await api.updateClient(client.ID, {
+      ...payload,
+      enabled: client.Enabled,
+      expiresAt: client.ExpiresAt ? Math.floor(new Date(client.ExpiresAt).getTime() / 1000) : null,
+    })
+    onSaved()
+  }
+
+  return (
+    <ClientForm
+      initialValues={initialValues}
+      submitLabel={t("common.save")}
+      submittingLabel={t("common.saving")}
+      onSubmit={handleSubmit}
+      extraSection={<SubscriptionTokenSection state={token.state} changed={token.changed} onDraftChange={token.setDraft} />}
+    />
   )
 }

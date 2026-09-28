@@ -16,6 +16,7 @@ import { rooms } from "./dictionaries/rooms"
 import { clientsPage } from "./dictionaries/clientsPage"
 import { dashboard } from "./dictionaries/dashboard"
 import { themeToggle } from "./dictionaries/themeToggle"
+import { subscriptionToken } from "./dictionaries/subscriptionToken"
 
 export const ru = {
   ...common.ru,
@@ -33,6 +34,7 @@ export const ru = {
   ...clientsPage.ru,
   ...dashboard.ru,
   ...themeToggle.ru,
+  ...subscriptionToken.ru,
 }
 
 export type TranslationKey = keyof typeof ru
@@ -53,4 +55,5 @@ export const en: Record<TranslationKey, string> = {
   ...clientsPage.en,
   ...dashboard.en,
   ...themeToggle.en,
+  ...subscriptionToken.en,
 }

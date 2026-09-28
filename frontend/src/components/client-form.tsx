@@ -32,11 +32,14 @@ export function ClientForm({
   submitLabel,
   submittingLabel,
   onSubmit,
+  extraSection,
 }: {
   initialValues: ClientFormInitialValues
   submitLabel: string
   submittingLabel: string
   onSubmit: (payload: ClientSubmitPayload) => Promise<void>
+  // Rendered between the fields and the footer — for edit-only blocks that save on their own (see SubscriptionTokenSection).
+  extraSection?: React.ReactNode
 }) {
   const t = useT()
   const [name, setName] = React.useState(initialValues.name)
@@ -107,6 +110,8 @@ export function ClientForm({
           />
         </SectionItem>
       </SectionGroup>
+
+      {extraSection}
 
       {error && <p className="text-sm text-error">{error}</p>}
       <DialogFooter>

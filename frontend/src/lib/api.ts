@@ -235,6 +235,7 @@ export interface PanelSettings {
   TLSKeyFile: string
   PublicIP: string
   WebDAVPublicHost: string
+  SubscriptionPath: string
 }
 
 export interface PanelSettingsInput {
@@ -246,6 +247,7 @@ export interface PanelSettingsInput {
   tlsKeyFile: string
   publicIp: string
   webdavPublicHost: string
+  subscriptionPath: string
 }
 
 export interface XrayInbound {
@@ -413,6 +415,13 @@ export const api = {
       `/api/clients/${clientId}/subscription-token`,
       { method: "POST" }
     ),
+
+  // Empty token = let the server mint a random one; the client's previous link stops working either way.
+  replaceSubscriptionToken: (clientId: number, token = "") =>
+    request<{ token: string; url: string }>(`/api/clients/${clientId}/subscription-token`, {
+      method: "PUT",
+      body: JSON.stringify({ token }),
+    }),
 
   getSubscriptionLinks: (clientId: number) =>
     request<{

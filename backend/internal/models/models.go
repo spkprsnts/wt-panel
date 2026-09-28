@@ -206,6 +206,21 @@ type PanelSettings struct {
 	// should differ from PublicIP (e.g. the panel's TLS cert is issued for a domain, or WebDAV uses a
 	// separate DNS record). Empty means "same as PublicIP" — see config.Config.ResolvedWebDAVPublicHost.
 	WebDAVPublicHost string
+	// SubscriptionPath is the public prefix subscription links are served under ("/sub/<token>" by
+	// default). Like BasePath it's only read at startup, so a change needs a panel restart — and it
+	// breaks every link already handed out, since the old prefix stops answering.
+	SubscriptionPath string `gorm:"default:/sub/"` // must start and end with '/'
+}
+
+// DefaultSubscriptionPath is the prefix every panel used before SubscriptionPath became editable.
+const DefaultSubscriptionPath = "/sub/"
+
+// ResolvedSubscriptionPath falls back to DefaultSubscriptionPath for a row whose column predates the field.
+func (ps *PanelSettings) ResolvedSubscriptionPath() string {
+	if ps.SubscriptionPath == "" {
+		return DefaultSubscriptionPath
+	}
+	return ps.SubscriptionPath
 }
 
 // KernelInstall records the currently installed binary for one kernel, one row per CoreType. All

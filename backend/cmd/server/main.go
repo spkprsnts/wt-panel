@@ -96,7 +96,7 @@ func main() {
 	// restartCh is how the Settings page's "Restart panel" button reaches
 	// the select loop below — see api.restartPanel.
 	restartCh := make(chan struct{}, 1)
-	router := api.New(database, cfg, authSvc, registry, restartCh, panelSettings.BasePath, xrayMgr, version)
+	router := api.New(database, cfg, authSvc, registry, restartCh, panelSettings.BasePath, panelSettings.ResolvedSubscriptionPath(), xrayMgr, version)
 
 	addr, handler := applyPanelSettings(cfg.ListenAddr, &panelSettings, router)
 	httpServer := &http.Server{Addr: addr, Handler: handler}
@@ -213,10 +213,10 @@ func applyPanelSettings(defaultListenAddr string, ps *models.PanelSettings, rout
 		mux := http.NewServeMux()
 		mux.Handle(base, http.StripPrefix(prefix, router))
 
-		// /sub/:token is public (security is the token itself, an
+		// The subscription path is public (security is the token itself, an
 		// unguessable random string) — not an admin surface, so it's mounted
 		// unprefixed rather than gated behind the secret base path too.
-		mux.Handle("/sub/", router)
+		mux.Handle(ps.ResolvedSubscriptionPath(), router)
 
 		// The SPA's JS/CSS load from root-absolute paths (Vite's default
 		// output), so they must resolve there too even though the app itself
