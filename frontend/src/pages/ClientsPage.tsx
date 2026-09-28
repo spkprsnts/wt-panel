@@ -272,6 +272,7 @@ export function ClientsPage() {
                         trigger={
                           <Button size="sm" variant="outline" title={t("clientsPage.subscriptionQrTitle")}>
                             <Icon name="qr_code" size={18} />
+                            {t("clientsPage.subscriptionQrButton")}
                           </Button>
                         }
                         loadVariants={() =>

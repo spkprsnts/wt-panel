@@ -31,6 +31,7 @@ export const clientsPage = {
 
     "clientsPage.subscriptionTitle": "Подписка",
     "clientsPage.subscriptionQrTitle": "QR-код подписки",
+    "clientsPage.subscriptionQrButton": "Подписка",
     "clientsPage.textVariant": "Текстовый",
     "clientsPage.downloadAllProfiles": "Скачать все профили (.json)",
 
@@ -75,6 +76,7 @@ export const clientsPage = {
 
     "clientsPage.subscriptionTitle": "Subscription",
     "clientsPage.subscriptionQrTitle": "Subscription QR code",
+    "clientsPage.subscriptionQrButton": "Subscription",
     "clientsPage.textVariant": "Plain text",
     "clientsPage.downloadAllProfiles": "Download all profiles (.json)",
 
