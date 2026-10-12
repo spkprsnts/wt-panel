@@ -37,6 +37,23 @@ function labelFor<T extends string>(map: Record<T, string>, v: T | null): string
   return v !== null && v in map ? map[v] : v
 }
 
+// mpath carries both sockets, so a socket change keeps it; the legacy transports are per-socket (TCP needs kcp, UDP uses none).
+function transportForSocket(
+  current: TurnableState["routeTransport"],
+  socket: TurnableState["routeSocket"]
+): TurnableState["routeTransport"] {
+  if (current === "mpath") return "mpath"
+  return socket === "udp" ? "none" : "kcp"
+}
+
+// True only when the installed version is known and older than 0.7 — a manual install or an unparsable tag stays silent rather than nagging.
+function turnableTooOldForMpath(version: string | undefined): boolean {
+  const m = version?.match(/^v?(\d+)\.(\d+)/)
+  if (!m) return false
+  const [major, minor] = [Number(m[1]), Number(m[2])]
+  return major === 0 && minor < 7
+}
+
 // Turnable/FreeTurn traffic is trivially fingerprinted without the Xray overlay, so new profiles default it on; olcRTC/WebDAV are SOCKS5-native and default to off.
 function defaultXrayEnabledForCore(ct: CoreType): boolean {
   return ct === "turnable" || ct === "freeturn"
@@ -96,7 +113,10 @@ interface TurnableState {
   routeHost: string
   routePort: string
   routeSocket: "udp" | "tcp"
-  routeTransport: "none" | "kcp"
+  // mpath (Turnable 0.7+) works for both sockets; none/kcp are the legacy per-socket transports.
+  routeTransport: "none" | "kcp" | "mpath"
+  // mpath only: false sends mask=off, keeping the real outer DTLS/SRTP encryption instead of masking.
+  mask: boolean
   peers: string
 }
 
@@ -112,7 +132,9 @@ const initialTurnable: TurnableState = {
   routeHost: "127.0.0.1",
   routePort: "",
   routeSocket: "udp",
-  routeTransport: "none",
+  // Upstream's own default and recommendation since 0.7 (WireTurn embeds 0.7 too); needs a 0.7+ server binary — see turnableTooOldForMpath.
+  routeTransport: "mpath",
+  mask: true,
   peers: "10",
 }
 
@@ -319,6 +341,7 @@ function parseCoreConfig(
         routePort: num(cfg.route_port, initialTurnable.routePort),
         routeSocket: (str(cfg.route_socket, initialTurnable.routeSocket) as TurnableState["routeSocket"]),
         routeTransport: (str(cfg.route_transport, initialTurnable.routeTransport) as TurnableState["routeTransport"]),
+        mask: cfg.mask !== "off",
         peers: num(cfg.peers, initialTurnable.peers),
       },
       oc: initialOlcrtc,
@@ -454,6 +477,7 @@ function buildCoreConfig(
       route_port: Number(tn.routePort),
       route_socket: tn.routeSocket,
       route_transport: tn.routeTransport,
+      ...(tn.routeTransport === "mpath" && !tn.mask && { mask: "off" }),
       peers: Number(tn.peers) || 10,
     }
   }
@@ -648,6 +672,7 @@ export function ProfileForm({
     none: t("profileForm.turnable.protoNone"),
   }
   const routeTransportLabels: Record<TurnableState["routeTransport"], string> = {
+    mpath: t("profileForm.turnable.transportMpath"),
     none: t("profileForm.turnable.transportNoneUdp"),
     kcp: t("profileForm.turnable.transportKcpTcp"),
   }
@@ -695,6 +720,7 @@ export function ProfileForm({
     mode === "create" ? defaultXrayEnabledForCore(initialValues.coreType) : initialValues.xrayEnabled
   )
   const [inbounds, setInbounds] = React.useState<XrayInbound[]>([])
+  const [turnableVersion, setTurnableVersion] = React.useState<string | undefined>(undefined)
   const [xrayInboundId, setXrayInboundId] = React.useState(
     initialValues.xrayInboundId ? String(initialValues.xrayInboundId) : ""
   )
@@ -722,6 +748,10 @@ export function ProfileForm({
 
   React.useEffect(() => {
     api.listXrayInbounds().then(setInbounds).catch(() => setInbounds([]))
+    api
+      .listKernels()
+      .then((ks) => setTurnableVersion(ks.find((k) => k.coreType === "turnable")?.version))
+      .catch(() => {})
   }, [])
 
   // Reuses the panel's own TLS cert, like XrayPage's handleUsePanelCert does for Hysteria2 — but WebDAV clients connect via a separate host (WTP_WEBDAV_PUBLIC_HOST) that can silently diverge from the cert's ListenDomain, so check for that mismatch and surface it rather than handing over a cert that won't validate.
@@ -760,7 +790,7 @@ export function ProfileForm({
         routeHost: "127.0.0.1",
         routePort: String(inbound.Port),
         routeSocket,
-        routeTransport: routeSocket === "udp" ? "none" : "kcp",
+        routeTransport: transportForSocket(s.routeTransport, routeSocket),
       }))
     } else if (coreType === "freeturn") {
       setFt((s) => ({
@@ -1163,7 +1193,7 @@ export function ProfileForm({
                   value={tn.routeSocket}
                   onValueChange={(v) => {
                     const routeSocket = v as TurnableState["routeSocket"]
-                    setTn({ ...tn, routeSocket, routeTransport: routeSocket === "udp" ? "none" : "kcp" })
+                    setTn({ ...tn, routeSocket, routeTransport: transportForSocket(tn.routeTransport, routeSocket) })
                   }}
                 >
                   <SelectTrigger className="w-full">
@@ -1176,7 +1206,7 @@ export function ProfileForm({
                 </Select>
               </div>
             </SectionItem>
-            <SectionItem position="bottom">
+            <SectionItem position={tn.routeTransport === "mpath" ? "middle" : "bottom"}>
               <div className="flex w-full flex-col gap-1">
                 <label className="text-title-medium text-on-surface">{t("profileForm.turnable.routeTransportLabel")}</label>
                 <Select
@@ -1196,8 +1226,31 @@ export function ProfileForm({
                     ))}
                   </SelectContent>
                 </Select>
+                {tn.routeTransport === "mpath" && (
+                  <p className="text-body-small text-on-surface-variant">{t("profileForm.turnable.transportMpathNote")}</p>
+                )}
+                {tn.routeTransport === "mpath" && turnableTooOldForMpath(turnableVersion) && (
+                  <p className="text-body-small text-error">
+                    {t("profileForm.turnable.mpathOldKernelPrefix")} {turnableVersion}. {t("profileForm.turnable.mpathOldKernelSuffix")}
+                  </p>
+                )}
               </div>
             </SectionItem>
+            {tn.routeTransport === "mpath" && (
+              <SectionItem
+                position="bottom"
+                role="switch"
+                aria-checked={tn.mask}
+                onClick={() => setTn({ ...tn, mask: !tn.mask })}
+              >
+                <SwitchRow
+                  label={t("profileForm.turnable.maskLabel")}
+                  checked={tn.mask}
+                  onCheckedChange={(v) => setTn({ ...tn, mask: v })}
+                  supportingText={t("profileForm.turnable.maskHint")}
+                />
+              </SectionItem>
+            )}
           </SectionGroup>
 
           <SectionGroup>
@@ -1219,6 +1272,9 @@ export function ProfileForm({
                     ))}
                   </SelectContent>
                 </Select>
+                {tn.routeTransport === "mpath" && (
+                  <p className="text-body-small text-on-surface-variant">{t("profileForm.turnable.encryptionMpathNote")}</p>
+                )}
               </div>
             </SectionItem>
             <SectionItem position="middle">

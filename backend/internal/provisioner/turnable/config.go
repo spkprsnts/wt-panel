@@ -67,12 +67,16 @@ type profileCoreConfig struct {
 	Peers          int    `json:"peers"`
 	PlatformID     string `json:"platform_id,omitempty"`
 	Proto          string `json:"proto,omitempty"`      // "srtp" (default/recommended), "dtls", or "none" (dangerous)
-	Encryption     string `json:"encryption,omitempty"` // "handshake" (default) or "full" — see upstream REFERENCE.md "Encryption Modes"
+	Encryption     string `json:"encryption,omitempty"` // "handshake" (default) or "full" — see upstream REFERENCE.md "Encryption Modes"; ignored by mpath, which always encrypts everything
 
 	RouteAddr      string `json:"route_addr,omitempty"`      // host only, e.g. "127.0.0.1"
 	RoutePort      int    `json:"route_port,omitempty"`      // required, no default
 	RouteSocket    string `json:"route_socket,omitempty"`    // "udp" or "tcp"
-	RouteTransport string `json:"route_transport,omitempty"` // "none" or "kcp"
+	RouteTransport string `json:"route_transport,omitempty"` // "none", "kcp" or "mpath" (Turnable 0.7+, both server and client)
+	// Mask is client-only (the server negotiates whatever the client asks for): with mpath, the outer
+	// DTLS/SRTP encryption is swapped for cheap masking by default; "off" keeps the real outer encryption.
+	// Empty means upstream's default "on". Meaningless for the legacy transports.
+	Mask string `json:"mask,omitempty"`
 
 	Port    int    `json:"port"`
 	PubKey  string `json:"pub_key"`

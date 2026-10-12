@@ -59,6 +59,16 @@ export const profileForm = {
     "profileForm.turnable.routeTransportLabel": "Транспорт",
     "profileForm.turnable.transportNoneUdp": "None (для UDP)",
     "profileForm.turnable.transportKcpTcp": "KCP (для TCP)",
+    "profileForm.turnable.transportMpath": "mpath (рекомендуется, для TCP и UDP)",
+    "profileForm.turnable.transportMpathNote":
+      "Одна многопутевая сессия поверх всех пиров — быстрее и стабильнее. Нужен Turnable 0.7+ на сервере.",
+    "profileForm.turnable.mpathOldKernelPrefix": "На сервере установлен Turnable",
+    "profileForm.turnable.mpathOldKernelSuffix":
+      "С mpath профиль не запустится — обновите Turnable на странице «Ядра» или выберите KCP/None.",
+    "profileForm.turnable.maskLabel": "Маскировка вместо внешнего шифрования",
+    "profileForm.turnable.maskHint":
+      "Трафик mpath и так зашифрован, поэтому внешний DTLS/SRTP заменяется лёгкой маскировкой. Выключите, чтобы оставить настоящее внешнее шифрование (mask=off).",
+    "profileForm.turnable.encryptionMpathNote": "С mpath не используется — mpath всегда шифрует весь трафик.",
     "profileForm.turnable.encryptionLabel": "Шифрование",
     "profileForm.turnable.encryptionHandshake": "Handshake (рекомендуется, быстрее)",
     "profileForm.turnable.encryptionFull": "Full (шифрует весь трафик)",
@@ -228,6 +238,16 @@ export const profileForm = {
     "profileForm.turnable.routeTransportLabel": "Transport",
     "profileForm.turnable.transportNoneUdp": "None (for UDP)",
     "profileForm.turnable.transportKcpTcp": "KCP (for TCP)",
+    "profileForm.turnable.transportMpath": "mpath (recommended, for TCP and UDP)",
+    "profileForm.turnable.transportMpathNote":
+      "One multipath session over all peers — faster and more stable. Needs Turnable 0.7+ on the server.",
+    "profileForm.turnable.mpathOldKernelPrefix": "The server has Turnable",
+    "profileForm.turnable.mpathOldKernelSuffix":
+      "The profile won't start with mpath — update Turnable on the Kernels page or pick KCP/None.",
+    "profileForm.turnable.maskLabel": "Masking instead of outer encryption",
+    "profileForm.turnable.maskHint":
+      "mpath traffic is already encrypted, so the outer DTLS/SRTP is replaced with lightweight masking. Turn off to keep the real outer encryption (mask=off).",
+    "profileForm.turnable.encryptionMpathNote": "Not used with mpath — mpath always encrypts all traffic.",
     "profileForm.turnable.encryptionLabel": "Encryption",
     "profileForm.turnable.encryptionHandshake": "Handshake (recommended, faster)",
     "profileForm.turnable.encryptionFull": "Full (encrypts all traffic)",

@@ -221,7 +221,26 @@ func (p *Provisioner) applyLogicalDefaults(profile *models.Profile) (profileCore
 		cc.RouteSocket = "udp"
 	}
 	if cc.RouteTransport == "" {
-		cc.RouteTransport = transportFor(cc.RouteSocket)
+		// Upstream's own default for both sockets since 0.7 (docs/server/CONFIG.md). Only reached for a
+		// new profile created via the API without it — every saved profile has its transport persisted,
+		// so upgrading the panel never flips an existing one.
+		cc.RouteTransport = "mpath"
+	}
+	switch cc.RouteTransport {
+	case "none", "kcp", "sctp", "mpath": // sctp: upstream-supported but not recommended, so API-only (no form option)
+	default:
+		return cc, fmt.Errorf("unknown turnable route_transport %q (want none, kcp, sctp or mpath)", cc.RouteTransport)
+	}
+	if cc.RouteSocket == "tcp" && cc.RouteTransport == "none" {
+		// Turnable itself refuses to start with this — fail here with a clearer message instead.
+		return cc, fmt.Errorf("turnable tcp route needs a transport (kcp, sctp or mpath), not none")
+	}
+	switch cc.Mask {
+	case "", "off":
+	case "on":
+		cc.Mask = "" // upstream's default — stored empty so it never ends up in the URI
+	default:
+		return cc, fmt.Errorf("unknown turnable mask %q (want on or off)", cc.Mask)
 	}
 	return cc, nil
 }
@@ -310,6 +329,8 @@ func (p *Provisioner) configPath(externalID string) string {
 // `pub_key` is the server's ML-KEM-768 public key the client needs for the
 // handshake — an earlier version omitted it, leaving the client with nothing
 // to encrypt to. It's base64 (+/=-bearing), so unlike every other segment here it must be query-escaped.
+//
+// `mask=off` is appended only for mpath routes that opted out — upstream omits the param when it's the default "on".
 func buildURI(cfg *config.Config, profile *models.Profile, cc profileCoreConfig) string {
 	gateway := fmt.Sprintf("%s:%d", cfg.PublicIP, cc.Port)
 	routeTransport := cc.RouteTransport
@@ -317,16 +338,11 @@ func buildURI(cfg *config.Config, profile *models.Profile, cc profileCoreConfig)
 		routeTransport = ""
 	}
 	route := fmt.Sprintf("%s-%s-%s", routeID, cc.RouteSocket, routeTransport)
-	return fmt.Sprintf("turnable://%s:%s@%s/%s?type=%s&gateway=%s&proto=%s&cloak=none&peers=%d&encryption=%s&pub_key=%s&selected_route_id=%s#%s",
-		profile.ExternalID, cc.CallID, cc.PlatformID,
-		route, cc.ConnectionType, gateway, cc.Proto, cc.Peers, cc.Encryption, url.QueryEscape(cc.PubKey), routeID, profile.Name)
-}
-
-// transportFor seeds a sensible default: TCP routes use kcp, UDP uses none
-// (docs/server/CONFIG.md) — the field stays fully overridable per profile.
-func transportFor(socket string) string {
-	if socket == "udp" {
-		return "none"
+	mask := ""
+	if cc.RouteTransport == "mpath" && cc.Mask == "off" {
+		mask = "&mask=off"
 	}
-	return "kcp"
+	return fmt.Sprintf("turnable://%s:%s@%s/%s?type=%s&gateway=%s&proto=%s&cloak=none&peers=%d&encryption=%s&pub_key=%s%s&selected_route_id=%s#%s",
+		profile.ExternalID, cc.CallID, cc.PlatformID,
+		route, cc.ConnectionType, gateway, cc.Proto, cc.Peers, cc.Encryption, url.QueryEscape(cc.PubKey), mask, routeID, profile.Name)
 }
