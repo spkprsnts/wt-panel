@@ -68,8 +68,13 @@ func (s *Server) listTurnableReleases(c *gin.Context) {
 	c.JSON(http.StatusOK, releases)
 }
 
+// freeTurnOwner is the GitHub account FreeTurn releases come from. The original
+// samosvalishe/free-turn-proxy was deleted; hackdiaz-dev's mirror carries the same release
+// asset names (server-linux-<arch>) and is what WireTurn itself builds against.
+const freeTurnOwner = "hackdiaz-dev"
+
 func (s *Server) listFreeTurnReleases(c *gin.Context) {
-	releases, err := kernels.ListReleases("samosvalishe", "free-turn-proxy", 20, wantsRefresh(c))
+	releases, err := kernels.ListReleases(freeTurnOwner, "free-turn-proxy", 20, wantsRefresh(c))
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
@@ -131,7 +136,7 @@ func (s *Server) installFreeTurn(c *gin.Context) {
 	_ = c.ShouldBindJSON(&req)
 
 	job := s.jobs.StartInstall("freeturn", req.Version, func() (string, error) {
-		return kernels.InstallRelease("samosvalishe", "free-turn-proxy", req.Version,
+		return kernels.InstallRelease(freeTurnOwner, "free-turn-proxy", req.Version,
 			kernels.FreeTurnAssetName(), s.cfg.FreeTurnBinPath)
 	}, func(version string) {
 		s.recordKernelInstall(models.CoreFreeTurn, version, "release", "")

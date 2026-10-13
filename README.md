@@ -5,7 +5,7 @@ Control-plane для пользователей [WireTurn](https://github.com/sp
 [Turnable](https://github.com/TheAirBlow/Turnable),
 [olcRTC](https://github.com/openlibrecommunity/olcrtc),
 [WebDAV-tunnel](https://github.com/spkprsnts/webdav-tunnel),
-[FreeTurn](https://github.com/samosvalishe/free-turn-proxy) — навешивает
+[FreeTurn](https://github.com/hackdiaz-dev/free-turn-proxy) — навешивает
 поверх них Xray-оверлей (VLESS/Trojan/Hysteria2/WireGuard) и отдаёт подписки
 в формате `ProfileBundle` (`docs/subscriptions.md` апстрима).
 

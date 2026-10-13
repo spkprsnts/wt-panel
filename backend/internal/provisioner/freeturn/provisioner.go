@@ -1,5 +1,5 @@
 // Package freeturn provisions server-side state for the "freeturn" kernel:
-// https://github.com/samosvalishe/free-turn-proxy
+// https://github.com/hackdiaz-dev/free-turn-proxy (mirror of the deleted samosvalishe/free-turn-proxy)
 //
 // Each profile gets its own dedicated process and port, so editing or
 // removing one never restarts another's. No client-id allowlisting (clients.json) — see profileCoreConfig.
